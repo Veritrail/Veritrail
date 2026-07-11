@@ -208,11 +208,19 @@ just un-attachable.
 runbook + test photos) that a real customer already has and can't currently file. Relates to item 8
 (the external-attach state) and item 4 of the SOC 2 map (EXTERNAL criteria).
 
-## 10. Audit-readiness page — reshape prose walls into a checklist + fix layout — **done**
+## 10. Audit-readiness page — auditor technical playbooks — **done**
 
-**Evidence (dev):** full-width checklist rows now show Verified / Action required / automatic N/A,
-named scope, mapped controls, direct Activate or Review actions, while questionnaire prose remains
-behind copy/expand and JSON/evidence drill-downs remain available.
+**Evidence (dev):** the API now returns a closed auditor technical-playbook registry rather than
+expanding raw mapped checks. The page asks concise outcome questions for DR, vulnerability
+management, logging and monitoring, identity and access, encryption and data protection, network
+boundaries, and change/deployment controls. Rows show Verified / Action needed / inventory-backed
+N/A, cap actions at the top three applicable priorities, and keep SOC 2 mapping secondary.
+Questionnaire/PDF narrative remains separate behind copy/expand and in the evidence export.
+
+**Scope correction:** policy documents, runbooks, recovery exercises, and other manual evidence are
+explicitly outside this automated checklist and are never presented as verified. Inspector is shown
+only when EC2/ECS/EKS/ECR workload inventory makes it applicable; DR checks become N/A when no
+supported stateful resource is present.
 
 The page shipped (item 8) with correct **data** but wrong **presentation**: each domain is a wall of
 narrative prose, stacked as another wall below, and the whole thing is centered in a narrow column

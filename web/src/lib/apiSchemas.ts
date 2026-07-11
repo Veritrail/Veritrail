@@ -590,30 +590,6 @@ export const auditReadinessDomainSchema = z.object({
   temporal_sentence: z.string().nullable().optional(),
   named_sources: z.array(z.string()).optional(),
   check_ids: z.array(z.string()).optional(),
-  checklist_items: z
-    .array(
-      z.object({
-        key: z.string(),
-        check_id: z.string(),
-        check_ids: z.array(z.string()),
-        label: z.string(),
-        status: z.enum(["verified", "action", "not_applicable"]),
-        controls: z.array(z.string()),
-        sources: z.array(z.string()),
-        finding_count: z.number(),
-        exception_count: z.number(),
-        highest_severity: z.string().nullable(),
-        applicability_reason: z.string().nullable(),
-        top_findings: z.array(z.object({
-          title: z.string(),
-          severity: z.string(),
-          resource: z.string(),
-        })),
-        absence_check_ids: z.array(z.string()),
-      }),
-    )
-    .optional()
-    .default([]),
 });
 
 export const auditReadinessSchema = z.object({
@@ -622,6 +598,32 @@ export const auditReadinessSchema = z.object({
   as_of: z.string(),
   period_days: z.number(),
   scope_label: z.string(),
+  playbooks: z.array(z.object({
+    key: z.string(),
+    label: z.string(),
+    question: z.string(),
+    outcome: z.string(),
+    status: z.enum(["verified", "action", "not_applicable"]),
+    items: z.array(z.object({
+      key: z.string(),
+      check_ids: z.array(z.string()),
+      label: z.string(),
+      status: z.enum(["verified", "action", "not_applicable"]),
+      summary: z.string(),
+      controls: z.array(z.string()),
+      sources: z.array(z.string()),
+      finding_count: z.number(),
+      exception_count: z.number(),
+      highest_severity: z.string().nullable(),
+      applicability_reason: z.string().nullable(),
+      action_kind: z.enum(["activate", "review"]).nullable(),
+      action_label: z.string().nullable(),
+      action_url: z.string().nullable(),
+    })),
+    additional_action_count: z.number(),
+    controls: z.array(z.string()),
+    narrative_domain_keys: z.array(z.string()),
+  })),
   domains: z.array(auditReadinessDomainSchema),
 });
 

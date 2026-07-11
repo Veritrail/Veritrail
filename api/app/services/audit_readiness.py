@@ -26,7 +26,6 @@ from app.services.evidence_pack import _control_status, _finding_dict
 from app.services.finding_history import STATE_EXCEPTED, STATE_OPEN, findings_for_pack_at
 from app.services.org_control_mappings import load_org_mapping_index
 from app.services.pdf_narrative import (
-    CHECK_VERIFIED_PHRASES,
     DOMAIN_DEFS,
     build_domain_sections,
     domain_for_check,
@@ -68,72 +67,379 @@ _PROVIDER_PREFIXES: dict[str, tuple[str, ...]] = {
     "scanner_aikido": ("scanner.aikido.",),
 }
 
-_AUDIT_CAPABILITIES: tuple[dict[str, Any], ...] = (
+_AUDITOR_TECHNICAL_PLAYBOOKS: tuple[dict[str, Any], ...] = (
     {
-        "key": "database_recovery",
-        "domain": "backup_dr",
-        "label": "Database recovery",
-        "checks": (
-            "rds.instance.no_automated_backup",
-            "rds.instance.no_deletion_protection",
-            "rds.instance.no_multi_az",
-            "dynamodb.table.no_pitr",
+        "key": "disaster_recovery",
+        "label": "Disaster recovery (DR)",
+        "question": "Can in-scope data services be recovered after a failure?",
+        "outcome": "Recovery protections are checked only for data and stateful resources found in the latest complete inventory.",
+        "narrative_domain_keys": ("backup_dr",),
+        "items": (
+            {
+                "key": "rds_recovery",
+                "label": "RDS recovery protections",
+                "verified_text": "Automated backups, deletion protection, and configured resilience checks report no open gaps.",
+                "action_text": "Enable or review RDS backups and recovery protection.",
+                "checks": (
+                    "rds.instance.no_automated_backup",
+                    "rds.instance.no_deletion_protection",
+                    "rds.instance.no_multi_az",
+                ),
+                "required_types": frozenset({"rds_instance"}),
+                "resource_label": "RDS databases",
+                "activation_checks": (
+                    "rds.instance.no_automated_backup",
+                    "rds.instance.no_deletion_protection",
+                    "rds.instance.no_multi_az",
+                ),
+                "action_label": "Activate RDS recovery",
+                "action_url": "https://console.aws.amazon.com/rds/home#databases:",
+            },
+            {
+                "key": "dynamodb_recovery",
+                "label": "DynamoDB point-in-time recovery",
+                "verified_text": "Point-in-time recovery reports no open gaps for in-scope DynamoDB tables.",
+                "action_text": "Enable point-in-time recovery for affected DynamoDB tables.",
+                "checks": ("dynamodb.table.no_pitr",),
+                "required_types": frozenset({"dynamodb_table"}),
+                "resource_label": "DynamoDB tables",
+                "activation_checks": ("dynamodb.table.no_pitr",),
+                "action_label": "Activate PITR",
+                "action_url": "https://console.aws.amazon.com/dynamodbv2/home#tables",
+            },
+            {
+                "key": "backup_coverage",
+                "label": "Backup plan coverage",
+                "verified_text": "AWS Backup plan coverage reports no open gaps for eligible resources.",
+                "action_text": "Create or extend an AWS Backup plan for uncovered resources.",
+                "checks": ("backup.plan.missing",),
+                "required_types": frozenset(
+                    {"rds_instance", "dynamodb_table", "ec2_instance", "ebs_volume"}
+                ),
+                "resource_label": "backup-eligible resources",
+                "activation_checks": ("backup.plan.missing",),
+                "action_label": "Activate AWS Backup",
+                "action_url": "https://console.aws.amazon.com/backup/home",
+            },
         ),
     },
     {
-        "key": "backup_coverage",
-        "domain": "backup_dr",
-        "label": "AWS Backup coverage",
-        "checks": ("backup.plan.missing",),
-    },
-    {
-        "key": "vulnerability_scanning",
-        "domain": "vulnerability_management",
-        "label": "Vulnerability scanning",
-        "checks": (
-            "aws.vulnerability_monitoring.not_detected",
-            "aws.inspector.active_critical_finding",
+        "key": "vulnerability_management",
+        "label": "Vulnerability management",
+        "question": "Are vulnerabilities and active threats detected with technical tooling?",
+        "outcome": "This covers observable AWS detection and scanning services only; remediation process and runbooks remain outside automated scope.",
+        "narrative_domain_keys": ("vulnerability_management", "incident_response"),
+        "items": (
+            {
+                "key": "guardduty",
+                "label": "Amazon GuardDuty",
+                "verified_text": "GuardDuty is enabled and its collected findings report no open gaps.",
+                "action_text": "Enable GuardDuty or review its unresolved detector findings.",
+                "checks": (
+                    "guardduty.detector.not_enabled",
+                    "guardduty.open_findings",
+                    "cloudtrail.event.guardduty_disabled",
+                ),
+                "activation_checks": ("guardduty.detector.not_enabled",),
+                "action_label": "Activate GuardDuty",
+                "action_url": "https://console.aws.amazon.com/guardduty/home",
+            },
+            {
+                "key": "security_hub",
+                "label": "AWS Security Hub",
+                "verified_text": "Security Hub enablement reports no open gaps.",
+                "action_text": "Enable Security Hub for centralized security findings.",
+                "checks": ("aws.securityhub.not_enabled",),
+                "activation_checks": ("aws.securityhub.not_enabled",),
+                "action_label": "Activate Security Hub",
+                "action_url": "https://console.aws.amazon.com/securityhub/home",
+            },
+            {
+                "key": "workload_scanning",
+                "label": "Inspector and workload scanning",
+                "verified_text": "Applicable compute or container workloads have collected vulnerability-scanning evidence.",
+                "action_text": "Enable Inspector or ECR image scanning for the workloads found in scope.",
+                "checks": (
+                    "aws.vulnerability_monitoring.not_detected",
+                    "aws.inspector.active_critical_finding",
+                    "ecr.registry.enhanced_scanning_disabled",
+                    "ecr.repository.image_scan_disabled",
+                ),
+                "required_types": frozenset(
+                    {
+                        "ec2_instance",
+                        "ecs_cluster",
+                        "ecs_service",
+                        "eks_cluster",
+                        "ecr_repository",
+                    }
+                ),
+                "resource_label": "EC2, ECS, EKS, or ECR workloads",
+                "activation_checks": (
+                    "aws.vulnerability_monitoring.not_detected",
+                    "ecr.registry.enhanced_scanning_disabled",
+                    "ecr.repository.image_scan_disabled",
+                ),
+                "action_label": "Activate workload scanning",
+                "action_url": "https://console.aws.amazon.com/inspector/v2/home",
+            },
         ),
-        "prefixes": ("scanner.",),
     },
     {
-        "key": "container_scanning",
-        "domain": "vulnerability_management",
-        "label": "Container image scanning",
-        "checks": (
-            "ecr.registry.enhanced_scanning_disabled",
-            "ecr.repository.image_scan_disabled",
+        "key": "logging_monitoring",
+        "label": "Logging and monitoring",
+        "question": "Can security-relevant activity be reconstructed and monitored?",
+        "outcome": "The checklist verifies observable logging, configuration recording, and network telemetry settings.",
+        "narrative_domain_keys": ("logging_monitoring",),
+        "items": (
+            {
+                "key": "cloudtrail",
+                "label": "CloudTrail audit logging",
+                "verified_text": "CloudTrail coverage, integrity, encryption, and log delivery checks report no open gaps.",
+                "action_text": "Enable CloudTrail or review trail integrity and delivery settings.",
+                "prefixes": ("cloudtrail.trail.",),
+                "activation_checks": ("cloudtrail.trail.not_enabled",),
+                "action_label": "Activate CloudTrail",
+                "action_url": "https://console.aws.amazon.com/cloudtrail/home",
+            },
+            {
+                "key": "config_monitoring",
+                "label": "AWS Config recording",
+                "verified_text": "AWS Config recording and collected rule results report no open gaps.",
+                "action_text": "Enable AWS Config or review non-compliant managed rules.",
+                "checks": ("aws.config.not_enabled", "aws.config.rules_non_compliant"),
+                "activation_checks": ("aws.config.not_enabled",),
+                "action_label": "Activate AWS Config",
+                "action_url": "https://console.aws.amazon.com/config/home",
+            },
+            {
+                "key": "network_service_logs",
+                "label": "Network and service telemetry",
+                "verified_text": "Applicable VPC, load-balancer, and cluster logging checks report no open gaps.",
+                "checks": (
+                    "vpc.flow_logs.not_enabled",
+                    "elb.load_balancer.no_access_logs",
+                    "eks.cluster.control_plane_logging_disabled",
+                    "ecs.cluster.container_insights_disabled",
+                ),
+                "required_types": frozenset(
+                    {"vpc", "elb_load_balancer", "eks_cluster", "ecs_cluster"}
+                ),
+                "resource_label": "VPC, load-balancer, EKS, or ECS resources",
+                "activation_checks": ("vpc.flow_logs.not_enabled",),
+                "action_text": "Enable the missing telemetry or review affected services.",
+                "action_label": "Activate telemetry",
+                "action_url": "https://console.aws.amazon.com/vpc/home#vpcs:",
+            },
         ),
     },
     {
-        "key": "threat_detection",
-        "domain": "incident_response",
-        "label": "Threat detection",
-        "checks": (
-            "guardduty.detector.not_enabled",
-            "aws.securityhub.not_enabled",
-            "cloudtrail.event.guardduty_disabled",
-            "guardduty.open_findings",
+        "key": "identity_access",
+        "label": "Identity and access",
+        "question": "Is privileged and persistent access technically constrained?",
+        "outcome": "Collected identity configuration is grouped into root protection, credential hygiene, and external-access review.",
+        "narrative_domain_keys": ("identity_access",),
+        "items": (
+            {
+                "key": "root_and_admin",
+                "label": "Root and administrator protection",
+                "verified_text": "Root MFA, root keys, and administrator-access checks report no open gaps.",
+                "checks": (
+                    "iam.root.no_mfa",
+                    "iam.root.has_access_keys",
+                    "iam.user.no_mfa",
+                    "iam.user.admin_policy_attached",
+                    "iam.role.least_privilege_policy",
+                ),
+                "action_text": "Review privileged identities and close the highest-risk access gaps.",
+            },
+            {
+                "key": "credential_hygiene",
+                "label": "Credential hygiene",
+                "verified_text": "Credential age, rotation, inactivity, and password-policy checks report no open gaps.",
+                "checks": (
+                    "iam.user.credentials_unused_45d",
+                    "iam.access_key.unused_45d",
+                    "iam.access_key.no_rotation_90d",
+                    "iam.access_key.multiple_active",
+                    "iam.account.password_policy_weak",
+                ),
+                "action_text": "Review stale or weak credentials.",
+            },
+            {
+                "key": "external_access",
+                "label": "External access analysis",
+                "verified_text": "IAM Access Analyzer and trust-policy checks report no open gaps.",
+                "checks": (
+                    "aws.access_analyzer.not_enabled",
+                    "iam.role.trust_wildcard",
+                    "iam.role.external_account_trust",
+                ),
+                "activation_checks": ("aws.access_analyzer.not_enabled",),
+                "action_text": "Enable Access Analyzer or review external trust relationships.",
+                "action_label": "Activate Access Analyzer",
+                "action_url": "https://console.aws.amazon.com/access-analyzer/home",
+            },
         ),
     },
     {
-        "key": "audit_logging",
-        "domain": "logging_monitoring",
-        "label": "Audit logging",
-        "checks": tuple(),
-        "prefixes": ("cloudtrail.",),
+        "key": "data_protection",
+        "label": "Encryption and data protection",
+        "question": "Are in-scope data stores and secrets protected by configuration?",
+        "outcome": "Only encryption, transport, public-access, and secret-storage settings visible to connected collectors are assessed.",
+        "narrative_domain_keys": ("data_protection",),
+        "items": (
+            {
+                "key": "encryption_at_rest",
+                "label": "Encryption at rest",
+                "verified_text": "Applicable S3, RDS, EBS, DynamoDB, SNS, and SQS encryption checks report no open gaps.",
+                "checks": (
+                    "s3.bucket.no_default_encryption",
+                    "s3.bucket.no_kms",
+                    "rds.instance.no_encryption",
+                    "ec2.ebs.volume_unencrypted",
+                    "ec2.ebs.encryption_not_default",
+                    "dynamodb.table.no_encryption",
+                    "sns.topic.no_encryption",
+                    "sqs.queue.no_encryption",
+                ),
+                "required_types": frozenset(
+                    {
+                        "s3_bucket",
+                        "rds_instance",
+                        "ebs_volume",
+                        "dynamodb_table",
+                        "sns_topic",
+                        "sqs_queue",
+                    }
+                ),
+                "resource_label": "supported data stores",
+                "action_text": "Review unencrypted data resources.",
+            },
+            {
+                "key": "storage_access",
+                "label": "Storage transport and public access",
+                "verified_text": "S3 HTTPS and public-access protection checks report no open gaps.",
+                "checks": (
+                    "s3.bucket.no_https_policy",
+                    "s3.account.public_access_not_blocked",
+                    "s3.bucket.public_access_not_blocked",
+                ),
+                "required_types": frozenset({"s3_bucket"}),
+                "resource_label": "S3 buckets",
+                "action_text": "Review affected S3 policies and public-access settings.",
+            },
+            {
+                "key": "secrets_and_keys",
+                "label": "Secrets and encryption keys",
+                "verified_text": "KMS rotation, key policy, secret rotation, and plaintext-secret checks report no open gaps.",
+                "checks": (
+                    "kms.key.no_rotation",
+                    "kms.key.policy_wildcard_principal",
+                    "secretsmanager.secret.no_rotation",
+                    "ssm.parameter.plaintext_secret",
+                ),
+                "required_types": frozenset(
+                    {"kms_key", "secrets_manager_secret", "ssm_parameter"}
+                ),
+                "resource_label": "KMS keys, Secrets Manager secrets, or SSM parameters",
+                "action_text": "Review key and secret-management gaps.",
+            },
+        ),
     },
     {
-        "key": "configuration_monitoring",
-        "domain": "logging_monitoring",
-        "label": "Configuration monitoring",
-        "checks": ("aws.config.not_enabled", "aws.config.rules_non_compliant"),
+        "key": "network_boundary",
+        "label": "Network and boundary protection",
+        "question": "Are internet-facing paths and resource boundaries restricted?",
+        "outcome": "The result is based on collected security-group, public-endpoint, and public-resource configuration.",
+        "narrative_domain_keys": ("network_boundary",),
+        "items": (
+            {
+                "key": "internet_ingress",
+                "label": "Internet ingress restrictions",
+                "verified_text": "Security-group SSH, RDP, and default-group checks report no open gaps.",
+                "prefixes": ("ec2.security_group.",),
+                "required_types": frozenset({"security_group"}),
+                "resource_label": "security groups",
+                "action_text": "Review unrestricted ingress rules.",
+            },
+            {
+                "key": "public_data_resources",
+                "label": "Public data-resource exposure",
+                "verified_text": "RDS, snapshot, AMI, and EBS public-exposure checks report no open gaps.",
+                "checks": (
+                    "rds.instance.publicly_accessible",
+                    "rds.snapshot.public",
+                    "ec2.ami.public",
+                    "ec2.ebs.snapshot_public",
+                ),
+                "required_types": frozenset(
+                    {"rds_instance", "rds_snapshot", "ec2_ami", "ebs_snapshot"}
+                ),
+                "resource_label": "RDS, AMI, or EBS snapshot resources",
+                "action_text": "Review publicly exposed data resources.",
+            },
+            {
+                "key": "public_workload_endpoints",
+                "label": "Public workload endpoints",
+                "verified_text": "EKS, ECS, Lambda, and load-balancer boundary checks report no open gaps.",
+                "checks": (
+                    "eks.cluster.public_endpoint",
+                    "ecs.service.public_ip_enabled",
+                    "lambda.function.public_url",
+                    "elb.load_balancer.weak_tls_policy",
+                ),
+                "required_types": frozenset(
+                    {"eks_cluster", "ecs_service", "lambda_function", "elb_load_balancer"}
+                ),
+                "resource_label": "EKS, ECS, Lambda, or load-balancer resources",
+                "action_text": "Review public endpoints and weak transport settings.",
+            },
+        ),
     },
     {
-        "key": "network_visibility",
-        "domain": "logging_monitoring",
-        "label": "Network visibility",
-        "checks": ("vpc.flow_logs.not_enabled",),
+        "key": "change_deployment",
+        "label": "Change and deployment controls",
+        "question": "Are code changes and production deployments technically gated?",
+        "outcome": "This covers connected repository and runtime configuration; approvals performed outside those systems are not inferred.",
+        "narrative_domain_keys": ("secure_sdlc", "change_management"),
+        "items": (
+            {
+                "key": "branch_review",
+                "label": "Protected branches and peer review",
+                "verified_text": "Branch protection, reviewer, and self-merge checks report no open gaps.",
+                "checks": (
+                    "github.repo.no_branch_protection",
+                    "gitlab.repo.no_branch_protection",
+                    "github.repo.insufficient_reviews",
+                    "gitlab.repo.insufficient_reviews",
+                    "github.repo.self_merge_allowed",
+                    "gitlab.repo.self_merge_allowed",
+                ),
+                "action_text": "Review repositories without enforced change review.",
+            },
+            {
+                "key": "deployment_gates",
+                "label": "Protected deployment environments",
+                "verified_text": "Connected repository deployment-environment checks report no open gaps.",
+                "checks": (
+                    "github.repo.no_env_protection",
+                    "gitlab.repo.no_env_protection",
+                ),
+                "action_text": "Review unprotected deployment environments.",
+            },
+            {
+                "key": "code_security",
+                "label": "Automated code and dependency checks",
+                "verified_text": "Secret scanning, code scanning, and dependency-update checks report no open gaps.",
+                "checks": (
+                    "github.repo.secret_scanning_disabled",
+                    "github.repo.code_scanning_disabled",
+                    "github.repo.dependabot_disabled",
+                ),
+                "action_text": "Review repositories missing automated code-security checks.",
+            },
+        ),
     },
 )
 
@@ -416,57 +722,32 @@ def _checks_for_domain(section_key: str, control_results: list[dict[str, Any]]) 
     return checks
 
 
-def _checklist_items_for_domain(
-    section_key: str,
+def _technical_playbook_items(
+    playbook_def: dict[str, Any],
     control_results: list[dict[str, Any]],
     *,
     framework: str,
     named_sources: list[str],
     scanned_entity_types: set[str] | None,
 ) -> list[dict[str, Any]]:
-    """Return curated service/capability rows rather than exposing the raw check registry."""
+    """Build only the explicitly curated technical rows for one auditor playbook."""
     check_controls: dict[str, set[str]] = {}
     gaps_by_check: dict[str, list[dict[str, Any]]] = {}
     exceptions_by_check: dict[str, list[dict[str, Any]]] = {}
     for control in control_results:
         control_id = str(control.get("control_id") or "")
         for check_id in control.get("check_evidence_classes") or {}:
-            if domain_for_check(check_id) == section_key:
-                check_controls.setdefault(check_id, set()).add(control_id)
+            check_controls.setdefault(check_id, set()).add(control_id)
         for key, target in (("findings", gaps_by_check), ("exceptions", exceptions_by_check)):
             for finding in control.get(key) or []:
                 check_id = str(finding.get("check_id") or "")
-                if check_id and domain_for_check(check_id) == section_key:
+                if check_id:
                     target.setdefault(check_id, []).append(finding)
                     check_controls.setdefault(check_id, set()).add(control_id)
 
     observed_check_ids = set(gaps_by_check) | set(exceptions_by_check)
     items: list[dict[str, Any]] = []
-    definitions = [d for d in _AUDIT_CAPABILITIES if d["domain"] == section_key]
-    matched_check_ids = {
-        check_id
-        for definition in definitions
-        for check_id in check_controls
-        if check_id in set(definition.get("checks") or ())
-        or (
-            definition.get("prefixes")
-            and check_id.startswith(tuple(definition["prefixes"]))
-        )
-    }
-    definitions.extend(
-        [
-            {
-                "key": check_id,
-                "label": (
-                    CHECK_VERIFIED_PHRASES.get(check_id)
-                    or check_id.replace(".", " ").replace("_", " ")
-                ).capitalize(),
-                "checks": (check_id,),
-            }
-            for check_id in sorted(set(check_controls) - matched_check_ids)
-        ]
-    )
-    for definition in definitions:
+    for definition in playbook_def["items"]:
         configured = set(definition.get("checks") or ())
         prefixes = tuple(definition.get("prefixes") or ())
         check_ids = sorted(
@@ -476,27 +757,33 @@ def _checklist_items_for_domain(
         )
         if not check_ids:
             continue
-        gaps = [finding for check_id in check_ids for finding in gaps_by_check.get(check_id, [])]
-        exceptions = [
-            finding for check_id in check_ids for finding in exceptions_by_check.get(check_id, [])
-        ]
-        applicability_reason = _applicability_reason(
-            check_ids, scanned_entity_types, observed_check_ids
-        )
-        absence_gaps = [
-            gap
-            for gap in gaps
-            if str(gap.get("check_id") or "").endswith(
-                (".not_enabled", ".not_detected", ".missing")
-            )
-        ]
-        state = (
-            "not_applicable"
-            if applicability_reason
-            else "action"
-            if gaps
-            else "verified"
-        )
+
+        def dedupe_findings(source: dict[str, list[dict[str, Any]]]) -> list[dict[str, Any]]:
+            deduped: dict[str, dict[str, Any]] = {}
+            for check_id in check_ids:
+                for finding in source.get(check_id, []):
+                    key = str(
+                        finding.get("id")
+                        or f"{finding.get('check_id')}::{finding.get('resource_arn')}"
+                    )
+                    deduped[key] = finding
+            return list(deduped.values())
+
+        gaps = dedupe_findings(gaps_by_check)
+        exceptions = dedupe_findings(exceptions_by_check)
+        required_types = definition.get("required_types")
+        has_observed_result = any(check_id in observed_check_ids for check_id in check_ids)
+        applicability_reason: str | None = None
+        inventory_unknown = False
+        if required_types and not has_observed_result:
+            if scanned_entity_types is None:
+                inventory_unknown = True
+            elif not scanned_entity_types.intersection(required_types):
+                applicability_reason = (
+                    f"No {definition['resource_label']} in the latest complete inventory"
+                )
+
+        state = "not_applicable" if applicability_reason else "action" if gaps or inventory_unknown else "verified"
         ranked_gaps = sorted(
             gaps,
             key=lambda finding: (
@@ -512,13 +799,43 @@ def _checklist_items_for_domain(
                 if _resource_label(str(entry.get("resource_arn") or ""))
             }
         )
+        activation_checks = set(definition.get("activation_checks") or ())
+        activate = bool(
+            activation_checks
+            and any(str(finding.get("check_id") or "") in activation_checks for finding in gaps)
+        )
+        if inventory_unknown:
+            summary = (
+                f"Review applicability: no complete latest inventory is available for "
+                f"{definition['resource_label']}."
+            )
+            action_kind = "review"
+            action_label = "Review scan coverage"
+            action_url = None
+        elif state == "not_applicable":
+            summary = applicability_reason
+            action_kind = None
+            action_label = None
+            action_url = None
+        elif state == "verified":
+            summary = definition["verified_text"]
+            action_kind = None
+            action_label = None
+            action_url = None
+        else:
+            summary = definition["action_text"]
+            action_kind = "activate" if activate else "review"
+            action_label = (
+                definition.get("action_label") if activate else "Review findings"
+            )
+            action_url = definition.get("action_url") if activate else None
         items.append(
             {
                 "key": definition["key"],
-                "check_id": check_ids[0],
                 "check_ids": check_ids,
                 "label": definition["label"],
                 "status": state,
+                "summary": summary,
                 "controls": [
                     _framework_control_tag(framework, control_id)
                     for control_id in sorted(
@@ -531,20 +848,72 @@ def _checklist_items_for_domain(
                 "exception_count": len(exceptions),
                 "highest_severity": highest_severity,
                 "applicability_reason": applicability_reason,
-                "top_findings": [
-                    {
-                        "title": finding.get("title") or finding.get("check_id"),
-                        "severity": str(finding.get("severity") or "unknown").lower(),
-                        "resource": _resource_label(str(finding.get("resource_arn") or "")),
-                    }
-                    for finding in ranked_gaps[:3]
-                ],
-                "absence_check_ids": sorted(
-                    {str(finding.get("check_id")) for finding in absence_gaps if finding.get("check_id")}
-                ),
+                "action_kind": action_kind,
+                "action_label": action_label,
+                "action_url": action_url,
             }
         )
     return items
+
+
+def _build_technical_playbooks(
+    control_results: list[dict[str, Any]],
+    *,
+    framework: str,
+    account: AwsAccount | None,
+    scanned_entity_types: set[str] | None,
+) -> list[dict[str, Any]]:
+    """Return concise auditor outcomes; never synthesize rows from unknown check ids."""
+    playbooks: list[dict[str, Any]] = []
+    for definition in _AUDITOR_TECHNICAL_PLAYBOOKS:
+        named_sources = sorted(
+            {
+                source
+                for domain_key in definition["narrative_domain_keys"]
+                for source in _named_sources_for_domain(
+                    domain_key, control_results, account=account
+                )
+            }
+        )
+        all_items = _technical_playbook_items(
+            definition,
+            control_results,
+            framework=framework,
+            named_sources=named_sources,
+            scanned_entity_types=scanned_entity_types,
+        )
+        if not all_items:
+            continue
+        action_items = [item for item in all_items if item["status"] == "action"]
+        included_action_keys = {item["key"] for item in action_items[:3]}
+        items = [
+            item
+            for item in all_items
+            if item["status"] != "action" or item["key"] in included_action_keys
+        ]
+        additional_action_count = max(0, len(action_items) - 3)
+        if action_items:
+            status = "action"
+        elif all(item["status"] == "not_applicable" for item in all_items):
+            status = "not_applicable"
+        else:
+            status = "verified"
+        playbooks.append(
+            {
+                "key": definition["key"],
+                "label": definition["label"],
+                "question": definition["question"],
+                "outcome": definition["outcome"],
+                "status": status,
+                "items": items,
+                "additional_action_count": additional_action_count,
+                "controls": sorted(
+                    {control for item in all_items for control in item["controls"]}
+                ),
+                "narrative_domain_keys": list(definition["narrative_domain_keys"]),
+            }
+        )
+    return playbooks
 
 
 def _framework_control_tag(framework: str, control_id: str) -> str:
@@ -813,74 +1182,29 @@ def build_audit_readiness(
     domains: list[dict[str, Any]] = []
     for domain_def in DOMAIN_DEFS:
         key = domain_def["key"]
-        named_sources = _named_sources_for_domain(key, control_results, account=account)
-        checklist_items = _checklist_items_for_domain(
-            key,
-            control_results,
-            framework=framework,
-            named_sources=named_sources,
-            scanned_entity_types=scanned_entity_types,
-        )
-        if not checklist_items:
-            continue
         section = sections_by_key.get(key)
-        if section:
-            temporal = build_domain_temporal_sentence(
-                db,
-                account=account,
-                framework=framework,
-                domain_def=domain_def,
-                control_results=applicable_control_results,
-                since=since,
-                until=generated_at,
-                period_days=period_days,
-            )
-            check_ids = sorted(_checks_for_domain(key, applicable_control_results))
-            domain = domain_section_as_dict(
+        if not section:
+            continue
+        named_sources = _named_sources_for_domain(key, control_results, account=account)
+        temporal = build_domain_temporal_sentence(
+            db,
+            account=account,
+            framework=framework,
+            domain_def=domain_def,
+            control_results=applicable_control_results,
+            since=since,
+            until=generated_at,
+            period_days=period_days,
+        )
+        check_ids = sorted(_checks_for_domain(key, applicable_control_results))
+        domains.append(
+            domain_section_as_dict(
                 section,
                 temporal_sentence=temporal,
                 named_sources=named_sources,
                 check_ids=check_ids,
             )
-        else:
-            controls = sorted(
-                {
-                    control
-                    for item in checklist_items
-                    for control in item.get("controls") or []
-                }
-            )
-            reason = next(
-                (
-                    item["applicability_reason"]
-                    for item in checklist_items
-                    if item.get("applicability_reason")
-                ),
-                "No relevant resources in scope",
-            )
-            domain = {
-                "key": key,
-                "label": domain_def["label"],
-                "status": "not_applicable",
-                "assertion_text": (
-                    f"{domain_def['capability']} is not applicable to the current scope. "
-                    f"{reason} in the latest successful account scans."
-                ),
-                "coverage_line": f"Not applicable · {reason.lower()}",
-                "verified_phrases": [],
-                "gaps": [],
-                "exceptions": [],
-                "control_tags": controls,
-                "evidence_refs": [],
-                "checks_total": 0,
-                "checks_passing": 0,
-                "scope_note": "Automatically derived from the latest successful resource inventories.",
-                "temporal_sentence": None,
-                "named_sources": named_sources,
-                "check_ids": [],
-            }
-        domain["checklist_items"] = checklist_items
-        domains.append(domain)
+        )
 
     org = db.get(Org, org_id)
     return {
@@ -889,5 +1213,11 @@ def build_audit_readiness(
         "as_of": generated_at.isoformat(),
         "period_days": period_days,
         "scope_label": account_label,
+        "playbooks": _build_technical_playbooks(
+            control_results,
+            framework=framework,
+            account=account,
+            scanned_entity_types=scanned_entity_types,
+        ),
         "domains": domains,
     }

@@ -8,8 +8,9 @@ import pytest
 from app.models import Org, User
 from app.services.org_membership import add_membership
 from app.services.audit_readiness import (
+    _AUDITOR_TECHNICAL_PLAYBOOKS,
     _applicability_reason,
-    _checklist_items_for_domain,
+    _technical_playbook_items,
     _without_inapplicable_checks,
     build_audit_readiness,
 )
@@ -90,6 +91,7 @@ def test_audit_readiness_route(db_session):
         body = res.json()
         assert body["framework"] == "soc2"
         assert body["org_name"] == "Audit Org"
+        assert isinstance(body["playbooks"], list)
         assert isinstance(body["domains"], list)
     finally:
         client.app.dependency_overrides.clear()
@@ -106,7 +108,7 @@ def test_build_audit_readiness_empty_org(db_session):
     assert payload["domains"] == []
 
 
-def test_resource_inventory_marks_container_scanning_not_applicable():
+def test_resource_inventory_marks_workload_scanning_not_applicable():
     controls = [
         {
             "control_id": "CC7.1",
@@ -118,20 +120,98 @@ def test_resource_inventory_marks_container_scanning_not_applicable():
             "exceptions": [],
         }
     ]
+    playbook = next(
+        definition
+        for definition in _AUDITOR_TECHNICAL_PLAYBOOKS
+        if definition["key"] == "vulnerability_management"
+    )
 
-    items = _checklist_items_for_domain(
-        "vulnerability_management",
+    items = _technical_playbook_items(
+        playbook,
         controls,
         framework="soc2",
         named_sources=["AWS account production (123456789012)"],
-        scanned_entity_types={"ec2_instance", "s3_bucket"},
+        scanned_entity_types={"s3_bucket"},
     )
 
     assert len(items) == 1
-    assert items[0]["label"] == "Container image scanning"
+    assert items[0]["label"] == "Inspector and workload scanning"
     assert items[0]["status"] == "not_applicable"
-    assert items[0]["applicability_reason"] == "No ECR repositories in scope"
+    assert items[0]["applicability_reason"] == (
+        "No EC2, ECS, EKS, or ECR workloads in the latest complete inventory"
+    )
     assert items[0]["controls"] == ["SOC 2 CC7.1"]
+
+
+def test_inspector_playbook_is_applicable_for_ec2_workloads():
+    finding = {
+        "id": "f1",
+        "check_id": "aws.inspector.active_critical_finding",
+        "resource_arn": "arn:aws:ec2:us-east-1:123:instance/i-1",
+        "title": "Critical package vulnerability",
+        "severity": "critical",
+    }
+    controls = [
+        {
+            "control_id": "CC7.1",
+            "check_evidence_classes": {
+                "aws.inspector.active_critical_finding": "benchmark",
+                "aws.vulnerability_monitoring.not_detected": "benchmark",
+            },
+            "findings": [finding],
+            "exceptions": [],
+        }
+    ]
+    playbook = next(
+        definition
+        for definition in _AUDITOR_TECHNICAL_PLAYBOOKS
+        if definition["key"] == "vulnerability_management"
+    )
+
+    items = _technical_playbook_items(
+        playbook,
+        controls,
+        framework="soc2",
+        named_sources=[],
+        scanned_entity_types={"ec2_instance"},
+    )
+
+    assert len(items) == 1
+    assert items[0]["status"] == "action"
+    assert items[0]["action_kind"] == "review"
+    assert items[0]["finding_count"] == 1
+
+
+def test_dr_rows_are_na_without_stateful_resources():
+    controls = [
+        {
+            "control_id": "A1.2",
+            "check_evidence_classes": {
+                "rds.instance.no_automated_backup": "benchmark",
+                "dynamodb.table.no_pitr": "benchmark",
+                "backup.plan.missing": "benchmark",
+            },
+            "findings": [],
+            "exceptions": [],
+        }
+    ]
+    playbook = next(
+        definition
+        for definition in _AUDITOR_TECHNICAL_PLAYBOOKS
+        if definition["key"] == "disaster_recovery"
+    )
+
+    items = _technical_playbook_items(
+        playbook,
+        controls,
+        framework="soc2",
+        named_sources=[],
+        scanned_entity_types={"s3_bucket"},
+    )
+
+    assert len(items) == 3
+    assert {item["status"] for item in items} == {"not_applicable"}
+    assert all("latest complete inventory" in item["summary"] for item in items)
 
 
 def test_not_applicable_checks_are_excluded_from_readiness_rollup():

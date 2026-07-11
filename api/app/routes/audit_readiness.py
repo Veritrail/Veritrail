@@ -16,26 +16,33 @@ router = APIRouter()
 FRAMEWORKS = {"soc2", "cis_aws_l1", "iso27001"}
 
 
-class AuditReadinessFindingOut(BaseModel):
-    title: str
-    severity: str
-    resource: str
-
-
-class AuditReadinessChecklistItemOut(BaseModel):
+class AuditReadinessPlaybookItemOut(BaseModel):
     key: str
-    check_id: str
     check_ids: list[str]
     label: str
     status: str
+    summary: str
     controls: list[str]
     sources: list[str]
     finding_count: int
     exception_count: int
     highest_severity: str | None = None
     applicability_reason: str | None = None
-    top_findings: list[AuditReadinessFindingOut]
-    absence_check_ids: list[str]
+    action_kind: str | None = None
+    action_label: str | None = None
+    action_url: str | None = None
+
+
+class AuditReadinessPlaybookOut(BaseModel):
+    key: str
+    label: str
+    question: str
+    outcome: str
+    status: str
+    items: list[AuditReadinessPlaybookItemOut]
+    additional_action_count: int
+    controls: list[str]
+    narrative_domain_keys: list[str]
 
 
 class AuditReadinessDomainOut(BaseModel):
@@ -55,7 +62,6 @@ class AuditReadinessDomainOut(BaseModel):
     temporal_sentence: str | None = None
     named_sources: list[str] = Field(default_factory=list)
     check_ids: list[str] = Field(default_factory=list)
-    checklist_items: list[AuditReadinessChecklistItemOut] = Field(default_factory=list)
 
 
 class AuditReadinessOut(BaseModel):
@@ -64,6 +70,7 @@ class AuditReadinessOut(BaseModel):
     as_of: str
     period_days: int
     scope_label: str
+    playbooks: list[AuditReadinessPlaybookOut]
     domains: list[AuditReadinessDomainOut]
 
 
