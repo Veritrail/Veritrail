@@ -296,7 +296,7 @@ export function AccountFilterDropdown({
                     ? "account"
                     : "accounts"}
               </span>
-              <Link to="/accounts" className="account-filter-menu__footer-link" onClick={() => setOpen(false)}>
+              <Link to="/home" className="account-filter-menu__footer-link" onClick={() => setOpen(false)}>
                 <svg fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden>
                   <path
                     strokeLinecap="round"

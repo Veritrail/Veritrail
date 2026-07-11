@@ -80,6 +80,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
             <Route path="/findings" element={<Findings />} />
             <Route path="/reference" element={<Reference />} />
             <Route path="/resources" element={<Navigate to="/findings" replace />} />
+            <Route path="/home" element={<Accounts />} />
             <Route path="/accounts" element={<Accounts />} />
             <Route path="/profile" element={<Account />} />
             <Route path="/account" element={<Navigate to="/profile" replace />} />
@@ -90,7 +91,8 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
             <Route path="/members" element={<Navigate to="/workspace#access" replace />} />
             <Route path="/detection" element={<Navigate to="/workspace#scanning" replace />} />
             <Route path="/controls" element={<Controls />} />
-            <Route path="/audit-readiness" element={<AuditReadiness />} />
+            <Route path="/audit" element={<AuditReadiness />} />
+            <Route path="/audit-readiness" element={<Navigate to="/audit" replace />} />
             <Route path="/history" element={<History />} />
             <Route path="/compliance-history" element={<Navigate to="/history" replace />} />
             <Route path="/compliance-timeline" element={<Navigate to="/history" replace />} />

@@ -68,7 +68,7 @@ function genericScanFailureMessage(provider: ScanProvider, accountLabel?: string
   const conn = providerShortLabel(provider) ?? "cloud";
   return (
     `The scan${scanFailureAccountPhrase(accountLabel)} did not finish successfully. ` +
-    `Verify your ${conn} connection on Accounts, then run a scan from Findings.`
+    `Verify your ${conn} connection on Home, then run a scan from Findings.`
   );
 }
 
@@ -195,7 +195,7 @@ export function friendlyScanFailureMessage(
       lower.includes("token has expired") ||
       (lower.includes("credentials") && lower.includes("expired"))
     ) {
-      return `The AWS session used for scanning${accountPhrase} has expired. Reconnect your account on Accounts, then run a new scan.`;
+      return `The AWS session used for scanning${accountPhrase} has expired. Reconnect your account on Home, then run a new scan.`;
     }
 
     if (
@@ -206,14 +206,14 @@ export function friendlyScanFailureMessage(
     ) {
       return (
         `Veritrail could not read your AWS account${accountPhrase} because the connector role is missing permissions or trust. ` +
-        "Open Accounts, verify the connector, and update CloudFormation if prompted."
+        "Open Home, verify the connector, and update CloudFormation if prompted."
       );
     }
 
     if (lower.includes("assumerole") || lower.includes("externalid") || lower.includes("trust")) {
       return (
         `Veritrail could not assume the read-only role in your AWS account${accountPhrase}. ` +
-        "Check that the CloudFormation stack is still deployed and that the role ARN on Accounts matches your account."
+        "Check that the CloudFormation stack is still deployed and that the role ARN on Home matches your account."
       );
     }
 
@@ -224,7 +224,7 @@ export function friendlyScanFailureMessage(
     if (lower.includes("no credentials") || lower.includes("unable to locate credentials")) {
       return (
         `No valid AWS credentials were available for this scan${accountPhrase}. ` +
-        "Reconnect the account on Accounts or confirm your deployment has access to assume the customer role."
+        "Reconnect the account on Home or confirm your deployment has access to assume the customer role."
       );
     }
 
@@ -238,7 +238,7 @@ export function friendlyScanFailureMessage(
     }
 
     if (lower.includes("region") && lower.includes("invalid")) {
-      return `The scan${accountPhrase} ran in a region Veritrail does not support for this account. Check the account region on Accounts and try again.`;
+      return `The scan${accountPhrase} ran in a region Veritrail does not support for this account. Check the account region on Home and try again.`;
     }
   }
 
@@ -271,7 +271,7 @@ export function friendlyScanFailureMessage(
   }
 
   if (lower.includes("timeout") || lower.includes("timed out")) {
-    return `The scan${accountPhrase} took too long and stopped. Try again in a few minutes; if it keeps failing, check your ${conn} connector on Accounts.`;
+    return `The scan${accountPhrase} took too long and stopped. Try again in a few minutes; if it keeps failing, check your ${conn} connector on Home.`;
   }
 
   // Long stack traces / Python tracebacks — never show verbatim.
@@ -288,7 +288,7 @@ export function friendlyScanFailureMessage(
 
 export function scanFailureUserAction(provider?: string | null): string {
   const label = providerShortLabel(provider) ?? "cloud";
-  return `Open Accounts to verify your ${label} connector, then run a scan from Findings.`;
+  return `Open Home to verify your ${label} connector, then run a scan from Findings.`;
 }
 
 /** @deprecated Use scanFailureUserAction(provider) for cloud-aware copy. */
@@ -413,7 +413,7 @@ export function classifyScanFailure(raw: string, providerHint?: string | null): 
       return { title: "Couldn't reach AWS", fix: "Check your network is up, then run a scan again." };
     }
     if (lower.includes("region") && lower.includes("invalid")) {
-      return { title: "Unsupported region", fix: "Check the account region on Accounts, then try again." };
+      return { title: "Unsupported region", fix: "Check the account region on Home, then try again." };
     }
   }
 

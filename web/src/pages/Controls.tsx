@@ -2892,7 +2892,7 @@ function CompositeGapResolution({
                   open
                   embedInResolution
                   onClose={() => setOpenPanel(null)}
-                  onConnect={() => navigate("/accounts")}
+                  onConnect={() => navigate("/home")}
                 />
               </div>
             ) : null}

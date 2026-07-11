@@ -20,7 +20,7 @@ export function useSelectedAccountId(
     holdUrlSyncWhenParams?: string[];
     scopeDefaults?: Pick<ResolveSelectedAccountOptions, "cloudAccountCount" | "hasSourceControl" | "hasIdentity">;
     /** Never write `account_id` into the URL or sessionStorage (org readiness home:
-     *  bare `/accounts` must stay unscoped instead of auto-selecting a persisted account). */
+     *  bare `/home` must stay unscoped instead of auto-selecting a persisted account). */
     disableUrlSync?: boolean;
   },
 ) {

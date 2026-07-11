@@ -5484,10 +5484,10 @@ function PolicyCloudTrailStartAction({
               "No active CloudTrail logging trail is available for this account. Create a multi-region trail with a dedicated S3 log bucket, run a scan so Veritrail can detect it, then start analysis."}
           </p>
           <Link
-            to="/accounts"
+            to="/home"
             className="inline-flex font-semibold text-amber-900 underline decoration-amber-400/70 underline-offset-2 hover:text-amber-950"
           >
-            Set up CloudTrail on Accounts →
+            Set up CloudTrail on Home →
           </Link>
         </div>
       )}
@@ -5498,10 +5498,10 @@ function PolicyCloudTrailStartAction({
               "Enable Advanced IAM policy generation on the AWS connector so Veritrail can start CloudTrail-based analysis."}
           </p>
           <Link
-            to="/accounts"
+            to="/home"
             className="inline-flex font-semibold text-amber-900 underline decoration-amber-400/70 underline-offset-2 hover:text-amber-950"
           >
-            Update connector on Accounts →
+            Update connector on Home →
           </Link>
         </div>
       )}
@@ -5650,10 +5650,10 @@ function PolicyCloudTrailStartAction({
               "No active CloudTrail logging trail is available for this account. Create a multi-region trail with a dedicated S3 log bucket, run a scan so Veritrail can detect it, then start analysis."}
           </p>
           <Link
-            to="/accounts"
+            to="/home"
             className="inline-flex font-semibold text-amber-900 underline decoration-amber-400/70 underline-offset-2 hover:text-amber-950"
           >
-            Set up CloudTrail on Accounts →
+            Set up CloudTrail on Home →
           </Link>
         </div>
       )}
@@ -5664,10 +5664,10 @@ function PolicyCloudTrailStartAction({
               "Enable Advanced IAM policy generation on the AWS connector so Veritrail can start CloudTrail-based analysis."}
           </p>
           <Link
-            to="/accounts"
+            to="/home"
             className="inline-flex font-semibold text-amber-900 underline decoration-amber-400/70 underline-offset-2 hover:text-amber-950"
           >
-            Update connector on Accounts →
+            Update connector on Home →
           </Link>
         </div>
       )}

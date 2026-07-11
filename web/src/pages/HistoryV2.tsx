@@ -215,7 +215,7 @@ export default function HistoryV2() {
   const onlyBaseline = events.length === 1 && events[0]?.type === "baseline_established";
 
   if (accountsReady && !accountsLoading && connectedAccounts.length === 0) {
-    return <Navigate to="/accounts" replace />;
+    return <Navigate to="/home" replace />;
   }
 
   async function handleDownload(event: HistoryEvent) {

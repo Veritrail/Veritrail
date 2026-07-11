@@ -274,7 +274,7 @@ export function AccountSelect({
             );
           })}
           <Link
-            to="/accounts"
+            to="/home"
             onClick={() => setOpen(false)}
             className="flex items-center gap-2.5 border-t border-zinc-100 px-4 py-3 text-sm font-semibold text-indigo-600 transition hover:bg-indigo-50/40"
           >

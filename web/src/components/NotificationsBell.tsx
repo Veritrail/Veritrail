@@ -259,7 +259,7 @@ export default function NotificationsBell() {
                   onView={() => {
                     if (item.kind === "scan_failure") {
                       setOpen(false);
-                      navigate("/accounts");
+                      navigate("/home");
                       return;
                     }
                     viewFinding(item.findingId);
@@ -334,7 +334,7 @@ function NotificationRow({
       <div className="mt-3 flex flex-wrap items-center gap-4">
         {item.kind === "scan_failure" ? (
           <button type="button" onClick={onView} className="text-sm font-semibold text-zinc-800 underline hover:text-zinc-950">
-            Open Accounts
+            Open Home
           </button>
         ) : (
           <button type="button" onClick={onView} className="text-sm font-semibold text-zinc-800 underline hover:text-zinc-950">

@@ -29,6 +29,7 @@ interface Account {
 const FRAMEWORKS = [
   { value: "soc2", label: "SOC 2" },
   { value: "cis_aws_l1", label: "CIS" },
+  { value: "iso27001", label: "ISO 27001" },
 ] as const;
 
 const PERIOD_OPTIONS = [
@@ -306,7 +307,7 @@ export default function ComplianceHistory() {
   };
 
   if (accounts && connected.length === 0) {
-    return <Navigate to="/accounts" replace />;
+    return <Navigate to="/home" replace />;
   }
 
   return (

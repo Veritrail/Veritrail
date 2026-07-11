@@ -271,7 +271,7 @@ function ScanProgressBanner() {
           <span className="text-sky-800/80"> We&apos;re syncing your AWS environment and refreshing findings.</span>
         </p>
       </div>
-      <Link to="/accounts" className="shrink-0 text-sm font-semibold text-sky-700 transition hover:text-sky-900">
+      <Link to="/home" className="shrink-0 text-sm font-semibold text-sky-700 transition hover:text-sky-900">
         View progress &gt;
       </Link>
     </div>
@@ -475,7 +475,7 @@ function IntegrationsContent() {
       name: "AWS",
       description: "Cloud posture and audit evidence across connected accounts.",
       icon: <IntegrationBrandIcon brand="aws" size={48} />,
-      href: "/accounts",
+      href: "/home",
       connected: awsConnected,
       syncing: awsScanRunning,
       loading: cloudAccounts.isLoading,

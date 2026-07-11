@@ -1,6 +1,7 @@
 import { api, isSessionStaleError, PENDING_INVITE_KEY } from "../api";
 import { accountListSchema, meSchema } from "./apiSchemas";
 import { isAccountConnected } from "./accountConnection";
+import { HOME_PATH, LEGACY_ACCOUNTS_PATH } from "./appRoutes";
 
 export const NO_WORKSPACE_PATH = "/no-workspace";
 
@@ -21,11 +22,11 @@ export async function postAuthPath(): Promise<string> {
     if (isSessionStaleError(e)) throw e;
     // If accounts cannot load, onboarding is still the safest default.
   }
-  return "/accounts";
+  return HOME_PATH;
 }
 
 /** Routes reachable before a connected AWS account exists. */
-export const ACCOUNT_OPTIONAL_PATHS = new Set(["/accounts", "/account", "/profile"]);
+export const ACCOUNT_OPTIONAL_PATHS = new Set([HOME_PATH, LEGACY_ACCOUNTS_PATH, "/account", "/profile"]);
 
 export function pathRequiresConnectedAccount(pathname: string): boolean {
   return !ACCOUNT_OPTIONAL_PATHS.has(pathname);

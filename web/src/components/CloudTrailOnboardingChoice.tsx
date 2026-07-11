@@ -58,8 +58,8 @@ export function CloudTrailOnboardingChoice({ accountId }: { accountId: string })
       {mode === "veritrail_managed" && (
         <p className="mt-2 text-xs text-zinc-600">
           Enable CloudTrail remediation in connection options, then deploy the remediation stack from{" "}
-          <Link to="/accounts" className="font-semibold text-sky-800 hover:underline">
-            Accounts
+          <Link to="/home" className="font-semibold text-sky-800 hover:underline">
+            Home
           </Link>
           . Findings for missing trails remain until the trail is active.
         </p>

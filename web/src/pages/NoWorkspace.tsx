@@ -15,7 +15,7 @@ export default function NoWorkspace() {
       try {
         const me = await api("/v1/auth/me", { schema: meSchema });
         if (me.has_workspace) {
-          window.location.replace("/accounts");
+          window.location.replace("/home");
           return;
         }
         setEmail(me.email);
