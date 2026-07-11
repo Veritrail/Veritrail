@@ -7882,23 +7882,21 @@ button.accounts-flow-step:hover {
 
 /* ---------------------------------------------------------------------------
    Org readiness home — default `/home` view (docs/org-readiness-home.md).
-   Single calm centered column: headline → stepper → blockers card → timeline.
+   Full-width evidence summary: headline → stepper → action cards → timeline.
 --------------------------------------------------------------------------- */
 
 .org-home {
   width: 100%;
-  max-width: 74rem;
-  margin: 0 auto;
-  padding: 2.25rem 2rem 5rem;
+  max-width: none;
+  margin: 0;
+  padding: 2.25rem 2.5rem 5rem;
   display: flex;
   flex-direction: column;
 }
 
-/* Hero: verdict → headline (→ optional zero-high subline), all on one centered
-   axis so it lines up with the centered stepper below. */
 .org-home__headline-block {
   margin-bottom: 2rem;
-  text-align: center;
+  text-align: left;
 }
 
 .org-home__verdict {
@@ -7908,20 +7906,26 @@ button.accounts-flow-step:hover {
   color: #64748b;
 }
 
-.org-home__verdict-em {
-  font-weight: 650;
+.org-home__verdict-pill {
+  display: inline-flex;
+  align-items: center;
+  margin: 0 0.2rem;
+  padding: 0.2rem 0.625rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.025em;
+  text-transform: uppercase;
 }
 
-.org-home__verdict--not-ready .org-home__verdict-em {
+.org-home__verdict-pill.is-not-ready {
+  background: #fff7ed;
   color: #b45309;
 }
 
-.org-home__verdict--almost .org-home__verdict-em {
-  color: #0f172a;
-}
-
-.org-home__verdict--ready .org-home__verdict-em {
-  color: var(--vt-teal, #0d9488);
+.org-home__verdict-pill.is-ready {
+  background: #ecfdf5;
+  color: #047857;
 }
 
 .org-home__headline {
@@ -7939,7 +7943,7 @@ button.accounts-flow-step:hover {
 }
 
 .org-home__subline {
-  margin: 1rem auto 0;
+  margin: 1rem 0 0;
   max-width: 58rem;
   font-size: 1.0625rem;
   line-height: 1.55;
@@ -8076,18 +8080,37 @@ button.accounts-flow-step:hover {
   flex: 1 1 24rem;
 }
 
-/* Blockers card */
+/* Primary action cards */
 
-.org-home__blockers-section {
-  margin-bottom: 2rem;
+.org-home__action-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(18rem, 1fr);
+  align-items: stretch;
+  gap: 1.25rem;
+  margin-bottom: 1.25rem;
 }
 
-.org-home__blockers-card {
+.org-home__action-grid.has-blockers-only,
+.org-home__action-grid.has-recommendation-only {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.org-home__blockers-section {
+  min-width: 0;
   border: 1px solid var(--vt-border, #e8edf3);
   border-radius: 14px;
   background: var(--vt-surface, #fff);
   box-shadow: var(--vt-shadow-card, 0 1px 2px rgb(9 9 11 / 0.035));
   overflow: hidden;
+}
+
+.org-home__blockers-section > .org-home__section-title,
+.org-home__capabilities-section > .org-home__section-title {
+  padding: 1.25rem 1.5rem 1rem;
+}
+
+.org-home__blockers-card {
+  border-top: 1px solid #f1f5f9;
 }
 
 .org-home__blocker-row {
@@ -8099,6 +8122,28 @@ button.accounts-flow-step:hover {
 
 .org-home__blocker-row + .org-home__blocker-row {
   border-top: 1px solid #f1f5f9;
+}
+
+.org-home__blockers-footer {
+  padding: 0.9375rem 1.625rem 1.0625rem;
+  border-top: 1px solid #f1f5f9;
+}
+
+.org-home__severity-chip {
+  flex: 0 0 auto;
+  padding: 0.25rem 0.625rem;
+  border-radius: 999px;
+  background: #fff1f2;
+  color: #9f1239;
+  font-size: 0.6875rem;
+  font-weight: 750;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+}
+
+.org-home__severity-chip.is-critical {
+  background: #fef2f2;
+  color: #b91c1c;
 }
 
 .org-home__high-chip {
@@ -8138,24 +8183,26 @@ button.accounts-flow-step:hover {
 }
 
 .org-home__capabilities-section {
-  margin-bottom: 2rem;
-}
-
-.org-home__capabilities-section > .org-home__section-title {
-  margin-bottom: 1rem;
-}
-
-.org-home__capabilities-card {
+  min-width: 0;
   border: 1px solid var(--vt-border, #e8edf3);
   border-radius: 14px;
-  background: var(--vt-surface, #fff);
+  background: #f8fffe;
   box-shadow: var(--vt-shadow-card, 0 1px 2px rgb(9 9 11 / 0.035));
   overflow: hidden;
 }
 
+.org-home__capabilities-section > .org-home__section-title {
+  margin-bottom: 0;
+}
+
+.org-home__capabilities-card {
+  border-top: 1px solid #e5f5f2;
+}
+
 .org-home__capability-row {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
+  flex-wrap: wrap;
   gap: 1rem;
   padding: 1.25rem 1.625rem;
 }
@@ -8258,7 +8305,15 @@ button.accounts-flow-step:hover {
   background: #f8fafc;
 }
 
-/* Timeline — quiet rows, no card */
+/* Timeline card */
+
+.org-home__timeline-section {
+  padding: 1.25rem 1.5rem 0.5rem;
+  border: 1px solid var(--vt-border, #e8edf3);
+  border-radius: 14px;
+  background: var(--vt-surface, #fff);
+  box-shadow: var(--vt-shadow-card, 0 1px 2px rgb(9 9 11 / 0.035));
+}
 
 .org-home__timeline {
   margin: 0;
@@ -8270,7 +8325,7 @@ button.accounts-flow-step:hover {
   display: flex;
   align-items: baseline;
   gap: 1rem;
-  padding: 0.875rem 0.125rem;
+  padding: 0.875rem 0;
 }
 
 .org-home__timeline-row + .org-home__timeline-row {
@@ -8322,13 +8377,13 @@ button.accounts-flow-step:hover {
 .org-home__skeleton--headline {
   width: 70%;
   height: 3.25rem;
-  margin: 0 auto 1.125rem;
+  margin: 0 0 1.125rem;
 }
 
 .org-home__skeleton--subline {
   width: 50%;
   height: 1.25rem;
-  margin: 0 auto 3.5rem;
+  margin: 0 0 3.5rem;
 }
 
 .org-home__skeleton--stepper {
@@ -8349,5 +8404,53 @@ button.accounts-flow-step:hover {
   }
   50% {
     opacity: 0.55;
+  }
+}
+
+@media (max-width: 900px) {
+  .org-home {
+    padding-inline: 1.25rem;
+  }
+
+  .org-home__action-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .org-home__step-label {
+    white-space: normal;
+  }
+}
+
+@media (max-width: 640px) {
+  .org-home__headline {
+    font-size: 2rem;
+  }
+
+  .org-home__stepper {
+    overflow-x: auto;
+    padding-bottom: 0.5rem;
+  }
+
+  .org-home__step {
+    flex: 0 0 8.5rem;
+  }
+
+  .org-home__blocker-row {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    padding-inline: 1rem;
+  }
+
+  .org-home__blocker-copy {
+    flex-basis: calc(100% - 2.25rem);
+  }
+
+  .org-home__severity-chip {
+    margin-left: 2.25rem;
+  }
+
+  .org-home__review-btn {
+    margin-left: auto;
   }
 }

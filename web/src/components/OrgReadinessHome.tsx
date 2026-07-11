@@ -37,7 +37,7 @@ import { absenceGapEnableItems } from "../lib/evidenceGap";
 const STEP_LABELS = [
   "Connected",
   "Evidence flowing",
-  "Fix high findings",
+  "High findings",
   "Controls passing",
   "Evidence ready",
 ] as const;
@@ -69,6 +69,16 @@ function timelineDotIsGreen(event: HistoryEvent): boolean {
   return event.type === "finding_resolved" || event.type === "compliance_improved";
 }
 
+function prettifyOrgName(value: string): string {
+  return value
+    .replace(/[-_]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .split(" ")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
 function SectionHead({ title, linkTo, linkLabel }: { title: string; linkTo: string; linkLabel: string }) {
   return (
     <div className="org-home__section-head">
@@ -82,7 +92,7 @@ function SectionHead({ title, linkTo, linkLabel }: { title: string; linkTo: stri
 
 export function OrgReadinessHome() {
   const meQ = useMe();
-  const orgName = meQ.data?.org_name?.trim() || "Your company";
+  const orgName = prettifyOrgName(meQ.data?.org_name?.trim() || "Your company");
 
   const { options: connectedAccounts, isSuccess: accountsReady } = useConnectedAccountOptions();
 
@@ -241,7 +251,7 @@ export function OrgReadinessHome() {
       }
     }
     events.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-    return events.slice(0, 4);
+    return events.slice(0, 6);
   }, [timelineQs]);
 
   const defaultFindingsHref = defaultOrgFindingsHref({ hasCloudAccounts, hasSourceControl, hasIdentity });
@@ -262,9 +272,10 @@ export function OrgReadinessHome() {
     return (
       <div className="org-home">
         <header className="org-home__headline-block">
-          <p className="org-home__verdict org-home__verdict--not-ready">
-            {orgName} technical evidence is{" "}
-            <strong className="org-home__verdict-em">not ready</strong> for SOC 2.
+          <p className="org-home__verdict">
+            {orgName} technical evidence{" "}
+            <strong className="org-home__verdict-pill is-not-ready">Not ready</strong>{" "}
+            for SOC 2.
           </p>
           <h1 className="org-home__headline">Connect your first integration to get started.</h1>
           <p className="org-home__subline org-home__subline--scope">
@@ -288,19 +299,19 @@ export function OrgReadinessHome() {
   return (
     <div className="org-home">
       <header className="org-home__headline-block">
-        <p className={`org-home__verdict org-home__verdict--${verdictClass}`}>
-          {orgName} technical evidence is{" "}
-          <strong className="org-home__verdict-em">{evidenceReady ? "ready" : "not ready"}</strong>{" "}
+        <p className="org-home__verdict">
+          {orgName} technical evidence{" "}
+          <strong className={`org-home__verdict-pill is-${verdictClass}`}>
+            {evidenceReady ? "Ready" : "Not ready"}
+          </strong>{" "}
           for SOC 2.
         </p>
         {zeroHigh ? (
           <h1 className="org-home__headline">No high findings stand between you and SOC 2.</h1>
         ) : (
           <h1 className="org-home__headline">
-            {highCount}{" "}
-            <span className="org-home__headline-em">
-              high finding{highCount === 1 ? "" : "s"}
-            </span>{" "}
+            <span className="org-home__headline-em">{highCount} high</span>{" "}
+            finding{highCount === 1 ? "" : "s"}{" "}
             stand{highCount === 1 ? "s" : ""} between you and SOC 2.
           </h1>
         )}
@@ -323,6 +334,8 @@ export function OrgReadinessHome() {
 
       <ol className="org-home__stepper" aria-label="Evidence readiness progress">
         {STEP_LABELS.map((label, idx) => {
+          const displayLabel =
+            idx === 2 ? `${highCount} high finding${highCount === 1 ? "" : "s"}` : label;
           const done = currentStep === -1 || idx < currentStep;
           const current = idx === currentStep;
           const prevDone = currentStep === -1 || idx <= currentStep;
@@ -333,38 +346,37 @@ export function OrgReadinessHome() {
                 <span className={`org-home__step-line${prevDone ? " is-reached" : ""}`} aria-hidden />
               ) : null}
               <span className="org-home__step-dot" aria-hidden />
-              <span className="org-home__step-label">{label}</span>
+              <span className="org-home__step-label">{displayLabel}</span>
             </li>
           );
         })}
       </ol>
 
-      {!zeroHigh && blockerGroups.length > 0 ? (
-        <section className="org-home__blockers-section" aria-label="What's blocking you">
-          <div className="org-home__section-head">
-            <h2 className="org-home__section-title">What&apos;s blocking you</h2>
-            <Link to={defaultFindingsHref} className="org-home__section-link">
-              All findings <span aria-hidden>→</span>
-            </Link>
-          </div>
-          <BlockersList
-            groups={blockerGroups}
-            findingsHref={findingsHref}
-            defaultFindingsHref={defaultFindingsHref}
-          />
-        </section>
-      ) : null}
-
-      {capabilityItems.length > 0 ? (
-        <section
-          className="org-home__capabilities-section"
-          aria-label={capabilityItems.length === 1 ? "Recommended next step" : "Capabilities to turn on"}
+      {!zeroHigh && (blockerGroups.length > 0 || capabilityItems.length > 0) ? (
+        <div
+          className={`org-home__action-grid${capabilityItems.length === 0 ? " has-blockers-only" : ""}${
+            blockerGroups.length === 0 ? " has-recommendation-only" : ""
+          }`}
         >
-          <h2 className="org-home__section-title">
-            {capabilityItems.length === 1 ? "Recommended next step" : "Capabilities to turn on"}
-          </h2>
-          <CapabilitiesToEnableList items={capabilityItems} />
-        </section>
+          {blockerGroups.length > 0 ? (
+            <section className="org-home__blockers-section" aria-label="What's blocking you">
+              <h2 className="org-home__section-title">What&apos;s blocking you</h2>
+              <BlockersList
+                groups={blockerGroups}
+                totalHighCount={highCount}
+                findingsHref={findingsHref}
+                defaultFindingsHref={defaultFindingsHref}
+              />
+            </section>
+          ) : null}
+
+          {capabilityItems.length > 0 ? (
+            <section className="org-home__capabilities-section" aria-label="Recommended next step">
+              <h2 className="org-home__section-title">Recommended next step</h2>
+              <CapabilitiesToEnableList items={capabilityItems.slice(0, 1)} />
+            </section>
+          ) : null}
+        </div>
       ) : null}
 
       <section className="org-home__timeline-section" aria-label="Timeline">

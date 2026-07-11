@@ -5,11 +5,17 @@ export type BlockerFinding = {
   id: string;
   check_id: string;
   severity: string;
+  first_seen?: string;
+  resource_arn?: string;
+  evidence?: Record<string, unknown>;
 };
 
 export type BlockerGroup = {
   checkId: string;
   count: number;
+  severity: "critical" | "high";
+  firstSeen: string | null;
+  location: string | null;
   /** Deduped SOC 2 control ids this check maps to (blocked while findings stay open). */
   soc2ControlIds: string[];
   /** Subset of soc2ControlIds currently in fail status (preferred ranking signal). */
@@ -78,6 +84,25 @@ function failingControlsForCheck(
   return soc2ControlIds.filter((id) => controlStatusById[id] === "fail");
 }
 
+function findingLocation(finding: BlockerFinding): string | null {
+  const sourceTag = sourceTagForCheck(finding.check_id);
+  if (sourceTag) return sourceTag;
+  const evidence = finding.evidence ?? {};
+  for (const key of ["region", "home_region"]) {
+    const value = evidence[key];
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  for (const key of ["disabled_regions", "affected_regions"]) {
+    const value = evidence[key];
+    if (Array.isArray(value)) {
+      const regions = value.filter((region): region is string => typeof region === "string" && !!region.trim());
+      if (regions.length > 0) return regions.length === 1 ? regions[0] : `${regions.length} regions`;
+    }
+  }
+  const arnRegion = finding.resource_arn?.split(":")[3];
+  return arnRegion || null;
+}
+
 /** Group open critical|high findings by check_id; rank and take top N. */
 export function groupBlockerFindings(
   findings: BlockerFinding[],
@@ -85,15 +110,24 @@ export function groupBlockerFindings(
   controlStatusById?: ControlStatusById,
 ): BlockerGroup[] {
   const high = findings.filter((f) => isHighSeverity(f.severity));
-  const counts = new Map<string, number>();
+  const findingsByCheck = new Map<string, BlockerFinding[]>();
   for (const finding of high) {
-    counts.set(finding.check_id, (counts.get(finding.check_id) ?? 0) + 1);
+    const rows = findingsByCheck.get(finding.check_id) ?? [];
+    rows.push(finding);
+    findingsByCheck.set(finding.check_id, rows);
   }
-  const groups: BlockerGroup[] = [...counts.entries()].map(([checkId, count]) => {
+  const groups: BlockerGroup[] = [...findingsByCheck.entries()].map(([checkId, rows]) => {
     const soc2ControlIds = soc2ControlIdsForCheck(checkId);
+    const firstSeen = rows
+      .map((finding) => finding.first_seen)
+      .filter((value): value is string => !!value)
+      .sort()[0] ?? null;
     return {
       checkId,
-      count,
+      count: rows.length,
+      severity: rows.some((finding) => finding.severity === "critical") ? "critical" : "high",
+      firstSeen,
+      location: rows.map(findingLocation).find((value): value is string => !!value) ?? null,
       soc2ControlIds,
       failingControlIds: failingControlsForCheck(soc2ControlIds, controlStatusById),
     };

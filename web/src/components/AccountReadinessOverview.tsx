@@ -144,6 +144,7 @@ export function AccountReadinessOverview({
           </div>
           <BlockersList
             groups={blockerGroups}
+            totalHighCount={highCount}
             findingsHref={findingsHref}
             defaultFindingsHref={defaultFindingsHref}
           />

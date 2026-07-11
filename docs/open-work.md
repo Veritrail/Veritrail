@@ -11,7 +11,8 @@ item 5 until 2–4 land. Item 6 is partner/human validation, not engineering.
 
 Deep-research report mapping (composer backlog + human decisions):
 [deep-research-roadmap.md](./deep-research-roadmap.md) — **composer buildable items shipped**
-(§2.1–§2.12). Remaining: §3 human decisions + #11 GRC adapter (blocked on item 6).
+(§2.1–§2.12). Remaining: §3 human decisions + GRC destination adapter (blocked on item 6;
+not numbered here).
 
 ---
 
@@ -85,6 +86,9 @@ current, kept as reference docs — not merged here since they're research, not 
 - Deep-research rejections: ExternalId rotation (§2.6), OCSF export (§2.7), GDPR Art. 32
   mapping (§2.8) — removed from product; ISO / SOC 2 / CIS and initial ExternalId on connect kept
 - Audit readiness page — auditor-language narrative (§8; shared PDF narrative builder)
+- §10 audit-readiness technical playbooks and inventory-backed applicability
+- §11 pure-nav sidebar rail and duplicate org-home account-header cleanup
+- §12 full-width org home with blocker, recommended-action, and timeline cards
 
 ## 7. History page — reframe from event log to control-timeline evidence — **open** (spec)
 
@@ -99,14 +103,14 @@ the audit period** — "was this control in place the whole time, or fixed the w
 No screenshot-based competitor can auto-produce that. Rebuild around control timelines + collapse
 churn.
 
-**Good news — backend already computes this.** `build_control_history`
-(`api/app/services/compliance_timeline.py:40`, exposed at `GET /v1/controls/.../control-history`)
-already returns, per control: **status segments over time** (passing/failing spans with
-`from`/`to`/`duration_seconds`), `failing_since`, and current status. This is the audit-period
-timeline data. The frontend just doesn't render it — it renders the event feed
-(`build_compliance_timeline`) instead. **So this is primarily a frontend reshape, not a backend
-build.** Confirm `control-history` is reachable org-wide / per selected framework; extend if it's
-account-only.
+**Partial backend exists, but it is account-only.** `build_control_history`
+(`api/app/services/compliance_timeline.py:40`, exposed at
+`GET /v1/controls/{control_id}/history?framework=…&account_id=…`) returns, for one AWS account and
+one control, **status segments over time** (`from`/`to`/`duration_seconds`), `failing_since`,
+current status, and raw events. History currently calls the separate account-scoped
+`compliance-timeline` feed and renders its events. The build therefore needs a framework-wide
+timeline response (and an explicit org aggregation rule if Home/History remains org-first), then a
+frontend reshape; do not recompute segment semantics in the browser.
 
 ### Primary reader: the customer's auditor first, engineer second
 Lead with the audit-period view. It may also belong in the **auditor portal**, not only the main app
@@ -144,8 +148,8 @@ across the selected period:
 3. Repeated flaps of one finding collapse to a single row; the default view shows material changes,
    with an opt-in "all activity" toggle.
 4. The raw event feed still exists as a per-control drill-down — nothing lost, just demoted.
-5. No backend timeline recomputation added unless `control-history` proves account-only and needs an
-   org-wide/framework-wide variant (extend, don't rebuild).
+5. Extend the existing segment builder into an efficient framework-wide response; decide whether
+   multi-account org history merges account segments or remains explicitly account-selected.
 
 ### Open question for build
 - Does the timeline live **only** in the main app, or is it (also) promoted into the auditor portal?
@@ -160,40 +164,35 @@ across the selected period:
 
 ## 9. Gap — check-less human criteria (CC7.4, A1.3, CC7.5, A1.1) can't receive external evidence — **open** (spec)
 
-**Correction to an earlier verbal claim:** I said the runbook could already be attached to CC7.4 /
-A1.3. That was wrong for these specific criteria. Backend + model + upload modal *do* support
-control-level tagging — but the **UI never offers a check-less criterion as an upload target**, so
-they're unreachable.
+**Correction to an earlier verbal claim:** the runbook cannot currently be attached from CC7.4 /
+A1.3. Backend + model + upload modal support control-level tagging, and these criteria now appear in
+the secondary **All controls** view as manual-attestation rows. However, their detail panel suppresses
+the evidence section when `check_ids` is empty, and they remain absent from the default composite
+view and its upload picker.
 
 **Root cause (verified in code + data):**
 - `control_mappings.json`: **CC7.4** (incident response), **A1.3** (DR test), **CC7.5** (recovery),
   **A1.1** (capacity) each have **0 automated checks** — they are purely human/external evidence.
-- `underlyingCriteriaForComposite` (`web/src/pages/Controls.tsx:1234`) builds the per-criterion list
+- `underlyingCriteriaForComposite` (`web/src/pages/Controls.tsx`) builds the per-criterion list
   by intersecting a composite's `check_ids` with each control's `check_ids`. A criterion with no
   checks never matches → excluded.
-- `ExternalEvidencePanel` (`web/src/components/ExternalEvidencePanel.tsx:106`) builds its control
+- `ExternalEvidencePanel` (`web/src/components/ExternalEvidencePanel.tsx`) builds its control
   picker **only** from `underlyingCriteria`. No "browse all framework controls" fallback exists.
-- Net: CC7.4 / A1.3 / CC7.5 / A1.1 appear in no composite drill-down and in no upload picker. The
-  runbook + DR-test photos have nowhere to attach, even though `EvidenceArtifact.control_id`,
-  the upload route, and `CriterionEvidenceUploadModal` all support it.
-
-**Deeper question to confirm during build:** do these check-less criteria render **anywhere** on the
-Compliance page today? Composite membership is derived from checks, so a 0-check criterion may be
-orphaned entirely (not shown, not gradeable, not attachable). If so, they're invisible — worse than
-just un-attachable.
+- `buildDetailedTabs` renders `ManualAttestation` for check-less controls but gates
+  `ControlEvidenceTabContent` behind `check_ids.length > 0`, even though that component already
+  launches `CriterionEvidenceUploadModal` with the exact control UUID.
+- Manual status currently comes only from `ControlAttestation`; accepted control-tagged evidence is
+  not joined into the manual criterion's status. Net: the criteria are visible only in the detailed
+  catalog, but runbooks/photos still cannot be uploaded there and accepted evidence cannot produce
+  `externally_covered`.
 
 **Fix (frontend-led, backend already supports it):**
-1. Surface check-less framework criteria as **upload targets**. Two options:
-   - (a) Loosen `underlyingCriteriaForComposite` / the picker to also include criteria that map to the
-     composite's framework controls even with 0 checks (needs a control→composite mapping that isn't
-     check-derived — may require a small backend/data addition since composite membership is
-     currently check-based); OR
-   - (b) Add a dedicated **"Manual controls"** section on the Compliance page (or in the audit-readiness
-     page, item 8) listing all framework criteria with 0 automated checks — each with an "Attach
-     evidence" action → the existing `CriterionEvidenceUploadModal` with that `control_id`. This is
-     the cleaner option and reuses the shipped upload flow verbatim.
+1. Make the existing manual rows first-class in the default Compliance experience (or add a
+   dedicated **Manual controls** section), and render their existing control-level evidence content
+   and upload modal even when `check_ids` is empty.
 2. Such criteria grade as **needs_evidence** until accepted external evidence is attached, then
-   **externally_covered** — same state machine as the external-only categories.
+   **externally_covered**. This requires joining accepted artifacts by `control_id`; attestation can
+   remain a separate assertion, but must not silently stand in for accepted evidence.
 3. Auditor-visible: the attached runbook/photos show on that criterion and in the evidence pack under
    CC7.4 / A1.3.
 
@@ -210,87 +209,81 @@ runbook + test photos) that a real customer already has and can't currently file
 
 ## 10. Audit-readiness page — auditor technical playbooks — **done**
 
-**Evidence (dev):** the API now returns a closed auditor technical-playbook registry rather than
-expanding raw mapped checks. The page asks concise outcome questions for DR, vulnerability
-management, logging and monitoring, identity and access, encryption and data protection, network
-boundaries, and change/deployment controls. Rows show Verified / Action needed / inventory-backed
-N/A, cap actions at the top three applicable priorities, and keep SOC 2 mapping secondary.
-Questionnaire/PDF narrative remains separate behind copy/expand and in the evidence export.
-
-**Scope correction:** policy documents, runbooks, recovery exercises, and other manual evidence are
-explicitly outside this automated checklist and are never presented as verified. Inspector is shown
-only when EC2/ECS/EKS/ECR workload inventory makes it applicable; DR checks become N/A when no
-supported stateful resource is present.
-
-The page shipped (item 8) with correct **data** but wrong **presentation**: each domain is a wall of
-narrative prose, stacked as another wall below, and the whole thing is centered in a narrow column
-with a large empty left gutter. Ellie's intent is a **scannable checklist** — per capability, the
-concrete services/actions and what control they map to — not paragraphs.
-
-### The data for a checklist already exists — stop collapsing it into a paragraph
-`api/app/services/audit_readiness.py` + `pdf_narrative.py` already compute per domain:
-`verified_phrases` (what each passing check proves), gap findings, `named_sources` (which
-accounts/repos), `check_ids`, control tags, and the absence-gap service registry
-(`web/src/lib/evidenceGap.ts`) is available client-side. The paragraph (`assertion_text`) is a
-join of these — render the parts as rows instead.
-
-### A. Replace the assertion paragraph with checklist rows
-Each domain card becomes a header (title + status pill) + a **list of check rows**, one per
-capability/service. Three row types, visually distinct:
-- **Verified** (green check): "VPC Flow Logs enabled — accounts amit-shemesh-clc" · maps to
-  `CC7.2`. Source named inline (which accounts/repos). Built from `verified_phrases` +
-  `named_sources` + control tags.
-- **Action / enable** (amber, actionable): "GuardDuty not enabled — **Activate**" · maps to
-  `CC6.6`. For absence-gap checks (off services), the row's action is a direct enable link
-  (`ABSENCE_GAP_CONSOLE_URL`). For non-absence failing checks: "**Review**" → findings.
-- **Not applicable** (muted): "Container image scanning — N/A (no container resources)". See §C.
-
-Show the control mapping **per row** (which CC/ISO the item satisfies), not just a tag cloud at the
-bottom — that's the "corresponds to" Ellie wants ("these services active → this control met").
-
-### B. Keep the narrative — demote it
-The auditor-prose paragraph is genuinely useful for pasting into questionnaires. Keep it behind the
-existing **"Copy for questionnaire"** action (and in the PDF). It is not the primary on-screen
-content. Optionally a small "Show auditor narrative" expander per domain.
-
-### C. Auto not-applicable when no relevant resources exist
-Ellie: "ignore DR if no resources that use it are available." If a domain's checks have **no
-in-scope resources** in the environment (e.g. no containers → container scanning; no RDS → DB
-backup checks), render the domain/row as **Not applicable — no {resource} in scope**, auto-detected,
-and exclude it from the readiness rollup. Distinct from the user-marked N/A (item 8-C) — this one is
-automatic from resource inventory. Backend likely needs a per-domain "has in-scope resources" signal
-(derive from whether any resource of the relevant type was collected in the last scan); confirm and
-add if missing.
-
-### D. Fix the layout (the visible bug)
-Content renders in a narrow centered column with a large empty left gutter (see screenshot).
-`audit-readiness-page.css` — make the page **full-width, left-aligned**, matching the org-home /
-Compliance content width and gutters. No centered narrow column, no empty left band. Cards span the
-content area; text left-aligned; comfortable max line length via padding, not by centering a skinny
-column.
-
-### E. Row density
-Checklist should scan fast: single-line rows where possible (icon + capability + source + control +
-action), wrapping only when needed. This is a checklist, not an essay — the reader skims for red
-rows (activate these) and green rows (proven).
-
-### Acceptance
-1. Each domain shows a checklist of rows (verified / action-enable / N/A), not a prose paragraph.
-2. Absence-gap "off" services show an **Activate** action with the exact service + the control it
-   satisfies; failing checks show Review.
-3. Each row states which control(s) it maps to.
-4. Domains/rows with no in-scope resources auto-render as Not applicable and drop from the rollup.
-5. The auditor narrative survives as "Copy for questionnaire" + PDF, not as the primary UI.
-6. Layout is full-width and left-aligned — no centered skinny column, no empty left gutter.
-
-**Note:** ~80% frontend reshape (render existing fields as rows + CSS). Backend additions likely
-limited to: per-domain "has in-scope resources" flag (§C) and, optionally, a structured
-`checklist_items[]` per domain so page and PDF share one shape (recommended — keeps them from
-diverging, same principle as item 8).
+**Evidence (dev):** shipped through `7b438952` → `7fcf9bea` → `11d04c3e` → `017607b7` →
+`17670220`. The page renders a closed technical-playbook checklist with Verified / Action needed /
+inventory-backed N/A rows, row-level SOC 2 mappings, and at most three applicable priorities.
+Questionnaire/PDF narrative remains available separately. Manual policies, runbooks, and recovery
+exercises are never claimed as automated verification; Inspector and DR applicability require
+supporting collected inventory.
 
 ## 11. Remove account switcher from the sidebar rail → pure nav (org-first) — **done**
 
 **Evidence (dev):** `SidebarAccountSwitcher` removed from `Layout.tsx`; rail is brand → nav → user
 card only. "All accounts (N)" rehomed to org-home header slot; "+ Add account" remains on the
 management list and Integrations connect flows. Orphaned `sidebar-accounts*` CSS deleted. Shipped in
-`4b274870`.
+`a98b2e17`; `3d163c0d` removed the duplicate "All accounts" header on org home.
+
+## 12. Org home — adopt the two-column card layout (mockup-approved) — **done**
+
+**Evidence (dev):** `OrgReadinessHome` is full-width and left-aligned with a dynamic evidence
+stepper, a 2:1 blocker/recommended-action grid, and a full-width timeline card. Blocker rows retain
+org-wide ranking/math while showing age, cloud region or org source, mapped controls, severity, and
+working Review links. The top absence-gap capability has a working Enable link and disappears when
+none applies; the blocker card then spans the row.
+
+### Preserved acceptance spec
+
+Ellie approved a mockup that decisively beats the current org-readiness home. Reshape the existing
+`OrgReadinessHome` to this layout. **Data is unchanged — this is a layout/presentation reshape**
+(same blockers, stepper, capabilities, timeline already computed). Fixes the three standing
+complaints: centered narrow column, antivirus feel, and the ENABLE step having no home.
+
+### Layout (left-aligned, full-width, structured cards — not centered prose)
+Top (full width, left-aligned):
+1. **Eyebrow:** `{Org name} technical evidence  [Not ready]  for SOC 2.` — org name prettified
+   (title-case the slug, e.g. `cloud-castles` → "Cloud Castles"); only the state pill colored.
+2. **Headline:** `32 high findings stand between you and SOC 2.` ({n} + "high" colored).
+3. **Subline (math):** `Fixing the items below clears 24 of 32 high findings and unlocks CC6.1,
+   CC6.3, CC6.8 and more. Everything else can wait.`
+4. **Stepper:** Connected → Evidence flowing → {n} high findings (current) → Controls passing →
+   Evidence ready. Current step label is dynamic ("32 high findings").
+
+Middle — **two-column row**:
+- **Left card — "What's blocking you"** (~2/3 width). Header: title + optional right control
+  (see caveat). Rows: rank chip · title · meta line `{age} · {region|source} · {CC ids}` ·
+  severity chip · `Review →`. Footer link: `View all {N} high findings →`.
+- **Right card — "Recommended next step"** (~1/3 width). The top ENABLE item (absence-gap service),
+  e.g. "GuardDuty threat detection — Enable →" with a one-line description. If multiple, show one;
+  if none, hide the card (left card goes full width).
+
+Bottom — **Timeline card** (full width): header "Timeline" + `History →`; dot-connector rows
+`{date} · dot · {event text}` (green dot = resolved, grey = other). 5–6 rows.
+
+### Org-first correctness (do not regress)
+The mockup shows a 1-account case (`All accounts (1)`, us-east-1). Home is **org-first** — keep it:
+- Blocker rows must still carry **org-level source tags** when not from a single cloud account:
+  `· GitHub`, `· GitLab`, `· Entra ID`, `· Google Workspace` (reuse `sourceTagForCheck`). The
+  mock's "us-east-1 · CC6.1" is just the cloud case; source-control/identity rows show their source.
+- No per-account scoping introduced; this is the org rollup.
+
+### Caveats to resolve during build (don't ship dead/duplicate controls)
+- **"Review all ▾"** dropdown in the mock header — only include it if it does something real (bulk
+  action / filter). Otherwise omit; `View all {N} high findings →` footer already covers "see all".
+- **Header icons:** keep the existing **help + notifications** (do not swap to the mock's lone gear).
+- **Org name prettify:** derive from real org name/slug; never hardcode "Cloud Castles".
+
+### What to drop from current
+The centered narrow-column layout and the stacked full-width prose sections. Replace with the
+two-column card grid above. Keep the existing data hooks (blocker grouping/ranking, stepper state,
+absence-gap ENABLE items, timeline merge) — only the render + CSS change.
+
+### Acceptance
+1. Home is left-aligned, full-width, two-column (blockers | recommended-next-step) + timeline card;
+   no centered narrow column.
+2. Recommended-next-step ENABLE card renders the top absence-gap service with a working Enable link;
+   hidden when none (blockers card spans full width).
+3. Blocker rows show rank · title · meta (age · region/source · CC ids) · severity · Review; org
+   source tags present for GitHub/GitLab/identity rows.
+4. No dead "Review all" control; help + notifications header kept; org name prettified from real data.
+5. Numbers reconcile (subline "clears X of N" = sum of shown rows; N = org-wide high count) — keep
+   the existing dev assertion.
