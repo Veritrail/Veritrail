@@ -239,6 +239,11 @@ export default function Layout() {
             <span className="app-sidebar__label">Compliance</span>
           </SidebarNavLink>
 
+          <SidebarNavLink to="/audit-readiness" title="Audit readiness">
+            <SidebarIcon name="compliance" />
+            <span className="app-sidebar__label">Audit readiness</span>
+          </SidebarNavLink>
+
           <SidebarNavLink to="/history" title="History">
             <SidebarIcon name="history" />
             <span className="app-sidebar__label">History</span>

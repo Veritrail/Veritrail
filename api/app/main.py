@@ -17,7 +17,7 @@ from app.core.config import get_settings
 from app.core.db import SessionLocal
 from app.core.client_ip import client_ip_from_request
 from app.routes import accounts, accounts_onboard, accounts_scan, accounts_analysis, findings, auth, auth_oauth, auth_saml, github_integration, gitlab_integration, google_workspace_integration, entra_integration, slack_integration, jira_integration, linear_integration, gcp_integration, azure_integration, scanner_integration, siem_integration, azure_boards_integration, cloud_integration, integration_requests, iac, settings as settings_router, members
-from app.routes import controls, exports, meta, public, platform_admin, domains, join_requests, audit_log
+from app.routes import controls, exports, meta, public, platform_admin, domains, join_requests, audit_log, audit_readiness
 from app.routes import auditor, auditor_portal, trust_center
 from app.routes import intune_integration, jamf_integration
 
@@ -181,6 +181,7 @@ app.include_router(settings_router.router, prefix="/v1/settings", tags=["setting
 app.include_router(domains.router, prefix="/v1/domains", tags=["domains"])
 app.include_router(join_requests.router, prefix="/v1/join-requests", tags=["join-requests"])
 app.include_router(controls.router, prefix="/v1/controls", tags=["controls"])
+app.include_router(audit_readiness.router, prefix="/v1/audit-readiness", tags=["audit-readiness"])
 app.include_router(exports.router, prefix="/v1/exports", tags=["exports"])
 app.include_router(meta.router, prefix="/v1/meta", tags=["meta"])
 app.include_router(public.router, prefix="/v1/public", tags=["public"])

@@ -532,6 +532,68 @@ def build_domain_sections(
     return sections
 
 
+def affirmation_status(*, checks_total: int, checks_passing: int) -> str:
+    """Auditor-facing status marker for a capability domain."""
+    if checks_total and checks_passing == checks_total:
+        return "supported"
+    if checks_passing:
+        return "partially_supported"
+    return "not_affirmed"
+
+
+def domain_section_as_dict(
+    section: DomainSection,
+    *,
+    temporal_sentence: str | None = None,
+    named_sources: list[str] | None = None,
+    check_ids: list[str] | None = None,
+) -> dict[str, Any]:
+    """Structured JSON for the Audit readiness page and API (shared with PDF builder)."""
+    gaps = [
+        {
+            "id": g.get("id"),
+            "check_id": g.get("check_id"),
+            "resource_arn": g.get("resource_arn"),
+            "title": g.get("title"),
+            "severity": g.get("severity"),
+        }
+        for g in section.gaps
+    ]
+    exceptions = [
+        {
+            "id": e.get("id"),
+            "check_id": e.get("check_id"),
+            "resource_arn": e.get("resource_arn"),
+            "title": e.get("title"),
+            "narrative": exception_narrative(e),
+        }
+        for e in section.exceptions
+    ]
+    evidence_refs = [g["id"] for g in gaps if g.get("id")]
+    evidence_refs += [e["id"] for e in exceptions if e.get("id")]
+    return {
+        "key": section.key,
+        "label": section.label,
+        "status": affirmation_status(
+            checks_total=section.checks_total,
+            checks_passing=section.checks_passing,
+        ),
+        "assertion_text": section.assertion,
+        "coverage_line": section.coverage_line,
+        "verified_phrases": list(section.verified_phrases),
+        "gaps": gaps,
+        "exceptions": exceptions,
+        "control_tags": list(section.control_tags),
+        "evidence_refs": evidence_refs,
+        "checks_total": section.checks_total,
+        "checks_passing": section.checks_passing,
+        "scope_note": section.scope_note,
+        "temporal_sentence": temporal_sentence,
+        "named_sources": named_sources or [],
+        "check_ids": check_ids or [],
+    }
+
+
 def exception_narrative(finding: dict[str, Any]) -> str:
     """One-line documented-deviation narrative with the recorded reason."""
     exc = finding.get("exception") or {}

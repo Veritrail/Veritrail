@@ -573,6 +573,34 @@ export const controlListItemSchema = z
 
 export const controlListSchema = z.array(controlListItemSchema);
 
+export const auditReadinessDomainSchema = z.object({
+  key: z.string(),
+  label: z.string(),
+  status: z.string(),
+  assertion_text: z.string(),
+  coverage_line: z.string(),
+  verified_phrases: z.array(z.string()),
+  gaps: z.array(z.record(z.unknown())),
+  exceptions: z.array(z.record(z.unknown())),
+  control_tags: z.array(z.string()),
+  evidence_refs: z.array(z.string()),
+  checks_total: z.number(),
+  checks_passing: z.number(),
+  scope_note: z.string().nullable().optional(),
+  temporal_sentence: z.string().nullable().optional(),
+  named_sources: z.array(z.string()).optional(),
+  check_ids: z.array(z.string()).optional(),
+});
+
+export const auditReadinessSchema = z.object({
+  framework: z.string(),
+  org_name: z.string(),
+  as_of: z.string(),
+  period_days: z.number(),
+  scope_label: z.string(),
+  domains: z.array(auditReadinessDomainSchema),
+});
+
 export const controlMappingItemSchema = z.object({
   framework: z.string(),
   control_id: z.string(),

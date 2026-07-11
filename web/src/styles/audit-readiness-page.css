@@ -1,0 +1,214 @@
+/* Audit readiness — document-like narrative page (item 8). */
+
+.audit-readiness {
+  max-width: 46rem;
+  margin: 0 auto;
+  padding: 1.5rem 1.25rem 3rem;
+}
+
+.audit-readiness__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.audit-readiness__title {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--vt-text, #0f172a);
+}
+
+.audit-readiness__lede {
+  margin: 0.35rem 0 0;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--vt-text-muted, #64748b);
+  max-width: 36rem;
+}
+
+.audit-readiness__toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.audit-readiness__select,
+.audit-readiness__btn {
+  font-size: 0.8125rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--vt-border, #e2e8f0);
+  padding: 0.45rem 0.75rem;
+  background: var(--vt-surface, #fff);
+  color: var(--vt-text, #0f172a);
+}
+
+.audit-readiness__btn {
+  background: var(--vt-text, #0f172a);
+  color: #fff;
+  border-color: transparent;
+  cursor: pointer;
+}
+
+.audit-readiness__btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.audit-readiness__meta {
+  margin: 0 0 1.5rem;
+  font-size: 0.8125rem;
+  color: var(--vt-text-muted, #64748b);
+}
+
+.audit-readiness__error {
+  color: #b91c1c;
+  font-size: 0.875rem;
+}
+
+.audit-readiness__empty {
+  font-size: 0.875rem;
+  color: var(--vt-text-muted, #64748b);
+  padding: 1.25rem;
+  border: 1px dashed var(--vt-border, #e2e8f0);
+  border-radius: 0.75rem;
+}
+
+.audit-readiness__domains {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.audit-readiness__domain {
+  padding: 1.25rem 1.35rem;
+  border: 1px solid var(--vt-border, #e2e8f0);
+  border-radius: 0.75rem;
+  background: var(--vt-surface, #fff);
+  box-shadow: var(--vt-shadow-card, 0 1px 2px rgb(15 23 42 / 4%));
+}
+
+.audit-readiness__domain-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.audit-readiness__domain-title {
+  margin: 0;
+  font-size: 1.0625rem;
+  font-weight: 600;
+  color: var(--vt-text, #0f172a);
+}
+
+.audit-readiness__status {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+}
+
+.audit-readiness__status--supported {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.audit-readiness__status--partial {
+  background: #fffbeb;
+  color: #b45309;
+}
+
+.audit-readiness__status--not-affirmed {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.audit-readiness__assertion,
+.audit-readiness__temporal,
+.audit-readiness__coverage,
+.audit-readiness__sources,
+.audit-readiness__scope-note {
+  margin: 0 0 0.65rem;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: var(--vt-text, #334155);
+}
+
+.audit-readiness__temporal {
+  color: var(--vt-text, #1e293b);
+  font-style: italic;
+}
+
+.audit-readiness__sources-label {
+  font-weight: 600;
+  color: var(--vt-text-muted, #64748b);
+}
+
+.audit-readiness__coverage {
+  font-size: 0.8125rem;
+  color: var(--vt-text-muted, #64748b);
+}
+
+.audit-readiness__scope-note {
+  font-size: 0.75rem;
+  color: var(--vt-text-muted, #94a3b8);
+}
+
+.audit-readiness__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0.5rem 0 0.85rem;
+}
+
+.audit-readiness__tag {
+  font-size: 0.6875rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 0.35rem;
+  background: #f8fafc;
+  border: 1px solid var(--vt-border, #e2e8f0);
+  color: var(--vt-text-muted, #64748b);
+}
+
+.audit-readiness__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  padding-top: 0.35rem;
+}
+
+.audit-readiness__link,
+.audit-readiness__copy {
+  font-size: 0.8125rem;
+  color: var(--vt-accent, #0d9488);
+  text-decoration: none;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+.audit-readiness__link:hover,
+.audit-readiness__copy:hover {
+  text-decoration: underline;
+}
+
+.audit-readiness__link--muted {
+  color: var(--vt-text-muted, #64748b);
+}
+
+@media (max-width: 640px) {
+  .audit-readiness {
+    padding-inline: 1rem;
+  }
+}

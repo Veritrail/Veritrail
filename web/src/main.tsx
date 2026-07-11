@@ -28,6 +28,7 @@ import VulnScannerIntegration from "./pages/VulnScannerIntegration";
 import IntuneIntegration from "./pages/IntuneIntegration";
 import JamfIntegration from "./pages/JamfIntegration";
 import Questionnaire from "./pages/Questionnaire";
+import AuditReadiness from "./pages/AuditReadiness";
 import SiemIntegration from "./pages/SiemIntegration";
 import Integrations from "./pages/Integrations";
 import IntegrationCatalog from "./pages/IntegrationCatalog";
@@ -89,6 +90,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
             <Route path="/members" element={<Navigate to="/workspace#access" replace />} />
             <Route path="/detection" element={<Navigate to="/workspace#scanning" replace />} />
             <Route path="/controls" element={<Controls />} />
+            <Route path="/audit-readiness" element={<AuditReadiness />} />
             <Route path="/history" element={<History />} />
             <Route path="/compliance-history" element={<Navigate to="/history" replace />} />
             <Route path="/compliance-timeline" element={<Navigate to="/history" replace />} />
