@@ -40,9 +40,6 @@ export function BlockersList({
               <p className="org-home__blocker-title">{labelForCheck(group.checkId)}</p>
               <p className="org-home__blocker-meta">{metaParts.join(" · ")}</p>
             </div>
-            <span className={`org-home__severity-chip is-${group.severity}`}>
-              {group.severity}
-            </span>
             <Link
               to={findingsHref(group.checkId) ?? defaultFindingsHref}
               className="org-home__review-btn"

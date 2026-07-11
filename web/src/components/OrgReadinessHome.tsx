@@ -32,7 +32,7 @@ import {
 import { useMe } from "../hooks/useMe";
 import { BlockersList } from "./BlockersList";
 import { CapabilitiesToEnableList } from "./CapabilitiesToEnableList";
-import { absenceGapEnableItems } from "../lib/evidenceGap";
+import { absenceGapEnableItems, isAbsenceGapCheck } from "../lib/evidenceGap";
 
 const STEP_LABELS = [
   "Connected",
@@ -200,16 +200,27 @@ export function OrgReadinessHome() {
   );
   const clearedByBlockersCount = clearedByBlockers(blockerGroups);
   const unblockedControlIdsList = unblockedControlIds(blockerGroups);
+  // Absence gaps are "turn this service on" nudges, not severity-ranked
+  // blockers — surface them across all open findings, not just high, so the
+  // recommended list reflects every disabled capability (e.g. VPC flow logs).
+  const allAbsenceGapFindings = useMemo(
+    () => openFindings.filter((f) => isAbsenceGapCheck(f.check_id)),
+    [openFindings],
+  );
   const capabilityItems = useMemo(() => {
     const findingCountByCheck = new Map<string, number>();
-    for (const finding of absenceGapFindings) {
+    for (const finding of allAbsenceGapFindings) {
       findingCountByCheck.set(
         finding.check_id,
         (findingCountByCheck.get(finding.check_id) ?? 0) + 1,
       );
     }
-    return absenceGapEnableItems([...findingCountByCheck.keys()], findingCountByCheck);
-  }, [absenceGapFindings]);
+    // Rank most-impactful first so the top items aren't arbitrary array order.
+    const ranked = [...findingCountByCheck.keys()].sort(
+      (a, b) => (findingCountByCheck.get(b) ?? 0) - (findingCountByCheck.get(a) ?? 0),
+    );
+    return absenceGapEnableItems(ranked, findingCountByCheck);
+  }, [allAbsenceGapFindings]);
 
   if (import.meta.env.DEV && (blockerGroups.length > 0 || absenceGapFindings.length > 0)) {
     assertBlockerMath(highCount, blockerGroups, { absenceGapCount: absenceGapFindings.length });
@@ -273,8 +284,8 @@ export function OrgReadinessHome() {
       <div className="org-home">
         <header className="org-home__headline-block">
           <p className="org-home__verdict">
-            {orgName} technical evidence{" "}
-            <strong className="org-home__verdict-pill is-not-ready">Not ready</strong>{" "}
+            {orgName} technical evidence is{" "}
+            <span className="org-home__verdict-state is-not-ready">not ready</span>{" "}
             for SOC 2.
           </p>
           <h1 className="org-home__headline">Connect your first integration to get started.</h1>
@@ -300,10 +311,10 @@ export function OrgReadinessHome() {
     <div className="org-home">
       <header className="org-home__headline-block">
         <p className="org-home__verdict">
-          {orgName} technical evidence{" "}
-          <strong className={`org-home__verdict-pill is-${verdictClass}`}>
-            {evidenceReady ? "Ready" : "Not ready"}
-          </strong>{" "}
+          {orgName} technical evidence is{" "}
+          <span className={`org-home__verdict-state is-${verdictClass}`}>
+            {evidenceReady ? "ready" : "not ready"}
+          </span>{" "}
           for SOC 2.
         </p>
         {zeroHigh ? (
@@ -371,9 +382,11 @@ export function OrgReadinessHome() {
           ) : null}
 
           {capabilityItems.length > 0 ? (
-            <section className="org-home__capabilities-section" aria-label="Recommended next step">
-              <h2 className="org-home__section-title">Recommended next step</h2>
-              <CapabilitiesToEnableList items={capabilityItems.slice(0, 1)} />
+            <section className="org-home__capabilities-section" aria-label="Recommended next steps">
+              <h2 className="org-home__section-title">
+                {capabilityItems.length === 1 ? "Recommended next step" : "Recommended next steps"}
+              </h2>
+              <CapabilitiesToEnableList items={capabilityItems.slice(0, 3)} />
             </section>
           ) : null}
         </div>

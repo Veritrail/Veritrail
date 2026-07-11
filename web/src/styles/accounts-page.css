@@ -7906,25 +7906,16 @@ button.accounts-flow-step:hover {
   color: #64748b;
 }
 
-.org-home__verdict-pill {
-  display: inline-flex;
-  align-items: center;
-  margin: 0 0.2rem;
-  padding: 0.2rem 0.625rem;
-  border-radius: 999px;
-  font-size: 0.75rem;
+/* Plain colored word, not a pill — "…evidence is not ready for SOC 2." */
+.org-home__verdict-state {
   font-weight: 700;
-  letter-spacing: 0.025em;
-  text-transform: uppercase;
 }
 
-.org-home__verdict-pill.is-not-ready {
-  background: #fff7ed;
+.org-home__verdict-state.is-not-ready {
   color: #b45309;
 }
 
-.org-home__verdict-pill.is-ready {
-  background: #ecfdf5;
+.org-home__verdict-state.is-ready {
   color: #047857;
 }
 
@@ -8010,6 +8001,33 @@ button.accounts-flow-step:hover {
   color: #98a2b3;
   text-align: center;
   white-space: nowrap;
+}
+
+/* Flush the end steps to the content edges so the track aligns with the
+   headline/cards (was indented left + clipped right). */
+.org-home__step:first-child {
+  align-items: flex-start;
+}
+
+.org-home__step:last-child {
+  align-items: flex-end;
+}
+
+.org-home__step:first-child .org-home__step-label {
+  text-align: left;
+}
+
+.org-home__step:last-child .org-home__step-label {
+  text-align: right;
+}
+
+/* Connectors must reach the now-flushed first/last dots. */
+.org-home__step:nth-child(2) .org-home__step-line {
+  left: calc(-100% + 1.875rem);
+}
+
+.org-home__step:last-child .org-home__step-line {
+  right: 0.46875rem;
 }
 
 .org-home__step.is-done .org-home__step-label,
@@ -8186,7 +8204,7 @@ button.accounts-flow-step:hover {
   min-width: 0;
   border: 1px solid var(--vt-border, #e8edf3);
   border-radius: 14px;
-  background: #f8fffe;
+  background: #ffffff;
   box-shadow: var(--vt-shadow-card, 0 1px 2px rgb(9 9 11 / 0.035));
   overflow: hidden;
 }
@@ -8196,7 +8214,7 @@ button.accounts-flow-step:hover {
 }
 
 .org-home__capabilities-card {
-  border-top: 1px solid #e5f5f2;
+  border-top: 1px solid #f1f5f9;
 }
 
 .org-home__capability-row {
@@ -8308,11 +8326,7 @@ button.accounts-flow-step:hover {
 /* Timeline card */
 
 .org-home__timeline-section {
-  padding: 1.25rem 1.5rem 0.5rem;
-  border: 1px solid var(--vt-border, #e8edf3);
-  border-radius: 14px;
-  background: var(--vt-surface, #fff);
-  box-shadow: var(--vt-shadow-card, 0 1px 2px rgb(9 9 11 / 0.035));
+  padding: 1.25rem 0.25rem 0.5rem;
 }
 
 .org-home__timeline {
