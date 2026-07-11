@@ -17,6 +17,5 @@ test.describe("public launch pages", () => {
     await expect(page.getByRole("button", { name: /sign in to veritrail/i })).toBeVisible();
     // Self-registration is disabled — no sign-up toggle without an invite.
     await expect(page.getByRole("button", { name: /sign up/i })).toHaveCount(0);
-    await expect(page.getByText(/signups are invite-only/i)).toBeVisible();
   });
 });

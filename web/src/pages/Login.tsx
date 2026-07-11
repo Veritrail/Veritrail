@@ -925,11 +925,7 @@ export default function Login() {
                 )}
               </button>
             </div>
-          ) : (
-            <p className="auth-footer-legal">
-              Signups are invite-only — <a href="mailto:support@veritrail.io">contact support@veritrail.io</a>
-            </p>
-          )}
+          ) : null}
         </div>
       </div>
     </div>
