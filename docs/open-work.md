@@ -208,6 +208,78 @@ just un-attachable.
 runbook + test photos) that a real customer already has and can't currently file. Relates to item 8
 (the external-attach state) and item 4 of the SOC 2 map (EXTERNAL criteria).
 
+## 10. Audit-readiness page — reshape prose walls into a checklist + fix layout — **done**
+
+**Evidence (dev):** full-width checklist rows now show Verified / Action required / automatic N/A,
+named scope, mapped controls, direct Activate or Review actions, while questionnaire prose remains
+behind copy/expand and JSON/evidence drill-downs remain available.
+
+The page shipped (item 8) with correct **data** but wrong **presentation**: each domain is a wall of
+narrative prose, stacked as another wall below, and the whole thing is centered in a narrow column
+with a large empty left gutter. Ellie's intent is a **scannable checklist** — per capability, the
+concrete services/actions and what control they map to — not paragraphs.
+
+### The data for a checklist already exists — stop collapsing it into a paragraph
+`api/app/services/audit_readiness.py` + `pdf_narrative.py` already compute per domain:
+`verified_phrases` (what each passing check proves), gap findings, `named_sources` (which
+accounts/repos), `check_ids`, control tags, and the absence-gap service registry
+(`web/src/lib/evidenceGap.ts`) is available client-side. The paragraph (`assertion_text`) is a
+join of these — render the parts as rows instead.
+
+### A. Replace the assertion paragraph with checklist rows
+Each domain card becomes a header (title + status pill) + a **list of check rows**, one per
+capability/service. Three row types, visually distinct:
+- **Verified** (green check): "VPC Flow Logs enabled — accounts amit-shemesh-clc" · maps to
+  `CC7.2`. Source named inline (which accounts/repos). Built from `verified_phrases` +
+  `named_sources` + control tags.
+- **Action / enable** (amber, actionable): "GuardDuty not enabled — **Activate**" · maps to
+  `CC6.6`. For absence-gap checks (off services), the row's action is a direct enable link
+  (`ABSENCE_GAP_CONSOLE_URL`). For non-absence failing checks: "**Review**" → findings.
+- **Not applicable** (muted): "Container image scanning — N/A (no container resources)". See §C.
+
+Show the control mapping **per row** (which CC/ISO the item satisfies), not just a tag cloud at the
+bottom — that's the "corresponds to" Ellie wants ("these services active → this control met").
+
+### B. Keep the narrative — demote it
+The auditor-prose paragraph is genuinely useful for pasting into questionnaires. Keep it behind the
+existing **"Copy for questionnaire"** action (and in the PDF). It is not the primary on-screen
+content. Optionally a small "Show auditor narrative" expander per domain.
+
+### C. Auto not-applicable when no relevant resources exist
+Ellie: "ignore DR if no resources that use it are available." If a domain's checks have **no
+in-scope resources** in the environment (e.g. no containers → container scanning; no RDS → DB
+backup checks), render the domain/row as **Not applicable — no {resource} in scope**, auto-detected,
+and exclude it from the readiness rollup. Distinct from the user-marked N/A (item 8-C) — this one is
+automatic from resource inventory. Backend likely needs a per-domain "has in-scope resources" signal
+(derive from whether any resource of the relevant type was collected in the last scan); confirm and
+add if missing.
+
+### D. Fix the layout (the visible bug)
+Content renders in a narrow centered column with a large empty left gutter (see screenshot).
+`audit-readiness-page.css` — make the page **full-width, left-aligned**, matching the org-home /
+Compliance content width and gutters. No centered narrow column, no empty left band. Cards span the
+content area; text left-aligned; comfortable max line length via padding, not by centering a skinny
+column.
+
+### E. Row density
+Checklist should scan fast: single-line rows where possible (icon + capability + source + control +
+action), wrapping only when needed. This is a checklist, not an essay — the reader skims for red
+rows (activate these) and green rows (proven).
+
+### Acceptance
+1. Each domain shows a checklist of rows (verified / action-enable / N/A), not a prose paragraph.
+2. Absence-gap "off" services show an **Activate** action with the exact service + the control it
+   satisfies; failing checks show Review.
+3. Each row states which control(s) it maps to.
+4. Domains/rows with no in-scope resources auto-render as Not applicable and drop from the rollup.
+5. The auditor narrative survives as "Copy for questionnaire" + PDF, not as the primary UI.
+6. Layout is full-width and left-aligned — no centered skinny column, no empty left gutter.
+
+**Note:** ~80% frontend reshape (render existing fields as rows + CSS). Backend additions likely
+limited to: per-domain "has in-scope resources" flag (§C) and, optionally, a structured
+`checklist_items[]` per domain so page and PDF share one shape (recommended — keeps them from
+diverging, same principle as item 8).
+
 ## 11. Remove account switcher from the sidebar rail → pure nav (org-first) — **done**
 
 **Evidence (dev):** `SidebarAccountSwitcher` removed from `Layout.tsx`; rail is brand → nav → user

@@ -5,17 +5,20 @@ import { api } from "../api";
 import { auditReadinessSchema } from "../lib/apiSchemas";
 import { FRAMEWORKS, frameworkLabel } from "../data/frameworks";
 import { findingsHrefForCheckIds } from "../hooks/useConnectedAccountOptions";
+import { absenceGapCapabilityName, absenceGapConsoleUrl, isAbsenceGapCheck } from "../lib/evidenceGap";
 import "../styles/audit-readiness-page.css";
 
 const STATUS_LABELS: Record<string, string> = {
   supported: "Supported",
   partially_supported: "Partially supported",
   not_affirmed: "Not affirmed",
+  not_applicable: "Not applicable",
 };
 
 function statusTone(status: string): string {
   if (status === "supported") return "supported";
   if (status === "partially_supported") return "partial";
+  if (status === "not_applicable") return "not-applicable";
   return "not-affirmed";
 }
 
@@ -103,8 +106,8 @@ export default function AuditReadiness() {
         <div>
           <h1 className="audit-readiness__title">Audit readiness</h1>
           <p className="audit-readiness__lede">
-            Auditor-language capability assertions backed by collected evidence — the same narrative
-            builder that powers your evidence pack PDF.
+            A concrete checklist of what is active, what needs attention, and the audit controls each
+            capability supports.
           </p>
         </div>
         <div className="audit-readiness__toolbar">
@@ -126,8 +129,8 @@ export default function AuditReadiness() {
         </div>
       </header>
 
-      {isLoading && <p className="audit-readiness__meta">Loading narrative…</p>}
-      {error && <p className="audit-readiness__error">Failed to load audit readiness narrative.</p>}
+      {isLoading && <p className="audit-readiness__meta">Loading audit checklist…</p>}
+      {error && <p className="audit-readiness__error">Failed to load the audit checklist.</p>}
 
       {data && (
         <>
@@ -159,34 +162,98 @@ export default function AuditReadiness() {
                       </span>
                     </div>
 
-                    <p className="audit-readiness__assertion">{domain.assertion_text}</p>
-
-                    {domain.temporal_sentence ? (
-                      <p className="audit-readiness__temporal">{domain.temporal_sentence}</p>
-                    ) : null}
-
-                    {domain.named_sources && domain.named_sources.length > 0 ? (
-                      <p className="audit-readiness__sources">
-                        <span className="audit-readiness__sources-label">Sources:</span>{" "}
-                        {domain.named_sources.join(" · ")}
-                      </p>
-                    ) : null}
-
                     <p className="audit-readiness__coverage">{domain.coverage_line}</p>
 
-                    {domain.scope_note ? (
-                      <p className="audit-readiness__scope-note">{domain.scope_note}</p>
-                    ) : null}
+                    <div className="audit-readiness__checklist" role="list">
+                      {domain.checklist_items.map((item) => {
+                        const activateChecks = item.absence_check_ids.filter(isAbsenceGapCheck);
+                        const reviewHref = findingsHrefForCheckIds(item.check_ids);
+                        const rowStatus =
+                          item.status === "verified"
+                            ? "Verified"
+                            : item.status === "not_applicable"
+                              ? "Not applicable"
+                              : "Action required";
+                        return (
+                          <div
+                            key={item.key}
+                            className={`audit-readiness__row audit-readiness__row--${item.status}`}
+                            role="listitem"
+                          >
+                            <span
+                              className="audit-readiness__row-icon"
+                              aria-label={rowStatus}
+                              title={rowStatus}
+                            >
+                              {item.status === "verified" ? "✓" : item.status === "not_applicable" ? "—" : "!"}
+                            </span>
+                            <div className="audit-readiness__row-main">
+                              <span className="audit-readiness__row-label">
+                                {item.label}
+                                <span className="audit-readiness__row-state">{rowStatus}</span>
+                              </span>
+                              <span className="audit-readiness__row-summary">
+                                {item.status === "not_applicable"
+                                  ? item.applicability_reason
+                                  : item.status === "verified"
+                                    ? item.exception_count > 0
+                                      ? `No open gaps · ${item.exception_count} documented exception${item.exception_count === 1 ? "" : "s"}`
+                                      : "Active and no unresolved findings"
+                                    : activateChecks.length > 0
+                                      ? "Required capability is not active"
+                                      : `${item.finding_count} unresolved finding${item.finding_count === 1 ? "" : "s"}${item.highest_severity ? ` · highest: ${item.highest_severity}` : ""}`}
+                              </span>
+                              {item.top_findings.length > 0 ? (
+                                <span className="audit-readiness__row-findings">
+                                  {item.top_findings.map((finding) => (
+                                    <span key={`${finding.title}-${finding.resource}`}>
+                                      <strong>{finding.severity}</strong> {finding.title}{finding.resource ? ` · ${finding.resource}` : ""}
+                                    </span>
+                                  ))}
+                                </span>
+                              ) : null}
+                              {item.sources.length > 0 ? (
+                                <span className="audit-readiness__row-source">
+                                  {item.sources.slice(0, 3).join(" · ")}
+                                </span>
+                              ) : null}
+                            </div>
+                            <div className="audit-readiness__row-controls" aria-label="Mapped controls">
+                              {item.controls.map((control) => (
+                                <span key={control} className="audit-readiness__tag">{control}</span>
+                              ))}
+                            </div>
+                            {item.status === "action" && activateChecks.length > 0 ? (
+                              <span className="audit-readiness__row-actions">
+                                {activateChecks.map((checkId) => {
+                                  const href = absenceGapConsoleUrl(checkId);
+                                  return href ? (
+                                    <a key={checkId} className="audit-readiness__row-action" href={href} target="_blank" rel="noreferrer">
+                                      Activate {absenceGapCapabilityName(checkId)}
+                                    </a>
+                                  ) : null;
+                                })}
+                                {reviewHref ? <Link className="audit-readiness__row-action audit-readiness__row-action--muted" to={reviewHref}>Review findings</Link> : null}
+                              </span>
+                            ) : item.status === "action" && reviewHref ? (
+                              <Link className="audit-readiness__row-action" to={reviewHref}>Review</Link>
+                            ) : null}
+                          </div>
+                        );
+                      })}
+                    </div>
 
-                    {domain.control_tags.length > 0 ? (
-                      <div className="audit-readiness__tags" aria-label="Framework controls">
-                        {domain.control_tags.map((tag) => (
-                          <span key={tag} className="audit-readiness__tag">
-                            {tag}
-                          </span>
-                        ))}
+                    {(domain.temporal_sentence || domain.scope_note) ? (
+                      <div className="audit-readiness__notes">
+                        {domain.temporal_sentence ? <span>{domain.temporal_sentence}</span> : null}
+                        {domain.scope_note ? <span>{domain.scope_note}</span> : null}
                       </div>
                     ) : null}
+
+                    <details className="audit-readiness__narrative">
+                      <summary>Show auditor narrative</summary>
+                      <p>{domain.assertion_text}</p>
+                    </details>
 
                     <div className="audit-readiness__actions">
                       {evidenceHref ? (

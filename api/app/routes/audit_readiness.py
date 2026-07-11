@@ -4,7 +4,7 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.core.db import get_db
@@ -14,6 +14,28 @@ from app.services.audit_readiness import build_audit_readiness
 router = APIRouter()
 
 FRAMEWORKS = {"soc2", "cis_aws_l1", "iso27001"}
+
+
+class AuditReadinessFindingOut(BaseModel):
+    title: str
+    severity: str
+    resource: str
+
+
+class AuditReadinessChecklistItemOut(BaseModel):
+    key: str
+    check_id: str
+    check_ids: list[str]
+    label: str
+    status: str
+    controls: list[str]
+    sources: list[str]
+    finding_count: int
+    exception_count: int
+    highest_severity: str | None = None
+    applicability_reason: str | None = None
+    top_findings: list[AuditReadinessFindingOut]
+    absence_check_ids: list[str]
 
 
 class AuditReadinessDomainOut(BaseModel):
@@ -31,8 +53,9 @@ class AuditReadinessDomainOut(BaseModel):
     checks_passing: int
     scope_note: str | None = None
     temporal_sentence: str | None = None
-    named_sources: list[str] = []
-    check_ids: list[str] = []
+    named_sources: list[str] = Field(default_factory=list)
+    check_ids: list[str] = Field(default_factory=list)
+    checklist_items: list[AuditReadinessChecklistItemOut] = Field(default_factory=list)
 
 
 class AuditReadinessOut(BaseModel):

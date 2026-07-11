@@ -7,7 +7,12 @@ import pytest
 
 from app.models import Org, User
 from app.services.org_membership import add_membership
-from app.services.audit_readiness import build_audit_readiness
+from app.services.audit_readiness import (
+    _applicability_reason,
+    _checklist_items_for_domain,
+    _without_inapplicable_checks,
+    build_audit_readiness,
+)
 from app.services.pdf_narrative import affirmation_status, domain_section_as_dict
 from tests.test_pdf_narrative import NOW, _control, _sections
 
@@ -96,9 +101,65 @@ def test_build_audit_readiness_empty_org(db_session):
     db_session.flush()
     payload = build_audit_readiness(db_session, org_id, "soc2")
     assert payload["org_name"] == "Empty Org"
-    # No connected accounts, but framework controls still produce capability domains.
+    # No connected evidence providers means there is nothing to grade.
     assert isinstance(payload["domains"], list)
-    assert len(payload["domains"]) > 0
-    for domain in payload["domains"]:
-        assert domain["status"] == "supported"
-        assert domain["checks_total"] >= 0
+    assert payload["domains"] == []
+
+
+def test_resource_inventory_marks_container_scanning_not_applicable():
+    controls = [
+        {
+            "control_id": "CC7.1",
+            "check_evidence_classes": {
+                "ecr.repository.image_scan_disabled": "benchmark",
+                "ecr.registry.enhanced_scanning_disabled": "benchmark",
+            },
+            "findings": [],
+            "exceptions": [],
+        }
+    ]
+
+    items = _checklist_items_for_domain(
+        "vulnerability_management",
+        controls,
+        framework="soc2",
+        named_sources=["AWS account production (123456789012)"],
+        scanned_entity_types={"ec2_instance", "s3_bucket"},
+    )
+
+    assert len(items) == 1
+    assert items[0]["label"] == "Container image scanning"
+    assert items[0]["status"] == "not_applicable"
+    assert items[0]["applicability_reason"] == "No ECR repositories in scope"
+    assert items[0]["controls"] == ["SOC 2 CC7.1"]
+
+
+def test_not_applicable_checks_are_excluded_from_readiness_rollup():
+    controls = [
+        {
+            "control_id": "CC7.1",
+            "check_evidence_classes": {
+                "ecr.repository.image_scan_disabled": "benchmark",
+                "guardduty.detector.not_enabled": "benchmark",
+            },
+            "findings": [],
+            "exceptions": [],
+        }
+    ]
+
+    filtered = _without_inapplicable_checks(controls, {"ec2_instance"})
+
+    assert list(filtered[0]["check_evidence_classes"]) == [
+        "guardduty.detector.not_enabled"
+    ]
+
+
+def test_applicability_stays_unknown_without_complete_inventory():
+    assert (
+        _applicability_reason(
+            ["ecr.repository.image_scan_disabled"],
+            scanned_entity_types=None,
+            observed_check_ids=set(),
+        )
+        is None
+    )

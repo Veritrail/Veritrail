@@ -590,6 +590,30 @@ export const auditReadinessDomainSchema = z.object({
   temporal_sentence: z.string().nullable().optional(),
   named_sources: z.array(z.string()).optional(),
   check_ids: z.array(z.string()).optional(),
+  checklist_items: z
+    .array(
+      z.object({
+        key: z.string(),
+        check_id: z.string(),
+        check_ids: z.array(z.string()),
+        label: z.string(),
+        status: z.enum(["verified", "action", "not_applicable"]),
+        controls: z.array(z.string()),
+        sources: z.array(z.string()),
+        finding_count: z.number(),
+        exception_count: z.number(),
+        highest_severity: z.string().nullable(),
+        applicability_reason: z.string().nullable(),
+        top_findings: z.array(z.object({
+          title: z.string(),
+          severity: z.string(),
+          resource: z.string(),
+        })),
+        absence_check_ids: z.array(z.string()),
+      }),
+    )
+    .optional()
+    .default([]),
 });
 
 export const auditReadinessSchema = z.object({
