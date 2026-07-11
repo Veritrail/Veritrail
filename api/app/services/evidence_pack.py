@@ -1096,9 +1096,16 @@ def _collect_timeline_rows(
 
     from app.services.source_control_scan import with_source_control_for_audit
 
+    timeline_account = db.get(AwsAccount, account_id)
+    if not timeline_account:
+        return rows
+
     findings = db.scalars(
         select(Finding).where(
-            with_source_control_for_audit(Finding.account_id == account_id),
+            with_source_control_for_audit(
+                Finding.account_id == account_id,
+                org_id=timeline_account.org_id,
+            ),
             Finding.check_id.in_(mapped_check_ids) if mapped_check_ids else True,
         )
     ).all()

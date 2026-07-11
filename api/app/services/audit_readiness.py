@@ -616,11 +616,12 @@ def build_org_control_results(
     if generated_at.tzinfo is None:
         generated_at = generated_at.replace(tzinfo=timezone.utc)
 
-    primary = db.scalars(
+    connected_accounts = db.scalars(
         select(AwsAccount)
         .where(AwsAccount.org_id == org_id, AwsAccount.status == "connected")
         .order_by(AwsAccount.label.asc())
-    ).first()
+    ).all()
+    primary = connected_accounts[0] if connected_accounts else None
 
     org = db.get(Org, org_id)
     hidden = hidden_check_ids(org.settings if org else {})
@@ -628,10 +629,17 @@ def build_org_control_results(
     active_provider_prefixes = _active_provider_prefixes(db, org_id)
 
     pack_findings: list[tuple[Any, str]] = []
-    if primary:
-        pack_findings = findings_for_pack_at(
-            db, primary.id, generated_at, hidden_check_ids=set(hidden)
-        )
+    if connected_accounts:
+        findings_by_id: dict[uuid.UUID, tuple[Any, str]] = {}
+        for connected_account in connected_accounts:
+            for finding, finding_state in findings_for_pack_at(
+                db,
+                connected_account.id,
+                generated_at,
+                hidden_check_ids=set(hidden),
+            ):
+                findings_by_id[finding.id] = (finding, finding_state)
+        pack_findings = list(findings_by_id.values())
 
     controls = db.scalars(
         select(Control).where(Control.framework == framework).order_by(Control.control_id)
@@ -1108,6 +1116,7 @@ def _resolved_events_in_period(
     db: Session,
     *,
     account_id: uuid.UUID | None,
+    org_id: uuid.UUID,
     check_ids: set[str],
     since: datetime,
     until: datetime,
@@ -1118,6 +1127,7 @@ def _resolved_events_in_period(
         select(FindingEvent, Finding)
         .join(Finding, FindingEvent.finding_id == Finding.id)
         .where(
+            Finding.org_id == org_id,
             FindingEvent.action == "resolved",
             FindingEvent.ts >= since,
             FindingEvent.ts <= until,
@@ -1126,7 +1136,12 @@ def _resolved_events_in_period(
         .order_by(FindingEvent.ts.desc())
     )
     if account_id:
-        q = q.where(with_source_control_for_audit(Finding.account_id == account_id))
+        q = q.where(
+            with_source_control_for_audit(
+                Finding.account_id == account_id,
+                org_id=org_id,
+            )
+        )
     return list(db.execute(q).all())
 
 
@@ -1187,6 +1202,7 @@ def build_domain_temporal_sentence(
     db: Session,
     *,
     account: AwsAccount | None,
+    org_id: uuid.UUID,
     framework: str,
     domain_def: dict[str, Any],
     control_results: list[dict[str, Any]],
@@ -1203,6 +1219,7 @@ def build_domain_temporal_sentence(
     resolved = _resolved_events_in_period(
         db,
         account_id=account.id if account else None,
+        org_id=org_id,
         check_ids=check_ids,
         since=since,
         until=until,
@@ -1328,6 +1345,7 @@ def build_audit_readiness(
         temporal = build_domain_temporal_sentence(
             db,
             account=account,
+            org_id=org_id,
             framework=framework,
             domain_def=domain_def,
             control_results=applicable_control_results,

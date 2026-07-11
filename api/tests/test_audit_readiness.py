@@ -2,10 +2,11 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime, timezone
 
 import pytest
 
-from app.models import Org, User
+from app.models import AwsAccount, Finding, Org, User
 from app.services.org_membership import add_membership
 from app.services.audit_readiness import (
     _AUDITOR_TECHNICAL_PLAYBOOKS,
@@ -14,6 +15,7 @@ from app.services.audit_readiness import (
     _technical_playbook_items,
     _without_inapplicable_checks,
     build_audit_readiness,
+    build_org_control_results,
 )
 from app.services.pdf_narrative import affirmation_status, domain_section_as_dict
 from tests.test_pdf_narrative import NOW, _control, _sections
@@ -107,6 +109,60 @@ def test_build_audit_readiness_empty_org(db_session):
     # No connected evidence providers means there is nothing to grade.
     assert isinstance(payload["domains"], list)
     assert payload["domains"] == []
+
+
+def test_org_control_results_include_every_connected_aws_account(db_session):
+    org = Org(name="Multi-account Audit Org")
+    db_session.add(org)
+    db_session.flush()
+    first = AwsAccount(
+        org_id=org.id,
+        label="A account",
+        account_id="111111111111",
+        external_id="audit-first",
+        status="connected",
+    )
+    second = AwsAccount(
+        org_id=org.id,
+        label="B account",
+        account_id="222222222222",
+        external_id="audit-second",
+        status="connected",
+    )
+    db_session.add_all([first, second])
+    db_session.flush()
+    now = datetime.now(timezone.utc)
+    findings: list[Finding] = []
+    for account, resource in (
+        (first, "arn:aws:iam::111111111111:user/alice"),
+        (second, "arn:aws:iam::222222222222:user/bob"),
+    ):
+        finding = Finding(
+            org_id=org.id,
+            account_id=account.id,
+            check_id="iam.user.no_mfa",
+            resource_arn=resource,
+            title="IAM user has no MFA",
+            severity="high",
+            risk_score=80,
+            evidence={},
+            status="open",
+            first_seen=now,
+            last_seen=now,
+        )
+        findings.append(finding)
+        db_session.add(finding)
+    db_session.flush()
+
+    controls, primary, _generated_at = build_org_control_results(db_session, org.id, "soc2")
+    returned_ids = {
+        finding["id"]
+        for control in controls
+        for finding in control.get("findings", [])
+        if finding.get("check_id") == "iam.user.no_mfa"
+    }
+    assert primary and primary.id == first.id
+    assert returned_ids == {str(finding.id) for finding in findings}
 
 
 def test_resource_inventory_marks_workload_scanning_not_applicable():

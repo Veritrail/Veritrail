@@ -35,7 +35,7 @@ def org_integration_condition():
     )
 
 
-def with_source_control_for_audit(account_condition):
+def with_source_control_for_audit(account_condition, *, org_id: uuid.UUID):
     """OR an account-scoped condition with org-level source-control + identity
     integration findings — for COMPLIANCE/AUDIT contexts ONLY (evidence pack,
     control grading).
@@ -43,7 +43,10 @@ def with_source_control_for_audit(account_condition):
     Do NOT use in operational Findings/export/account views: these org-level
     domains must not surface under cloud account selection.
     """
-    return or_(account_condition, org_source_control_condition(), org_integration_condition())
+    return and_(
+        Finding.org_id == org_id,
+        or_(account_condition, org_source_control_condition(), org_integration_condition()),
+    )
 
 
 def resolve_source_control_findings_on_disconnect(
