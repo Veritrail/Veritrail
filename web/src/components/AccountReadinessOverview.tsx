@@ -133,7 +133,6 @@ export function AccountReadinessOverview({
               Fixing {itemsPhrase(blockerGroups.length)} clears {cleared} of {highCount} high finding
               {highCount === 1 ? "" : "s"}
               {controlIds.length > 0 ? ` and unblocks ${formatControlList(controlIds)}` : ""}.
-              Everything else can wait.
             </p>
           ) : null}
           <div className="org-home__section-head org-home__section-head--tight">

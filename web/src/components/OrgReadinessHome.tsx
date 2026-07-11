@@ -327,7 +327,7 @@ export function OrgReadinessHome() {
             {unblockedControlIdsList.length > 0
               ? ` and unblocks ${formatControlList(unblockedControlIdsList)}`
               : ""}
-            . Everything else can wait.
+            .
           </p>
         ) : null}
       </header>
