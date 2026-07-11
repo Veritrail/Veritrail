@@ -145,7 +145,7 @@ export default function AuditReadiness() {
           ) : (
             <div className="audit-readiness__domains">
               {data.domains.map((domain) => {
-                const evidenceHref = findingsHrefForCheckIds(domain.check_ids);
+                const evidenceHref = findingsHrefForCheckIds(domain.check_ids ?? []);
                 const complianceHref = `/controls?framework=${encodeURIComponent(framework)}`;
                 const exportText = domainExportText(domain);
                 return (

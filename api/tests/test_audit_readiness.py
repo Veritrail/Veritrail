@@ -96,4 +96,9 @@ def test_build_audit_readiness_empty_org(db_session):
     db_session.flush()
     payload = build_audit_readiness(db_session, org_id, "soc2")
     assert payload["org_name"] == "Empty Org"
-    assert payload["domains"] == []
+    # No connected accounts, but framework controls still produce capability domains.
+    assert isinstance(payload["domains"], list)
+    assert len(payload["domains"]) > 0
+    for domain in payload["domains"]:
+        assert domain["status"] == "supported"
+        assert domain["checks_total"] >= 0

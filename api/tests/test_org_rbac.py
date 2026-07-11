@@ -506,7 +506,7 @@ def test_domain_managed_blocks_new_workspace():
 
 def test_provision_sso_user_returns_signup_pending_without_invite():
     db = MagicMock()
-    db.scalar.side_effect = [None, None]
+    db.scalar.side_effect = [None, None, None]  # user, org invite, workspace invite
 
     with pytest.raises(HTTPException) as exc:
         provision_sso_user(db, email="new@gmail.com", google_id="gid-1")
