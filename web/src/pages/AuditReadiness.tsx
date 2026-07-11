@@ -2,8 +2,11 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { api } from "../api";
-import { FRAMEWORKS, frameworkLabel } from "../data/frameworks";
+import { ComplianceFrameworkSelect } from "../components/ComplianceFrameworkSelect";
+import { HeaderFilterBar } from "../components/HeaderFilterBar";
+import { frameworkLabel } from "../data/frameworks";
 import { findingsHrefForCheckIds } from "../hooks/useConnectedAccountOptions";
+import { HeaderSlot } from "../context/HeaderSlot";
 import { auditReadinessSchema } from "../lib/apiSchemas";
 import "../styles/audit-readiness-page.css";
 
@@ -67,23 +70,15 @@ export default function AuditReadiness() {
 
   return (
     <div className="audit-readiness">
-      <div className="audit-readiness__framework-card">
-        <label className="audit-readiness__framework-label" htmlFor="audit-framework">
-          Framework
-        </label>
-        <select
-          id="audit-framework"
-          className="audit-readiness__select"
-          value={framework}
-          onChange={(event) => setFramework(event.target.value)}
-        >
-          {FRAMEWORKS.map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.label}
-            </option>
-          ))}
-        </select>
-      </div>
+      <HeaderSlot>
+        <HeaderFilterBar>
+          <ComplianceFrameworkSelect
+            selectedId={framework}
+            statsById={{}}
+            onSelect={setFramework}
+          />
+        </HeaderFilterBar>
+      </HeaderSlot>
 
       <header className="audit-readiness__header">
         <div>
