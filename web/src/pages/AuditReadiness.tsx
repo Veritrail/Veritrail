@@ -4,9 +4,9 @@ import { Link } from "react-router-dom";
 import { api } from "../api";
 import { ComplianceFrameworkSelect } from "../components/ComplianceFrameworkSelect";
 import { HeaderFilterBar } from "../components/HeaderFilterBar";
+import { HeaderSlot } from "../context/HeaderSlot";
 import { frameworkLabel } from "../data/frameworks";
 import { findingsHrefForCheckIds } from "../hooks/useConnectedAccountOptions";
-import { HeaderSlot } from "../context/HeaderSlot";
 import { auditReadinessSchema } from "../lib/apiSchemas";
 import "../styles/audit-readiness-page.css";
 
@@ -16,6 +16,13 @@ const STATUS_LABELS = {
   not_applicable: "Not applicable",
   not_assessed: "Not assessed",
 } as const;
+
+const SEVERITY_RANK: Record<string, number> = {
+  critical: 0,
+  high: 1,
+  medium: 2,
+  low: 3,
+};
 
 function narrativeText(
   label: string,
@@ -58,6 +65,59 @@ export default function AuditReadiness() {
       : data.as_of;
   }, [data?.as_of]);
 
+  const dashboard = useMemo(() => {
+    if (!data) return null;
+    const items = data.playbooks.flatMap((playbook, playbookOrder) =>
+      playbook.items.map((item, itemOrder) => ({
+        item,
+        playbookKey: playbook.key,
+        playbookLabel: playbook.label,
+        playbookOrder,
+        itemOrder,
+      })),
+    );
+    const totalChecks = data.domains.reduce((total, domain) => total + domain.checks_total, 0);
+    const passingChecks = data.domains.reduce(
+      (total, domain) => total + domain.checks_passing,
+      0,
+    );
+    const actionItems = items.filter(({ item }) => item.status === "action");
+    const hiddenActions = data.playbooks.reduce(
+      (total, playbook) => total + playbook.additional_action_count,
+      0,
+    );
+    const areasNeedingAction = data.playbooks.filter(
+      (playbook) => playbook.status === "action",
+    ).length;
+    const rankedActions = [...actionItems].sort((left, right) => {
+      const severityDelta =
+        (SEVERITY_RANK[left.item.highest_severity ?? ""] ?? 9) -
+        (SEVERITY_RANK[right.item.highest_severity ?? ""] ?? 9);
+      if (severityDelta !== 0) return severityDelta;
+      if (left.playbookKey === "disaster_recovery" && right.playbookKey !== "disaster_recovery") {
+        return -1;
+      }
+      if (right.playbookKey === "disaster_recovery" && left.playbookKey !== "disaster_recovery") {
+        return 1;
+      }
+      return left.playbookOrder - right.playbookOrder || left.itemOrder - right.itemOrder;
+    });
+    const highestSeverity = rankedActions.find(({ item }) => item.highest_severity)?.item
+      .highest_severity;
+
+    return {
+      passingChecks,
+      totalChecks,
+      actionCount: actionItems.length + hiddenActions,
+      areasNeedingAction,
+      highestSeverity,
+      priorityActions: rankedActions
+        .filter(({ playbookKey }) => playbookKey !== "disaster_recovery")
+        .slice(0, 5),
+      recovery: data.playbooks.find((playbook) => playbook.key === "disaster_recovery") ?? null,
+    };
+  }, [data]);
+
   const copyPlaybook = async (key: string, text: string) => {
     try {
       await navigator.clipboard.writeText(text);
@@ -72,213 +132,297 @@ export default function AuditReadiness() {
     <div className="audit-readiness">
       <HeaderSlot>
         <HeaderFilterBar>
-          <ComplianceFrameworkSelect
-            selectedId={framework}
-            statsById={{}}
-            onSelect={setFramework}
-          />
+          <ComplianceFrameworkSelect selectedId={framework} statsById={{}} onSelect={setFramework} />
         </HeaderFilterBar>
       </HeaderSlot>
 
       <header className="audit-readiness__header">
         <div>
-          <p className="audit-readiness__eyebrow">Technical evidence playbook</p>
           <h1 className="audit-readiness__title">Audit readiness</h1>
           <p className="audit-readiness__lede">
-            Auditor-facing outcomes backed by configuration Veritrail can collect automatically.
+            A focused view of what needs attention, what is technically verified, and what remains
+            outside automated scope.
           </p>
         </div>
+        {data ? (
+          <p className="audit-readiness__context">
+            {frameworkLabel(framework)} · {data.period_days} days · {data.scope_label}
+            {asOfLabel ? <span>Generated {asOfLabel}</span> : null}
+          </p>
+        ) : null}
       </header>
 
-      <aside className="audit-readiness__scope">
-        <strong>Automated scope only.</strong> Policy documents, runbooks, recovery exercises, and
-        human process evidence are not marked verified here.
-      </aside>
+      {isLoading ? <p className="audit-readiness__loading">Loading audit readiness…</p> : null}
+      {error ? <p className="audit-readiness__error">Failed to load audit readiness.</p> : null}
 
-      {isLoading ? <p className="audit-readiness__meta">Loading technical playbooks…</p> : null}
-      {error ? <p className="audit-readiness__error">Failed to load technical playbooks.</p> : null}
-
-      {data ? (
-        <>
-          <p className="audit-readiness__meta">
-            {data.org_name} · {frameworkLabel(framework)} · {data.period_days}-day audit period
-            {asOfLabel ? ` · as of ${asOfLabel}` : ""}
-            {data.scope_label ? ` · scope: ${data.scope_label}` : ""}
+      {data && dashboard ? (
+        data.playbooks.length === 0 ? (
+          <p className="audit-readiness__empty">
+            No automated technical evidence is in scope yet. Connect an integration and complete a
+            scan.
           </p>
+        ) : (
+          <>
+            <section className="audit-readiness__summary" aria-label="Readiness summary">
+              <div className="audit-readiness__score">
+                <span className="audit-readiness__score-value">
+                  {dashboard.totalChecks > 0
+                    ? `${dashboard.passingChecks} / ${dashboard.totalChecks}`
+                    : "—"}
+                </span>
+                <span className="audit-readiness__metric-label">Automated checks passing</span>
+                <span className="audit-readiness__metric-note">
+                  Mapped technical checks in the selected framework
+                </span>
+              </div>
+              <div className="audit-readiness__metric">
+                <span className="audit-readiness__metric-value">{dashboard.actionCount}</span>
+                <span className="audit-readiness__metric-label">Actions identified</span>
+                <span className="audit-readiness__metric-note">Prioritized below</span>
+              </div>
+              <div className="audit-readiness__metric">
+                <span className="audit-readiness__metric-value">
+                  {dashboard.areasNeedingAction}
+                </span>
+                <span className="audit-readiness__metric-label">Areas needing work</span>
+                <span className="audit-readiness__metric-note">
+                  of {data.playbooks.length} evidence areas
+                </span>
+              </div>
+              <div className="audit-readiness__metric">
+                <span
+                  className={`audit-readiness__metric-value audit-readiness__metric-value--${dashboard.highestSeverity ?? "none"}`}
+                >
+                  {dashboard.highestSeverity ?? "None"}
+                </span>
+                <span className="audit-readiness__metric-label">Highest visible severity</span>
+                <span className="audit-readiness__metric-note">Across prioritized actions</span>
+              </div>
+            </section>
 
-          {data.playbooks.length === 0 ? (
-            <p className="audit-readiness__empty">
-              No automated technical evidence is in scope yet. Connect an integration and complete a
-              scan.
+            <p className="audit-readiness__scope-note">
+              <span aria-hidden>ⓘ</span>
+              Automated evidence only. Policies, runbooks, recovery exercises, and human processes
+              are not marked verified.
             </p>
-          ) : (
-            <div className="audit-readiness__playbooks">
-              {data.playbooks.map((playbook) => {
-                const narratives = data.domains.filter((domain) =>
-                  playbook.narrative_domain_keys.includes(domain.key),
-                );
-                const text = narrativeText(playbook.label, playbook.question, narratives);
-                const priorityItems = playbook.items.filter((item) => item.status === "action");
-                const secondaryItems = playbook.items.filter((item) => item.status !== "action");
-                return (
-                  <article key={playbook.key} className="audit-readiness__playbook">
-                    <header className="audit-readiness__playbook-head">
-                      <div>
-                        <p className="audit-readiness__playbook-label">{playbook.label}</p>
-                        <h2 className="audit-readiness__question">{playbook.question}</h2>
-                        <p className="audit-readiness__outcome">{playbook.outcome}</p>
-                      </div>
-                      <span
-                        className={`audit-readiness__status audit-readiness__status--${playbook.status}`}
-                      >
-                        {STATUS_LABELS[playbook.status]}
-                      </span>
-                    </header>
 
-                    {priorityItems.length > 0 ? (
-                      <div className="audit-readiness__checklist" role="list">
-                        {priorityItems.map((item, index) => {
-                          const reviewHref =
-                            findingsHrefForCheckIds(item.check_ids) ?? "/integrations";
-                          return (
-                            <div
-                              key={item.key}
-                              className="audit-readiness__row"
-                              role="listitem"
-                            >
-                              <span className="audit-readiness__row-rank" aria-hidden>
-                                {index + 1}
-                              </span>
-                              <div className="audit-readiness__row-copy">
-                                <div className="audit-readiness__row-heading">
-                                  <span>{item.label}</span>
-                                </div>
-                                <p className="audit-readiness__row-summary">{item.summary}</p>
-                                <p className="audit-readiness__row-meta">
-                                  {item.finding_count} open finding
-                                  {item.finding_count === 1 ? "" : "s"}
-                                  {item.highest_severity
-                                    ? ` · ${item.highest_severity} severity`
-                                    : ""}
-                                  {item.controls.length > 0
-                                    ? ` · ${item.controls.slice(0, 2).join(", ")}`
-                                    : ""}
-                                </p>
-                              </div>
-                              {item.action_kind === "activate" && item.action_url ? (
-                                <a
-                                  className="audit-readiness__row-action"
-                                  href={item.action_url}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                >
-                                  {item.action_label ?? "Enable"} <span aria-hidden>→</span>
-                                </a>
-                              ) : (
-                                <Link className="audit-readiness__row-action" to={reviewHref}>
-                                  {item.action_label ?? "Review"} <span aria-hidden>→</span>
-                                </Link>
-                              )}
+            <div className="audit-readiness__focus-grid">
+              <section className="audit-readiness__focus-card audit-readiness__focus-card--recovery">
+                <header className="audit-readiness__section-head">
+                  <div>
+                    <p className="audit-readiness__section-kicker">Recovery readiness</p>
+                    <h2>Can your data be restored?</h2>
+                  </div>
+                  {dashboard.recovery ? (
+                    <span
+                      className={`audit-readiness__status audit-readiness__status--${dashboard.recovery.status}`}
+                    >
+                      {STATUS_LABELS[dashboard.recovery.status]}
+                    </span>
+                  ) : null}
+                </header>
+
+                {!dashboard.recovery ? (
+                  <p className="audit-readiness__quiet">
+                    No mapped recovery checks are available for the selected framework.
+                  </p>
+                ) : dashboard.recovery.status === "not_assessed" ? (
+                  <p className="audit-readiness__quiet">
+                    Recovery evidence is not available from the latest completed inventory.
+                  </p>
+                ) : dashboard.recovery.status === "not_applicable" ? (
+                  <p className="audit-readiness__quiet">
+                    No applicable RDS, DynamoDB, or backup-eligible resources were found in scope.
+                  </p>
+                ) : dashboard.recovery.items.some((item) => item.status === "action") ? (
+                  <div className="audit-readiness__action-list">
+                    {dashboard.recovery.items
+                      .filter((item) => item.status === "action")
+                      .map((item) => {
+                        const reviewHref = findingsHrefForCheckIds(item.check_ids) ?? "/integrations";
+                        return (
+                          <div key={item.key} className="audit-readiness__action-row">
+                            <span className="audit-readiness__action-dot" aria-hidden />
+                            <div className="audit-readiness__action-copy">
+                              <strong>{item.label}</strong>
+                              <span>{item.summary}</span>
+                              <small>
+                                {item.finding_count} finding{item.finding_count === 1 ? "" : "s"}
+                                {item.controls.length > 0 ? ` · ${item.controls.slice(0, 2).join(", ")}` : ""}
+                              </small>
                             </div>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <p className="audit-readiness__clear">
-                        No priority actions from the currently collected evidence.
-                      </p>
-                    )}
+                            {item.action_kind === "activate" && item.action_url ? (
+                              <a className="audit-readiness__action-link" href={item.action_url} target="_blank" rel="noreferrer">
+                                {item.action_label ?? "Enable"}
+                              </a>
+                            ) : (
+                              <Link className="audit-readiness__action-link" to={reviewHref}>
+                                {item.action_label ?? "Review"}
+                              </Link>
+                            )}
+                          </div>
+                        );
+                      })}
+                  </div>
+                ) : (
+                  <p className="audit-readiness__positive">
+                    <span aria-hidden>✓</span> Collected recovery checks have no open technical gaps.
+                  </p>
+                )}
+              </section>
 
-                    {secondaryItems.length > 0 ? (
-                      <details className="audit-readiness__secondary">
-                        <summary>
-                          Verified, not assessed, and out-of-scope checks ({secondaryItems.length})
-                        </summary>
-                        <div className="audit-readiness__secondary-list" role="list">
-                          {secondaryItems.map((item) => (
-                            <div
-                              key={item.key}
-                                className="audit-readiness__secondary-row"
-                              role="listitem"
-                            >
-                              <span
-                                className={`audit-readiness__secondary-state audit-readiness__secondary-state--${item.status}`}
-                              >
-                                {item.status === "verified" ? "✓" : "—"}
-                              </span>
-                              <div className="audit-readiness__row-copy">
-                                <div className="audit-readiness__row-heading">
-                                  <span>{item.label}</span>
-                                  <span className="audit-readiness__row-state">
-                                    {STATUS_LABELS[item.status]}
-                                  </span>
+              <section className="audit-readiness__focus-card">
+                <header className="audit-readiness__section-head">
+                  <div>
+                    <p className="audit-readiness__section-kicker">Priority queue</p>
+                    <h2>What should be addressed next?</h2>
+                  </div>
+                  <Link to="/findings" className="audit-readiness__text-link">All findings</Link>
+                </header>
+
+                {dashboard.priorityActions.length > 0 ? (
+                  <div className="audit-readiness__priority-list">
+                    {dashboard.priorityActions.map(({ item, playbookLabel }) => {
+                      const reviewHref = findingsHrefForCheckIds(item.check_ids) ?? "/integrations";
+                      return (
+                        <div key={`${playbookLabel}-${item.key}`} className="audit-readiness__priority-row">
+                          <span
+                            className={`audit-readiness__severity audit-readiness__severity--${item.highest_severity ?? "medium"}`}
+                          >
+                            {item.highest_severity ?? "action"}
+                          </span>
+                          <div>
+                            <strong>{item.label}</strong>
+                            <span>{playbookLabel} · {item.finding_count} finding{item.finding_count === 1 ? "" : "s"}</span>
+                          </div>
+                          {item.action_kind === "activate" && item.action_url ? (
+                            <a className="audit-readiness__chevron-link" href={item.action_url} target="_blank" rel="noreferrer" aria-label={`${item.action_label ?? "Enable"} ${item.label}`}>
+                              →
+                            </a>
+                          ) : (
+                            <Link className="audit-readiness__chevron-link" to={reviewHref} aria-label={`Review ${item.label}`}>
+                              →
+                            </Link>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="audit-readiness__positive">
+                    <span aria-hidden>✓</span> No priority actions in the collected evidence.
+                  </p>
+                )}
+              </section>
+            </div>
+
+            <section className="audit-readiness__coverage">
+              <header className="audit-readiness__coverage-head">
+                <div>
+                  <p className="audit-readiness__section-kicker">Technical coverage</p>
+                  <h2>Evidence areas</h2>
+                </div>
+                <p>Select an area to inspect checks, mappings, and auditor narrative.</p>
+              </header>
+
+              <div className="audit-readiness__area-grid">
+                {data.playbooks.map((playbook) => {
+                  const actions = playbook.items.filter((item) => item.status === "action");
+                  const verified = playbook.items.filter((item) => item.status === "verified");
+                  const excluded = playbook.items.filter(
+                    (item) => item.status === "not_applicable" || item.status === "not_assessed",
+                  );
+                  const narratives = data.domains.filter((domain) =>
+                    playbook.narrative_domain_keys.includes(domain.key),
+                  );
+                  const text = narrativeText(playbook.label, playbook.question, narratives);
+                  return (
+                    <details key={playbook.key} className="audit-readiness__area-card">
+                      <summary>
+                        <div className="audit-readiness__area-title-row">
+                          <h3>{playbook.label}</h3>
+                          <span
+                            className={`audit-readiness__status audit-readiness__status--${playbook.status}`}
+                          >
+                            {STATUS_LABELS[playbook.status]}
+                          </span>
+                        </div>
+                        <p>{playbook.question}</p>
+                        <div className="audit-readiness__area-counts">
+                          {actions.length + playbook.additional_action_count > 0 ? (
+                            <span className="audit-readiness__area-count audit-readiness__area-count--action">
+                              {actions.length + playbook.additional_action_count} action{actions.length + playbook.additional_action_count === 1 ? "" : "s"}
+                            </span>
+                          ) : null}
+                          <span>{verified.length} verified</span>
+                          {excluded.length > 0 ? <span>{excluded.length} outside scope</span> : null}
+                        </div>
+                        <span className="audit-readiness__area-expand" aria-hidden>⌄</span>
+                      </summary>
+
+                      <div className="audit-readiness__area-body">
+                        <p className="audit-readiness__area-outcome">{playbook.outcome}</p>
+                        <div className="audit-readiness__evidence-list" role="list">
+                          {playbook.items.map((item) => {
+                            const reviewHref = findingsHrefForCheckIds(item.check_ids) ?? "/integrations";
+                            return (
+                              <div key={item.key} className="audit-readiness__evidence-row" role="listitem">
+                                <span
+                                  className={`audit-readiness__evidence-state audit-readiness__evidence-state--${item.status}`}
+                                  aria-hidden
+                                >
+                                  {item.status === "verified" ? "✓" : item.status === "action" ? "!" : "—"}
+                                </span>
+                                <div className="audit-readiness__evidence-copy">
+                                  <strong>{item.label}</strong>
+                                  <span>{item.summary}</span>
+                                  <small>
+                                    {item.status === "action" ? `${item.finding_count} open finding${item.finding_count === 1 ? "" : "s"}` : STATUS_LABELS[item.status]}
+                                    {item.controls.length > 0 ? ` · ${item.controls.slice(0, 3).join(", ")}` : ""}
+                                  </small>
                                 </div>
-                                <p className="audit-readiness__row-summary">{item.summary}</p>
-                              </div>
-                              <div
-                                className="audit-readiness__row-controls"
-                                aria-label="Control mapping"
-                              >
-                                {item.controls.slice(0, 3).map((control) => (
-                                  <span key={control} className="audit-readiness__tag">
-                                    {control}
-                                  </span>
-                                ))}
-                                {item.controls.length > 3 ? (
-                                  <span className="audit-readiness__tag">
-                                    +{item.controls.length - 3}
-                                  </span>
+                                {item.status === "action" ? (
+                                  item.action_kind === "activate" && item.action_url ? (
+                                    <a className="audit-readiness__action-link" href={item.action_url} target="_blank" rel="noreferrer">
+                                      {item.action_label ?? "Enable"}
+                                    </a>
+                                  ) : (
+                                    <Link className="audit-readiness__action-link" to={reviewHref}>
+                                      {item.action_label ?? "Review"}
+                                    </Link>
+                                  )
                                 ) : null}
                               </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
-                      </details>
-                    ) : null}
 
-                    {playbook.additional_action_count > 0 ? (
-                      <p className="audit-readiness__remainder">
-                        {playbook.additional_action_count} lower-priority action
-                        {playbook.additional_action_count === 1 ? "" : "s"} summarized in the evidence
-                        export.
-                      </p>
-                    ) : null}
-
-                    <footer className="audit-readiness__footer">
-                      {narratives.length > 0 ? (
-                        <details className="audit-readiness__narrative">
-                          <summary>Questionnaire / PDF narrative</summary>
-                          {narratives.map((domain) => (
-                            <p key={domain.key}>{domain.assertion_text}</p>
-                          ))}
-                        </details>
-                      ) : (
-                        <span />
-                      )}
-                      <div className="audit-readiness__footer-actions">
-                        <Link
-                          to={`/controls?framework=${encodeURIComponent(framework)}`}
-                          className="audit-readiness__link audit-readiness__link--muted"
-                        >
-                          Control mapping
-                        </Link>
-                        {narratives.length > 0 ? (
-                          <button
-                            type="button"
-                            className="audit-readiness__copy"
-                            onClick={() => copyPlaybook(playbook.key, text)}
-                          >
-                            {copiedKey === playbook.key ? "Copied" : "Copy narrative"}
-                          </button>
-                        ) : null}
+                        <footer className="audit-readiness__area-footer">
+                          {narratives.length > 0 ? (
+                            <details className="audit-readiness__narrative">
+                              <summary>Auditor narrative</summary>
+                              {narratives.map((domain) => <p key={domain.key}>{domain.assertion_text}</p>)}
+                            </details>
+                          ) : <span />}
+                          <div>
+                            <Link to={`/controls?framework=${encodeURIComponent(framework)}`} className="audit-readiness__text-link">
+                              Control mapping
+                            </Link>
+                            {narratives.length > 0 ? (
+                              <button type="button" className="audit-readiness__copy" onClick={() => copyPlaybook(playbook.key, text)}>
+                                {copiedKey === playbook.key ? "Copied" : "Copy narrative"}
+                              </button>
+                            ) : null}
+                          </div>
+                        </footer>
                       </div>
-                    </footer>
-                  </article>
-                );
-              })}
-            </div>
-          )}
-        </>
+                    </details>
+                  );
+                })}
+              </div>
+            </section>
+          </>
+        )
       ) : null}
     </div>
   );
