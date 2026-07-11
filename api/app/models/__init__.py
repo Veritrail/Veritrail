@@ -33,6 +33,7 @@ from app.models.phase9 import (
 )
 from app.models.org_team import OrgActivityLog, OrgDomain, OrgInvite, OrgJoinRequest, OrgMembership
 from app.models.platform_audit import PlatformAuditLog
+from app.models.workspace_creation_invite import WorkspaceCreationInvite
 from app.models.saml import OrgSamlConfig
 from app.models.digest_snapshot import DigestSnapshot
 from app.models.gcp_project import (
@@ -79,6 +80,7 @@ __all__ = [
     "VaultExportShare", "OrgFramework", "EvidenceRequirement", "ControlCoverage", "MdmDeviceSnapshot",
     "OrgInvite", "OrgActivityLog", "OrgDomain", "OrgJoinRequest", "OrgMembership",
     "PlatformAuditLog",
+    "WorkspaceCreationInvite",
     "OrgSamlConfig",
     "DigestSnapshot",
     "UserSession",

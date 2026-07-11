@@ -51,6 +51,8 @@ class InvitePreviewOut(BaseModel):
     email: str
     role: str
     expires_at: str | None
+    create_workspace: bool = False
+    plan: str | None = None
 
 
 class MemberInviteIn(BaseModel):
@@ -138,14 +140,40 @@ def list_invites(user: User = Depends(require_owner()), db: Session = Depends(ge
 
 @router.get("/invites/preview/{token}", response_model=InvitePreviewOut)
 def preview_invite(token: str, db: Session = Depends(get_db)):
-    invite = get_valid_invite(db, token)
-    org = db.get(Org, invite.org_id)
-    return InvitePreviewOut(
-        org_name=org.name if org else "Workspace",
-        email=invite.email,
-        role=invite.role,
-        expires_at=invite.expires_at.isoformat() if invite.expires_at else None,
+    from app.models.workspace_creation_invite import WorkspaceCreationInvite
+    from app.services.workspace_creation_invites import get_valid_workspace_invite
+
+    org_invite = db.scalar(
+        select(OrgInvite).where(OrgInvite.token == token, OrgInvite.status == "pending")
     )
+    if org_invite:
+        invite = get_valid_invite(db, token)
+        org = db.get(Org, invite.org_id)
+        return InvitePreviewOut(
+            org_name=org.name if org else "Workspace",
+            email=invite.email,
+            role=invite.role,
+            expires_at=invite.expires_at.isoformat() if invite.expires_at else None,
+        )
+
+    if db.scalar(
+        select(WorkspaceCreationInvite.id).where(
+            WorkspaceCreationInvite.token == token,
+            WorkspaceCreationInvite.status == "pending",
+        )
+    ):
+        invite = get_valid_workspace_invite(db, token)
+        preset_name = (invite.org_name or "").strip()
+        return InvitePreviewOut(
+            org_name=preset_name or "Your workspace",
+            email=invite.email,
+            role="owner",
+            expires_at=invite.expires_at.isoformat() if invite.expires_at else None,
+            create_workspace=True,
+            plan=invite.plan,
+        )
+
+    raise HTTPException(status.HTTP_404_NOT_FOUND, "Invite not found or already used")
 
 
 @router.post("/invites", response_model=InviteOut)

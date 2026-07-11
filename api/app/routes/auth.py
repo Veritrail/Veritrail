@@ -186,9 +186,9 @@ class WorkspaceSwitchIn(BaseModel):
 @limiter.limit("5/minute")
 def signup(request: Request, body: SignupIn, db: Session = Depends(get_db)):
     """Create an account from a workspace invite. Public self-registration is disabled."""
-    from app.services.org_invites import consume_invite_for_signup
     from app.services.org_activity import log_org_activity
     from app.services.org_membership import add_membership
+    from app.services.signup_invites import consume_signup_invite
 
     if not body.invite_token:
         raise HTTPException(status.HTTP_403_FORBIDDEN, SIGNUPS_DISABLED_MESSAGE)
@@ -196,7 +196,9 @@ def signup(request: Request, body: SignupIn, db: Session = Depends(get_db)):
     if db.scalar(select(User).where(User.email == body.email)):
         raise HTTPException(status.HTTP_409_CONFLICT, "email already registered")
 
-    org, role = consume_invite_for_signup(db, body.invite_token, str(body.email))
+    org, role = consume_signup_invite(
+        db, body.invite_token, str(body.email), org_name=body.org_name
+    )
     user = User(
         id=uuid.uuid4(),
         org_id=org.id,
@@ -225,9 +227,9 @@ def signup(request: Request, body: SignupIn, db: Session = Depends(get_db)):
 @limiter.limit("10/minute")
 def complete_signup(request: Request, body: CompleteSignupIn, db: Session = Depends(get_db)):
     """Finish SSO sign-up from a workspace invite. New-workspace creation is disabled."""
-    from app.services.org_invites import consume_invite_for_signup
     from app.services.org_activity import log_org_activity
     from app.services.org_membership import add_membership
+    from app.services.signup_invites import consume_signup_invite
 
     if not body.invite_token:
         raise HTTPException(status.HTTP_403_FORBIDDEN, SIGNUPS_DISABLED_MESSAGE)
@@ -244,7 +246,9 @@ def complete_signup(request: Request, body: CompleteSignupIn, db: Session = Depe
     if "display_name" not in identity_fields:
         identity_fields["display_name"] = default_display_name_for_email(email)
 
-    org, role = consume_invite_for_signup(db, body.invite_token, email)
+    org, role = consume_signup_invite(
+        db, body.invite_token, email, org_name=body.org_name
+    )
     user = User(
         id=uuid.uuid4(),
         org_id=org.id,

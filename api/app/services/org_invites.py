@@ -103,11 +103,18 @@ def create_invite(
 
 
 def block_signup_without_invite_when_pending(db: Session, email: str) -> None:
+    from app.services.workspace_creation_invites import pending_workspace_invite_for_email
+
     pending = pending_invite_for_email(db, email)
     if pending:
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,
             "You have a pending workspace invite — open the link from your email to join",
+        )
+    if pending_workspace_invite_for_email(db, email):
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "You have a pending workspace creation invite — open the link from your email to sign up",
         )
 
 
@@ -170,6 +177,26 @@ def provision_sso_user(
         pending.accepted_at = datetime.now(timezone.utc)
         db.add(user)
         add_membership(db, user.id, org.id, pending.role)
+        return user, True
+
+    from app.services.workspace_creation_invites import (
+        pending_workspace_invite_for_email,
+        provision_org_from_workspace_invite,
+    )
+
+    ws_pending = pending_workspace_invite_for_email(db, normalized)
+    if ws_pending:
+        org = provision_org_from_workspace_invite(db, ws_pending)
+        user = User(
+            id=uuid.uuid4(),
+            org_id=org.id,
+            email=normalized,
+            password_hash=password_hash,
+            role="owner",
+            **identity_fields,
+        )
+        db.add(user)
+        add_membership(db, user.id, org.id, "owner")
         return user, True
 
     raise HTTPException(status.HTTP_403_FORBIDDEN, "signup_pending")

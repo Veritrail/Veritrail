@@ -1,4 +1,4 @@
-"""Read-only platform-admin dashboard (all users / workspaces / access requests).
+"""Platform-admin dashboard (users / workspaces / access requests / invites / plans).
 
 Access is gated server-side by PLATFORM_ADMIN_EMAILS (comma-separated, exact
 email match). Non-admins get 404 so the endpoints don't advertise themselves.
@@ -11,8 +11,6 @@ Hardening on top of the email allowlist:
   platform-level trail, deliberately not org-scoped.
 - slowapi per-IP rate limit on every endpoint (edge nginx limits apply too).
 """
-from __future__ import annotations
-
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -25,7 +23,16 @@ from app.core.config import get_settings
 from app.core.db import get_db
 from app.core.ratelimit import limiter
 from app.core.security import current_user_principal
+from app.data.plans import PLAN_TIERS
 from app.models import AccessRequest, AwsAccount, Finding, Org, PlatformAuditLog, User, UserSession
+from app.models.workspace_creation_invite import WorkspaceCreationInvite
+from app.routes.platform_admin_schemas import (
+    AdminPlanOut,
+    WorkspaceInviteCreateIn,
+    WorkspaceInviteOut,
+    WorkspacePlanPatchIn,
+)
+from app.services.workspace_creation_invites import create_workspace_invite
 
 router = APIRouter()
 
@@ -77,19 +84,24 @@ def _audit(
     *,
     allowed: bool,
     reason: str | None = None,
+    action: str | None = None,
+    detail: dict | None = None,
 ) -> None:
     """Append + commit one platform-audit row. Committed immediately so the
     trail survives even if the endpoint itself errors afterwards."""
+    payload = dict(detail or {})
+    if reason:
+        payload["reason"] = reason
     db.add(
         PlatformAuditLog(
             actor_user_id=user.id if user else None,
             actor_email=user.email if user else None,
-            action="platform_admin.access" if allowed else "platform_admin.denied",
+            action=action or ("platform_admin.access" if allowed else "platform_admin.denied"),
             method=request.method,
             endpoint=request.url.path,
             source_ip=client_ip_from_request(request),
             allowed=allowed,
-            detail={"reason": reason} if reason else {},
+            detail=payload,
         )
     )
     db.commit()
@@ -261,3 +273,154 @@ def list_access_requests(
         )
         for r in rows
     ]
+
+
+def _get_mutable_workspace(db: Session, org_id: uuid.UUID) -> Org:
+    org = db.get(Org, org_id)
+    if not org:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "workspace not found")
+    hidden = db.scalar(select(Org.id).where(Org.id == org_id).where(_exclude_test_workspaces()))
+    if hidden is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "workspace not found")
+    return org
+
+
+@router.get("/plans", response_model=list[AdminPlanOut])
+@limiter.limit(ADMIN_RATE_LIMIT)
+def list_plans(
+    request: Request,
+    _admin: User = Depends(current_platform_admin),
+):
+    return [
+        AdminPlanOut(slug=tier.slug, label=tier.label, max_accounts=tier.max_accounts)
+        for tier in PLAN_TIERS.values()
+    ]
+
+
+@router.get("/workspace-invites", response_model=list[WorkspaceInviteOut])
+@limiter.limit(ADMIN_RATE_LIMIT)
+def list_workspace_invites(
+    request: Request,
+    _admin: User = Depends(current_platform_admin),
+    db: Session = Depends(get_db),
+):
+    settings = get_settings()
+    base = settings.FRONTEND_URL.rstrip("/")
+    rows = db.scalars(
+        select(WorkspaceCreationInvite)
+        .where(WorkspaceCreationInvite.status == "pending")
+        .order_by(WorkspaceCreationInvite.created_at.desc())
+        .limit(200)
+    ).all()
+    return [
+        WorkspaceInviteOut(
+            id=str(invite.id),
+            email=invite.email,
+            org_name=invite.org_name,
+            plan=invite.plan,
+            status=invite.status,
+            expires_at=_iso(invite.expires_at),
+            created_at=_iso(invite.created_at),
+            invite_url=f"{base}/invite/{invite.token}",
+        )
+        for invite in rows
+    ]
+
+
+@router.post("/workspace-invites", response_model=WorkspaceInviteOut, status_code=status.HTTP_201_CREATED)
+@limiter.limit(ADMIN_RATE_LIMIT)
+def create_workspace_invite_endpoint(
+    request: Request,
+    body: WorkspaceInviteCreateIn,
+    admin: User = Depends(current_platform_admin),
+    db: Session = Depends(get_db),
+):
+    preset_name = body.org_name.strip() or None
+    invite = create_workspace_invite(
+        db,
+        email=str(body.email),
+        org_name=preset_name,
+        plan=body.plan,
+        created_by=admin.id,
+        expiry_days=body.expiry_days,
+    )
+    db.flush()
+    settings = get_settings()
+    invite_url = f"{settings.FRONTEND_URL.rstrip('/')}/invite/{invite.token}"
+    _audit(
+        db,
+        request,
+        admin,
+        allowed=True,
+        action="platform_admin.workspace_invite_created",
+        detail={
+            "invite_id": str(invite.id),
+            "email": invite.email,
+            "org_name": invite.org_name,
+            "plan": invite.plan,
+            "expires_at": _iso(invite.expires_at),
+        },
+    )
+    db.commit()
+    db.refresh(invite)
+    return WorkspaceInviteOut(
+        id=str(invite.id),
+        email=invite.email,
+        org_name=invite.org_name,
+        plan=invite.plan,
+        status=invite.status,
+        expires_at=_iso(invite.expires_at),
+        created_at=_iso(invite.created_at),
+        invite_url=invite_url,
+    )
+
+
+@router.patch("/workspaces/{org_id}/plan", response_model=AdminWorkspaceOut)
+@limiter.limit(ADMIN_RATE_LIMIT)
+def update_workspace_plan(
+    org_id: str,
+    body: WorkspacePlanPatchIn,
+    request: Request,
+    admin: User = Depends(current_platform_admin),
+    db: Session = Depends(get_db),
+):
+    try:
+        org_uuid = uuid.UUID(org_id)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "invalid org id") from exc
+
+    org = _get_mutable_workspace(db, org_uuid)
+
+    old_plan = org.plan
+    org.plan = body.plan
+    _audit(
+        db,
+        request,
+        admin,
+        allowed=True,
+        action="platform_admin.plan_changed",
+        detail={"org_id": str(org.id), "org_name": org.name, "old_plan": old_plan, "new_plan": org.plan},
+    )
+    db.commit()
+    db.refresh(org)
+
+    user_count = db.scalar(select(func.count(User.id)).where(User.org_id == org.id)) or 0
+    connected = db.scalar(
+        select(func.count(AwsAccount.id)).where(
+            AwsAccount.org_id == org.id, AwsAccount.status == "connected"
+        )
+    ) or 0
+    findings = db.scalar(select(func.count(Finding.id)).where(Finding.org_id == org.id)) or 0
+    last_scan = db.scalar(select(func.max(AwsAccount.last_scan_at)).where(AwsAccount.org_id == org.id))
+
+    return AdminWorkspaceOut(
+        id=str(org.id),
+        name=org.name or "Workspace",
+        slug=org.slug,
+        plan=org.plan,
+        created_at=_iso(org.created_at),
+        user_count=int(user_count),
+        accounts_connected=int(connected),
+        findings=int(findings),
+        last_scan_at=_iso(last_scan),
+    )

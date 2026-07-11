@@ -10,6 +10,8 @@ type InvitePreview = {
   email: string;
   role: string;
   expires_at: string | null;
+  create_workspace?: boolean;
+  plan?: string | null;
 };
 
 export default function InviteAccept() {
@@ -97,9 +99,26 @@ export default function InviteAccept() {
 
         {status === "ready" && preview && (
           <div>
-            <h1 className="text-lg font-semibold text-zinc-900">Join {preview.org_name}</h1>
+            <h1 className="text-lg font-semibold text-zinc-900">
+              {preview.create_workspace ? "Create" : "Join"} {preview.org_name}
+            </h1>
             <p className="mt-2 text-sm text-zinc-600">
-              You&apos;ve been invited as <span className="font-medium capitalize">{preview.role}</span>.
+              {preview.create_workspace ? (
+                <>
+                  You&apos;ve been invited to create a new workspace
+                  {preview.plan ? (
+                    <>
+                      {" "}
+                      on the <span className="font-medium capitalize">{preview.plan}</span> plan
+                    </>
+                  ) : null}
+                  .
+                </>
+              ) : (
+                <>
+                  You&apos;ve been invited as <span className="font-medium capitalize">{preview.role}</span>.
+                </>
+              )}
             </p>
             <div className="mt-4 rounded-lg border border-zinc-100 bg-zinc-50 px-3 py-2.5 text-sm text-zinc-700">
               <p>
@@ -131,7 +150,7 @@ export default function InviteAccept() {
                 to={signupUrl}
                 className="block w-full rounded-lg bg-zinc-900 py-2.5 text-center text-sm font-semibold text-white hover:bg-zinc-800"
               >
-                Create account
+                Create account{preview.create_workspace ? " & workspace" : ""}
               </Link>
               <Link
                 to={loginUrl}
