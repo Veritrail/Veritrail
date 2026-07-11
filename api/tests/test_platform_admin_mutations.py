@@ -122,12 +122,14 @@ def test_create_workspace_invite(client, users, monkeypatch, db_session):
         assert invite is not None
         assert invite.plan == "growth"
         assert invite.status == "pending"
+        assert invite.expires_at is not None
 
         audit = db_session.scalars(
             select(PlatformAuditLog).where(PlatformAuditLog.action == "platform_admin.workspace_invite_created")
         ).all()
         assert len(audit) == 1
         assert audit[0].detail["email"] == invited_email
+        assert audit[0].detail["suggested_org_name"] == "Startup Co"
     finally:
         get_settings.cache_clear()
 
@@ -168,7 +170,7 @@ def test_signup_with_workspace_creation_invite_creates_org(client, users, monkey
         created = client.post(
             "/v1/platform-admin/workspace-invites",
             headers=_auth(admin),
-            json={"email": invited_email, "org_name": "New Co", "plan": "starter"},
+            json={"email": invited_email, "org_name": "Ignored Preset", "plan": "starter"},
         )
         assert created.status_code == 201
         token = created.json()["invite_url"].rsplit("/", 1)[-1]
@@ -177,6 +179,7 @@ def test_signup_with_workspace_creation_invite_creates_org(client, users, monkey
         assert preview.status_code == 200
         assert preview.json()["create_workspace"] is True
         assert preview.json()["plan"] == "starter"
+        assert preview.json()["suggested_org_name"] == "Ignored Preset"
 
         signup = client.post(
             "/v1/auth/signup",
@@ -184,19 +187,127 @@ def test_signup_with_workspace_creation_invite_creates_org(client, users, monkey
                 "email": invited_email,
                 "password": STRONG_PASSWORD,
                 "invite_token": token,
+                "org_name": "Chosen Workspace",
             },
         )
         assert signup.status_code == 200, signup.text
         new_org_id = signup.json()["org_id"]
         new_org = db_session.get(Org, uuid.UUID(new_org_id))
         assert new_org is not None
-        assert new_org.name == "New Co"
+        assert new_org.name == "Chosen Workspace"
         assert new_org.plan == "starter"
-        assert new_org.slug == "new-co"
+        assert new_org.slug == "chosen-workspace"
 
         new_user = db_session.scalar(select(User).where(User.email == invited_email))
         assert new_user is not None
         assert new_user.role == "owner"
+
+        invite = db_session.scalar(
+            select(WorkspaceCreationInvite).where(WorkspaceCreationInvite.token == token)
+        )
+        assert invite is not None
+        assert invite.status == "accepted"
+
+        accept_audit = db_session.scalars(
+            select(PlatformAuditLog).where(
+                PlatformAuditLog.action == "platform_admin.workspace_invite_accepted"
+            )
+        ).all()
+        assert len(accept_audit) == 1
+        assert accept_audit[0].detail["workspace_name"] == "Chosen Workspace"
+        assert accept_audit[0].detail["accepted_email"] == invited_email
+    finally:
+        get_settings.cache_clear()
+
+
+def test_signup_workspace_invite_email_mismatch_rejected(client, users, monkeypatch, db_session):
+    _org, admin, _regular = users
+    invited_email = f"owner-{uuid.uuid4().hex[:8]}@newco.io"
+    _with_admin_emails(monkeypatch, admin.email)
+    try:
+        created = client.post(
+            "/v1/platform-admin/workspace-invites",
+            headers=_auth(admin),
+            json={"email": invited_email, "plan": "trial"},
+        )
+        assert created.status_code == 201
+        token = created.json()["invite_url"].rsplit("/", 1)[-1]
+
+        signup = client.post(
+            "/v1/auth/signup",
+            json={
+                "email": f"other-{uuid.uuid4().hex[:8]}@newco.io",
+                "password": STRONG_PASSWORD,
+                "invite_token": token,
+                "org_name": "My Workspace",
+            },
+        )
+        assert signup.status_code == 400
+        assert "email" in signup.json()["detail"].lower()
+    finally:
+        get_settings.cache_clear()
+
+
+def test_signup_workspace_invite_single_use(client, users, monkeypatch, db_session):
+    _org, admin, _regular = users
+    invited_email = f"owner-{uuid.uuid4().hex[:8]}@newco.io"
+    _with_admin_emails(monkeypatch, admin.email)
+    try:
+        created = client.post(
+            "/v1/platform-admin/workspace-invites",
+            headers=_auth(admin),
+            json={"email": invited_email, "plan": "trial"},
+        )
+        token = created.json()["invite_url"].rsplit("/", 1)[-1]
+
+        first = client.post(
+            "/v1/auth/signup",
+            json={
+                "email": invited_email,
+                "password": STRONG_PASSWORD,
+                "invite_token": token,
+                "org_name": "First Workspace",
+            },
+        )
+        assert first.status_code == 200
+
+        second = client.post(
+            "/v1/auth/signup",
+            json={
+                "email": f"reuse-{uuid.uuid4().hex[:8]}@newco.io",
+                "password": STRONG_PASSWORD,
+                "invite_token": token,
+                "org_name": "Second Workspace",
+            },
+        )
+        assert second.status_code == 404
+    finally:
+        get_settings.cache_clear()
+
+
+def test_signup_workspace_invite_requires_workspace_name(client, users, monkeypatch):
+    _org, admin, _regular = users
+    invited_email = f"owner-{uuid.uuid4().hex[:8]}@newco.io"
+    _with_admin_emails(monkeypatch, admin.email)
+    try:
+        created = client.post(
+            "/v1/platform-admin/workspace-invites",
+            headers=_auth(admin),
+            json={"email": invited_email, "plan": "trial"},
+        )
+        token = created.json()["invite_url"].rsplit("/", 1)[-1]
+
+        signup = client.post(
+            "/v1/auth/signup",
+            json={
+                "email": invited_email,
+                "password": STRONG_PASSWORD,
+                "invite_token": token,
+                "org_name": "",
+            },
+        )
+        assert signup.status_code == 400
+        assert "workspace name" in signup.json()["detail"].lower()
     finally:
         get_settings.cache_clear()
 

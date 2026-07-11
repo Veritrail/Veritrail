@@ -179,24 +179,4 @@ def provision_sso_user(
         add_membership(db, user.id, org.id, pending.role)
         return user, True
 
-    from app.services.workspace_creation_invites import (
-        pending_workspace_invite_for_email,
-        provision_org_from_workspace_invite,
-    )
-
-    ws_pending = pending_workspace_invite_for_email(db, normalized)
-    if ws_pending:
-        org = provision_org_from_workspace_invite(db, ws_pending)
-        user = User(
-            id=uuid.uuid4(),
-            org_id=org.id,
-            email=normalized,
-            password_hash=password_hash,
-            role="owner",
-            **identity_fields,
-        )
-        db.add(user)
-        add_membership(db, user.id, org.id, "owner")
-        return user, True
-
     raise HTTPException(status.HTTP_403_FORBIDDEN, "signup_pending")

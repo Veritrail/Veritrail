@@ -335,14 +335,15 @@ def create_workspace_invite_endpoint(
     admin: User = Depends(current_platform_admin),
     db: Session = Depends(get_db),
 ):
-    preset_name = body.org_name.strip() or None
+    suggested_name = body.org_name.strip() or None
     invite = create_workspace_invite(
         db,
         email=str(body.email),
-        org_name=preset_name,
+        org_name=suggested_name,
         plan=body.plan,
         created_by=admin.id,
         expiry_days=body.expiry_days,
+        expiry_hours=body.expiry_hours,
     )
     db.flush()
     settings = get_settings()
@@ -356,7 +357,7 @@ def create_workspace_invite_endpoint(
         detail={
             "invite_id": str(invite.id),
             "email": invite.email,
-            "org_name": invite.org_name,
+            "suggested_org_name": invite.org_name,
             "plan": invite.plan,
             "expires_at": _iso(invite.expires_at),
         },

@@ -176,15 +176,27 @@ def _provision_sso_user_or_redirect(
     db: Session,
     *,
     email: str,
+    state: str | None = None,
     **identity_fields,
 ) -> tuple[User, bool] | RedirectResponse:
     try:
         return provision_sso_user(db, email=email, **identity_fields)
     except HTTPException as exc:
         if exc.status_code == 403 and exc.detail == "signup_pending":
-            # No account and no pending invite — self-registration is disabled.
-            log.warning("oauth.signup.blocked_invite_only", provider=provider, email=email)
-            return RedirectResponse(f"{_frontend_url()}/login?error=signups_disabled")
+            invite_token = _invite_token_from_oauth_state(state)
+            if not invite_token:
+                log.warning("oauth.signup.blocked_invite_only", provider=provider, email=email)
+                return RedirectResponse(f"{_frontend_url()}/login?error=signups_disabled")
+            from app.core.security import issue_signup_pending_token
+
+            signup_token = issue_signup_pending_token(email, **identity_fields)
+            params = {
+                "mode": "onboard",
+                "signup_token": signup_token,
+                "invite_token": invite_token,
+                "email": email,
+            }
+            return RedirectResponse(f"{_frontend_url()}/login?{urlencode(params)}")
         if exc.status_code == 403:
             log.warning("oauth.signup.blocked", provider=provider, email=email)
             return RedirectResponse(f"{_frontend_url()}/login?error=no_account_for_idp")
@@ -361,7 +373,7 @@ def google_callback(
             if display_name:
                 identity_fields["display_name"] = display_name
             provisioned = _provision_sso_user_or_redirect(
-                "google", db, email=email, **identity_fields
+                "google", db, email=email, state=state, **identity_fields
             )
             if isinstance(provisioned, RedirectResponse):
                 return provisioned
@@ -613,7 +625,7 @@ def github_callback(
             if display_name:
                 identity_fields["display_name"] = display_name
             provisioned = _provision_sso_user_or_redirect(
-                "github", db, email=email, **identity_fields
+                "github", db, email=email, state=state, **identity_fields
             )
             if isinstance(provisioned, RedirectResponse):
                 return provisioned
@@ -776,7 +788,7 @@ def gitlab_callback(
             if display_name:
                 identity_fields["display_name"] = display_name
             provisioned = _provision_sso_user_or_redirect(
-                "gitlab", db, email=email, **identity_fields
+                "gitlab", db, email=email, state=state, **identity_fields
             )
             if isinstance(provisioned, RedirectResponse):
                 return provisioned

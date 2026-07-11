@@ -196,7 +196,7 @@ def signup(request: Request, body: SignupIn, db: Session = Depends(get_db)):
     if db.scalar(select(User).where(User.email == body.email)):
         raise HTTPException(status.HTTP_409_CONFLICT, "email already registered")
 
-    org, role = consume_signup_invite(
+    org, role, workspace_invite = consume_signup_invite(
         db, body.invite_token, str(body.email), org_name=body.org_name
     )
     user = User(
@@ -218,6 +218,17 @@ def signup(request: Request, body: SignupIn, db: Session = Depends(get_db)):
         target_id=str(user.id),
         detail={"email": user.email, "role": role},
     )
+    if workspace_invite is not None:
+        from app.services.workspace_creation_invites import audit_workspace_invite_accepted
+
+        audit_workspace_invite_accepted(
+            db,
+            invite=workspace_invite,
+            org=org,
+            user=user,
+            source="password_signup",
+            request=request,
+        )
 
     db.commit()
     return _issue_login_tokens(request, db, user, remember_me=True)
@@ -246,7 +257,7 @@ def complete_signup(request: Request, body: CompleteSignupIn, db: Session = Depe
     if "display_name" not in identity_fields:
         identity_fields["display_name"] = default_display_name_for_email(email)
 
-    org, role = consume_signup_invite(
+    org, role, workspace_invite = consume_signup_invite(
         db, body.invite_token, email, org_name=body.org_name
     )
     user = User(
@@ -268,6 +279,17 @@ def complete_signup(request: Request, body: CompleteSignupIn, db: Session = Depe
         target_id=str(user.id),
         detail={"email": user.email, "role": role, "via": "sso_complete_signup"},
     )
+    if workspace_invite is not None:
+        from app.services.workspace_creation_invites import audit_workspace_invite_accepted
+
+        audit_workspace_invite_accepted(
+            db,
+            invite=workspace_invite,
+            org=org,
+            user=user,
+            source="sso_complete_signup",
+            request=request,
+        )
 
     db.commit()
     return _issue_login_tokens(request, db, user, remember_me=True)

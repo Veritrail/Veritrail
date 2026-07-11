@@ -53,6 +53,7 @@ class InvitePreviewOut(BaseModel):
     expires_at: str | None
     create_workspace: bool = False
     plan: str | None = None
+    suggested_org_name: str | None = None
 
 
 class MemberInviteIn(BaseModel):
@@ -163,14 +164,15 @@ def preview_invite(token: str, db: Session = Depends(get_db)):
         )
     ):
         invite = get_valid_workspace_invite(db, token)
-        preset_name = (invite.org_name or "").strip()
+        suggested = (invite.org_name or "").strip() or None
         return InvitePreviewOut(
-            org_name=preset_name or "Your workspace",
+            org_name="Your workspace",
             email=invite.email,
             role="owner",
             expires_at=invite.expires_at.isoformat() if invite.expires_at else None,
             create_workspace=True,
             plan=invite.plan,
+            suggested_org_name=suggested,
         )
 
     raise HTTPException(status.HTTP_404_NOT_FOUND, "Invite not found or already used")

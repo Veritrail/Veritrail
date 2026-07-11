@@ -12,6 +12,7 @@ type InvitePreview = {
   expires_at: string | null;
   create_workspace?: boolean;
   plan?: string | null;
+  suggested_org_name?: string | null;
 };
 
 export default function InviteAccept() {
@@ -75,7 +76,9 @@ export default function InviteAccept() {
   const signupUrl = `/login?mode=signup&invite_token=${encodeURIComponent(inviteToken ?? "")}&email=${encodeURIComponent(preview?.email ?? "")}`;
   const loginUrl = `/login?mode=login&invite_token=${encodeURIComponent(inviteToken ?? "")}&email=${encodeURIComponent(preview?.email ?? "")}`;
   const inviteEmail = preview?.email?.toLowerCase() ?? "";
-  const canAcceptNow = Boolean(signedInEmail && inviteEmail && signedInEmail.toLowerCase() === inviteEmail);
+  const canAcceptNow =
+    !preview?.create_workspace &&
+    Boolean(signedInEmail && inviteEmail && signedInEmail.toLowerCase() === inviteEmail);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-zinc-900 p-4">
@@ -100,7 +103,7 @@ export default function InviteAccept() {
         {status === "ready" && preview && (
           <div>
             <h1 className="text-lg font-semibold text-zinc-900">
-              {preview.create_workspace ? "Create" : "Join"} {preview.org_name}
+              {preview.create_workspace ? "Create your workspace" : `Join ${preview.org_name}`}
             </h1>
             <p className="mt-2 text-sm text-zinc-600">
               {preview.create_workspace ? (
@@ -112,7 +115,8 @@ export default function InviteAccept() {
                       on the <span className="font-medium capitalize">{preview.plan}</span> plan
                     </>
                   ) : null}
-                  .
+                  . This invite is bound to <span className="font-medium">{preview.email}</span> — you&apos;ll
+                  choose the workspace name when you accept.
                 </>
               ) : (
                 <>
@@ -145,12 +149,17 @@ export default function InviteAccept() {
                   Signed in as <span className="font-medium">{signedInEmail}</span>. Sign out and sign in as{" "}
                   <span className="font-medium">{preview.email}</span> to accept this invite.
                 </p>
+              ) : preview.create_workspace && signedInEmail ? (
+                <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-900">
+                  Workspace creation invites require a new account for{" "}
+                  <span className="font-medium">{preview.email}</span>. Sign out first if needed.
+                </p>
               ) : null}
               <Link
                 to={signupUrl}
                 className="block w-full rounded-lg bg-zinc-900 py-2.5 text-center text-sm font-semibold text-white hover:bg-zinc-800"
               >
-                Create account{preview.create_workspace ? " & workspace" : ""}
+                {preview.create_workspace ? "Create account & name workspace" : "Create account"}
               </Link>
               <Link
                 to={loginUrl}
