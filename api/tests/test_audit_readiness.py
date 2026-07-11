@@ -182,6 +182,38 @@ def test_inspector_playbook_is_applicable_for_ec2_workloads():
     assert items[0]["finding_count"] == 1
 
 
+def test_ec2_inspector_never_claims_verified_without_positive_enablement_evidence():
+    controls = [
+        {
+            "control_id": "CC7.1",
+            "check_evidence_classes": {
+                "aws.inspector.active_critical_finding": "benchmark",
+                "aws.vulnerability_monitoring.not_detected": "benchmark",
+            },
+            "findings": [],
+            "exceptions": [],
+        }
+    ]
+    playbook = next(
+        definition
+        for definition in _AUDITOR_TECHNICAL_PLAYBOOKS
+        if definition["key"] == "vulnerability_management"
+    )
+
+    items = _technical_playbook_items(
+        playbook,
+        controls,
+        framework="soc2",
+        named_sources=[],
+        scanned_entity_types={"ec2_instance"},
+    )
+
+    assert len(items) == 1
+    assert items[0]["status"] == "action"
+    assert items[0]["action_kind"] == "review"
+    assert "cannot distinguish" in items[0]["summary"]
+
+
 def test_dr_rows_are_na_without_stateful_resources():
     controls = [
         {

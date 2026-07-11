@@ -175,6 +175,7 @@ _AUDITOR_TECHNICAL_PLAYBOOKS: tuple[dict[str, Any], ...] = (
                     }
                 ),
                 "resource_label": "EC2, ECS, EKS, or ECR workloads",
+                "positive_evidence_gap_types": frozenset({"ec2_instance"}),
                 "activation_checks": (
                     "aws.vulnerability_monitoring.not_detected",
                     "ecr.registry.enhanced_scanning_disabled",
@@ -773,6 +774,7 @@ def _technical_playbook_items(
         exceptions = dedupe_findings(exceptions_by_check)
         required_types = definition.get("required_types")
         has_observed_result = any(check_id in observed_check_ids for check_id in check_ids)
+        positive_evidence_gap_types = definition.get("positive_evidence_gap_types") or frozenset()
         applicability_reason: str | None = None
         inventory_unknown = False
         if required_types and not has_observed_result:
@@ -782,6 +784,8 @@ def _technical_playbook_items(
                 applicability_reason = (
                     f"No {definition['resource_label']} in the latest complete inventory"
                 )
+            elif scanned_entity_types.intersection(positive_evidence_gap_types):
+                inventory_unknown = True
 
         state = "not_applicable" if applicability_reason else "action" if gaps or inventory_unknown else "verified"
         ranked_gaps = sorted(
@@ -806,8 +810,14 @@ def _technical_playbook_items(
         )
         if inventory_unknown:
             summary = (
-                f"Review applicability: no complete latest inventory is available for "
-                f"{definition['resource_label']}."
+                "Review Inspector coverage for EC2; the current automated check cannot distinguish "
+                "enabled-with-zero-findings from disabled."
+                if scanned_entity_types
+                and scanned_entity_types.intersection(positive_evidence_gap_types)
+                else (
+                    f"Review applicability: no complete latest inventory is available for "
+                    f"{definition['resource_label']}."
+                )
             )
             action_kind = "review"
             action_label = "Review scan coverage"
