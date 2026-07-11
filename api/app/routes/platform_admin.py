@@ -17,7 +17,7 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.client_ip import client_ip_from_request
@@ -34,6 +34,31 @@ router = APIRouter()
 ADMIN_RATE_LIMIT = "30/minute"
 
 MFA_REQUIRED_DETAIL = "platform admins must enroll two-factor authentication (TOTP) before using this dashboard"
+
+# Belt-and-suspenders: hide CI/smoke workspaces from the dashboard even if they
+# land in prod before invite-only signup is enforced.
+_TEST_SLUG_FILTER = or_(
+    Org.slug.ilike("%smoke%"),
+    Org.slug.ilike("%pills%"),
+    Org.slug.ilike("verify-org%"),
+    Org.slug.ilike("gap-check%"),
+    Org.slug.ilike("vigil-smoke%"),
+    Org.slug.ilike("test-org%"),
+)
+_TEST_EMAIL_FILTER = or_(
+    User.email.ilike("%@veritrail-smoke%"),
+    User.email.ilike("%@unique%.dev"),
+    User.email.ilike("%.example.com"),
+    User.email.ilike("%@veritrail-test.com"),
+    User.email.ilike("%@vigil-smoke%"),
+    User.email.ilike("%@test.com"),
+)
+
+
+def _exclude_test_workspaces():
+    """SQL filter: drop orgs whose slug or member emails look like smoke/CI data."""
+    test_org_ids = select(User.org_id).where(_TEST_EMAIL_FILTER).distinct()
+    return ~or_(Org.slug.isnot(None) & _TEST_SLUG_FILTER, Org.id.in_(test_org_ids))
 
 
 def platform_admin_emails() -> set[str]:
@@ -140,6 +165,7 @@ def list_all_users(
         select(User, Org.name, last_seen.c.last_seen_at)
         .join(Org, Org.id == User.org_id)
         .outerjoin(last_seen, last_seen.c.user_id == User.id)
+        .where(_exclude_test_workspaces(), ~_TEST_EMAIL_FILTER)
         .order_by(User.created_at.desc())
     ).all()
     return [
@@ -191,6 +217,7 @@ def list_all_workspaces(
             account_stats.c.last_scan_at,
             finding_counts.c.n,
         )
+        .where(_exclude_test_workspaces())
         .outerjoin(user_counts, user_counts.c.org_id == Org.id)
         .outerjoin(account_stats, account_stats.c.org_id == Org.id)
         .outerjoin(finding_counts, finding_counts.c.org_id == Org.id)

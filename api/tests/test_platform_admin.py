@@ -223,6 +223,39 @@ def test_rate_limit_returns_429(client, users, monkeypatch, db_session):
         get_settings.cache_clear()
 
 
+def test_smoke_workspaces_hidden_from_admin_dashboard(client, users, monkeypatch, db_session):
+    """CI/smoke orgs must not appear in platform-admin lists."""
+    real_org, admin, _regular = users
+    smoke_org = Org(
+        id=uuid.uuid4(),
+        name="Verify Smoke 999",
+        slug="verify-smoke-999",
+    )
+    smoke_user = User(
+        id=uuid.uuid4(),
+        org_id=smoke_org.id,
+        email="smoke@veritrail-smoke-999.com",
+        password_hash="x",
+        role="owner",
+    )
+    db_session.add_all([smoke_org, smoke_user])
+    db_session.flush()
+    _with_admin_emails(monkeypatch, admin.email)
+    try:
+        ws_res = client.get("/v1/platform-admin/workspaces", headers=_auth(admin))
+        assert ws_res.status_code == 200
+        ws_ids = {w["id"] for w in ws_res.json()}
+        assert str(real_org.id) in ws_ids
+        assert str(smoke_org.id) not in ws_ids
+
+        users_res = client.get("/v1/platform-admin/users", headers=_auth(admin))
+        assert users_res.status_code == 200
+        user_emails = {u["email"] for u in users_res.json()}
+        assert smoke_user.email not in user_emails
+    finally:
+        get_settings.cache_clear()
+
+
 def test_me_reports_platform_admin_flag(client, users, monkeypatch):
     _org, admin, regular = users
     _with_admin_emails(monkeypatch, admin.email)
