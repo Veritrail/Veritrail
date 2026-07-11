@@ -10,6 +10,7 @@ from app.services.org_membership import add_membership
 from app.services.audit_readiness import (
     _AUDITOR_TECHNICAL_PLAYBOOKS,
     _applicability_reason,
+    _build_technical_playbooks,
     _technical_playbook_items,
     _without_inapplicable_checks,
     build_audit_readiness,
@@ -259,6 +260,77 @@ def _dr_items(controls, scanned_entity_types):
         named_sources=[],
         scanned_entity_types=scanned_entity_types,
     )
+
+
+def test_dr_definition_is_restore_focused_and_excludes_multi_az():
+    playbook = next(
+        definition
+        for definition in _AUDITOR_TECHNICAL_PLAYBOOKS
+        if definition["key"] == "disaster_recovery"
+    )
+
+    assert all(
+        "rds.instance.no_multi_az" not in item["checks"] for item in playbook["items"]
+    )
+    assert "accidentally deleted" in playbook["question"]
+    assert "corrupted" in playbook["question"]
+    assert "maliciously encrypted" in playbook["question"]
+    assert "restore-tested" in playbook["outcome"]
+    assert not any(
+        definition["key"] == "availability_resilience"
+        for definition in _AUDITOR_TECHNICAL_PLAYBOOKS
+    )
+
+
+def test_dr_orders_restore_mechanisms_before_deletion_prevention():
+    checks = (
+        ("rds.instance.no_automated_backup", "low"),
+        ("dynamodb.table.no_pitr", "medium"),
+        ("backup.plan.missing", "high"),
+        ("rds.instance.no_deletion_protection", "critical"),
+        ("rds.instance.no_multi_az", "critical"),
+    )
+    controls = [
+        {
+            "control_id": "A1.2",
+            "check_evidence_classes": {
+                check_id: "benchmark" for check_id, _severity in checks
+            },
+            "findings": [
+                {
+                    "id": check_id,
+                    "check_id": check_id,
+                    "resource_arn": f"arn:aws:test:us-east-1:123:resource/{index}",
+                    "title": f"Explicit failing evidence for {check_id}",
+                    "severity": severity,
+                }
+                for index, (check_id, severity) in enumerate(checks)
+            ],
+            "exceptions": [],
+        }
+    ]
+
+    playbooks = _build_technical_playbooks(
+        controls,
+        framework="soc2",
+        account=None,
+        scanned_entity_types={
+            "rds_instance",
+            "dynamodb_table",
+            "ec2_instance",
+        },
+    )
+    dr = next(playbook for playbook in playbooks if playbook["key"] == "disaster_recovery")
+
+    assert [item["key"] for item in dr["items"]] == [
+        "rds_backups",
+        "dynamodb_recovery",
+        "backup_coverage",
+        "rds_deletion_protection",
+    ]
+    assert all("multi_az" not in item["key"] for item in dr["items"])
+    assert dr["additional_action_count"] == 0
+    assert "prevention, not a data restoration mechanism" in dr["items"][-1]["summary"]
 
 
 def test_dynamodb_pitr_action_requires_inventory_and_explicit_disabled_evidence():

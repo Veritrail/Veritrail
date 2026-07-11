@@ -53,6 +53,7 @@ def _sections(controls, framework="soc2"):
 def test_domain_for_check_grouping():
     assert domain_for_check("rds.instance.no_automated_backup") == "backup_dr"
     assert domain_for_check("dynamodb.table.no_pitr") == "backup_dr"
+    assert domain_for_check("rds.instance.no_multi_az") is None
     assert domain_for_check("iam.user.no_mfa") == "identity_access"
     assert domain_for_check("github.repo.no_branch_protection") == "secure_sdlc"
     assert domain_for_check("cloudtrail.trail.not_enabled") == "logging_monitoring"
@@ -73,7 +74,10 @@ def test_all_passing_assertion_is_supported_and_scoped():
     assert "account prod (123456789012)" in sec.assertion
     assert "As of 2026-07-10 12:00 UTC" in sec.assertion
     # Verified capability phrases are drawn from check results, not overclaimed.
-    assert "automated backups are enabled on RDS instances" in sec.assertion
+    assert (
+        "automated backups and point-in-time restoration are enabled on RDS instances"
+        in sec.assertion
+    )
     assert "point-in-time recovery is enabled on DynamoDB tables" in sec.assertion
 
 

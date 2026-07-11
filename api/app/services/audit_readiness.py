@@ -71,15 +71,29 @@ _AUDITOR_TECHNICAL_PLAYBOOKS: tuple[dict[str, Any], ...] = (
     {
         "key": "disaster_recovery",
         "label": "Disaster recovery (DR)",
-        "question": "Can in-scope data services be recovered after a failure?",
-        "outcome": "RDS backup retention, Multi-AZ, deletion protection, DynamoDB PITR, and AWS Backup are shown only when supported by current inventory and check evidence.",
+        "question": (
+            "If an in-scope data service is accidentally deleted, corrupted, maliciously "
+            "encrypted, or otherwise loses data, can it be restored?"
+        ),
+        "outcome": (
+            "This playbook reports only technically collected restore mechanisms for services "
+            "in scope. Preventive safeguards are labeled separately, and Veritrail does not "
+            "claim that backups have been restore-tested."
+        ),
         "narrative_domain_keys": ("backup_dr",),
+        "max_actions": 4,
         "items": (
             {
                 "key": "rds_backups",
                 "label": "RDS automated backups and point-in-time recovery",
-                "verified_text": "RDS automated backup retention is enabled, which provides point-in-time recovery within the retention window.",
-                "action_text": "Set backup retention above 0 days on the affected RDS databases.",
+                "verified_text": (
+                    "RDS automated backup retention is enabled, supporting point-in-time "
+                    "restoration within the configured retention window."
+                ),
+                "action_text": (
+                    "Enable RDS automated backups by setting a non-zero retention period on the "
+                    "affected databases so point-in-time restoration is available."
+                ),
                 "checks": ("rds.instance.no_automated_backup",),
                 "required_types": frozenset({"rds_instance"}),
                 "resource_label": "RDS databases",
@@ -90,38 +104,16 @@ _AUDITOR_TECHNICAL_PLAYBOOKS: tuple[dict[str, Any], ...] = (
                 "recovery_priority": 0,
             },
             {
-                "key": "rds_multi_az",
-                "label": "RDS Multi-AZ deployment",
-                "verified_text": "RDS Multi-AZ configuration reports no open gaps.",
-                "action_text": "Enable a Multi-AZ deployment on the affected RDS databases.",
-                "checks": ("rds.instance.no_multi_az",),
-                "required_types": frozenset({"rds_instance"}),
-                "resource_label": "RDS databases",
-                "activation_checks": ("rds.instance.no_multi_az",),
-                "action_label": "Enable",
-                "action_url": "https://console.aws.amazon.com/rds/home#databases:",
-                "activation_label": "Enable Multi-AZ on affected RDS databases",
-                "recovery_priority": 2,
-            },
-            {
-                "key": "rds_deletion_protection",
-                "label": "RDS deletion protection",
-                "verified_text": "RDS deletion protection reports no open gaps.",
-                "action_text": "Enable deletion protection on the affected RDS databases.",
-                "checks": ("rds.instance.no_deletion_protection",),
-                "required_types": frozenset({"rds_instance"}),
-                "resource_label": "RDS databases",
-                "activation_checks": ("rds.instance.no_deletion_protection",),
-                "action_label": "Enable",
-                "action_url": "https://console.aws.amazon.com/rds/home#databases:",
-                "activation_label": "Enable deletion protection on affected RDS databases",
-                "recovery_priority": 3,
-            },
-            {
                 "key": "dynamodb_recovery",
                 "label": "DynamoDB point-in-time recovery",
-                "verified_text": "Point-in-time recovery reports no open gaps for in-scope DynamoDB tables.",
-                "action_text": "Enable point-in-time recovery for affected DynamoDB tables.",
+                "verified_text": (
+                    "DynamoDB point-in-time recovery is explicitly enabled on the in-scope "
+                    "tables checked, supporting restoration to a point within its recovery window."
+                ),
+                "action_text": (
+                    "Enable DynamoDB point-in-time recovery on the explicitly identified tables "
+                    "so deleted or corrupted table data can be restored."
+                ),
                 "checks": ("dynamodb.table.no_pitr",),
                 "required_types": frozenset({"dynamodb_table"}),
                 "resource_label": "DynamoDB tables",
@@ -133,9 +125,16 @@ _AUDITOR_TECHNICAL_PLAYBOOKS: tuple[dict[str, Any], ...] = (
             },
             {
                 "key": "backup_coverage",
-                "label": "AWS Backup plan coverage",
-                "verified_text": "AWS Backup plan coverage reports no open gaps for eligible resources.",
-                "action_text": "Create or extend an AWS Backup plan for uncovered resources.",
+                "label": "AWS Backup plan configured",
+                "verified_text": (
+                    "At least one AWS Backup plan is explicitly present for an account with "
+                    "backup-eligible resources. This does not prove per-resource assignment or "
+                    "a successful restore test."
+                ),
+                "action_text": (
+                    "Create an AWS Backup plan for the account containing the affected "
+                    "backup-eligible resources."
+                ),
                 "checks": ("backup.plan.missing",),
                 "required_types": frozenset(
                     {"rds_instance", "dynamodb_table", "ec2_instance", "ebs_volume"}
@@ -144,8 +143,28 @@ _AUDITOR_TECHNICAL_PLAYBOOKS: tuple[dict[str, Any], ...] = (
                 "activation_checks": ("backup.plan.missing",),
                 "action_label": "Enable",
                 "action_url": "https://console.aws.amazon.com/backup/home",
-                "activation_label": "Add affected resources to an AWS Backup plan",
-                "recovery_priority": 4,
+                "activation_label": "Create an AWS Backup plan",
+                "recovery_priority": 2,
+            },
+            {
+                "key": "rds_deletion_protection",
+                "label": "RDS deletion protection (prevention)",
+                "verified_text": (
+                    "RDS deletion protection is enabled as a preventive safeguard; it does not "
+                    "restore deleted, corrupted, or encrypted data."
+                ),
+                "action_text": (
+                    "Enable RDS deletion protection to reduce accidental deletion risk. This is "
+                    "prevention, not a data restoration mechanism."
+                ),
+                "checks": ("rds.instance.no_deletion_protection",),
+                "required_types": frozenset({"rds_instance"}),
+                "resource_label": "RDS databases",
+                "activation_checks": ("rds.instance.no_deletion_protection",),
+                "action_label": "Enable",
+                "action_url": "https://console.aws.amazon.com/rds/home#databases:",
+                "activation_label": "Enable RDS deletion protection (prevention)",
+                "recovery_priority": 3,
             },
         ),
     },
@@ -992,18 +1011,24 @@ def _build_technical_playbooks(
         action_items = sorted(
             (item for item in all_items if item["status"] == "action"),
             key=lambda item: (
-                _SEVERITY_ORDER.get(str(item.get("highest_severity") or "").lower(), 9),
                 item.get("recovery_priority", 99),
+                _SEVERITY_ORDER.get(str(item.get("highest_severity") or "").lower(), 9),
+                item["label"],
+            )
+            if definition["key"] == "disaster_recovery"
+            else (
+                _SEVERITY_ORDER.get(str(item.get("highest_severity") or "").lower(), 9),
                 item["label"],
             ),
         )
-        included_action_keys = {item["key"] for item in action_items[:3]}
+        max_actions = int(definition.get("max_actions", 3))
+        included_action_keys = {item["key"] for item in action_items[:max_actions]}
         items = [
             item
             for item in action_items + [candidate for candidate in all_items if candidate["status"] != "action"]
             if item["status"] != "action" or item["key"] in included_action_keys
         ]
-        additional_action_count = max(0, len(action_items) - 3)
+        additional_action_count = max(0, len(action_items) - max_actions)
         if action_items:
             status = "action"
         elif all(item["status"] == "not_applicable" for item in all_items):

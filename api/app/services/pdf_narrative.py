@@ -69,8 +69,8 @@ DOMAIN_DEFS: list[dict[str, Any]] = [
     },
     {
         "key": "backup_dr",
-        "label": "Backup & Disaster Recovery",
-        "capability": "Backup and disaster-recovery capability",
+        "label": "Backup & Data Recovery",
+        "capability": "Backup and data-restoration capability",
         "composites": ["backup_resilience"],
     },
 ]
@@ -78,6 +78,11 @@ DOMAIN_DEFS: list[dict[str, Any]] = [
 _COMPOSITE_TO_DOMAIN: dict[str, str] = {
     comp: d["key"] for d in DOMAIN_DEFS for comp in d["composites"]
 }
+
+# Multi-AZ is availability evidence, not evidence that lost data can be restored.
+# There is not yet a useful availability domain with enough collectable checks, so
+# omit this check from capability narratives rather than misclassifying it as DR.
+_DOMAIN_EXCLUDED_CHECKS = frozenset({"rds.instance.no_multi_az"})
 
 # Fallback when a check has no composite roll-up: match on check-id prefix,
 # longest prefix wins.
@@ -105,7 +110,6 @@ _PREFIX_DOMAIN: list[tuple[str, str]] = [
     ("elb.", "network_boundary"),
     ("lambda.", "change_management"),
     ("rds.instance.no_automated_backup", "backup_dr"),
-    ("rds.instance.no_multi_az", "backup_dr"),
     ("rds.instance.no_deletion_protection", "backup_dr"),
     ("rds.", "data_protection"),
     ("backup.", "backup_dr"),
@@ -223,10 +227,13 @@ CHECK_VERIFIED_PHRASES: dict[str, str] = {
     "aws.securityhub.not_enabled": "Security Hub is enabled",
     "cloudtrail.event.guardduty_disabled": "no attempts to disable GuardDuty were observed",
     # Backup & DR
-    "backup.plan.missing": "AWS Backup plans cover in-scope resources",
-    "rds.instance.no_automated_backup": "automated backups are enabled on RDS instances",
-    "rds.instance.no_deletion_protection": "deletion protection is enabled on RDS instances",
-    "rds.instance.no_multi_az": "Multi-AZ deployment is enabled on RDS instances requiring failover",
+    "backup.plan.missing": "at least one AWS Backup plan is configured",
+    "rds.instance.no_automated_backup": (
+        "automated backups and point-in-time restoration are enabled on RDS instances"
+    ),
+    "rds.instance.no_deletion_protection": (
+        "deletion protection is enabled as a preventive safeguard on RDS instances"
+    ),
     "dynamodb.table.no_pitr": "point-in-time recovery is enabled on DynamoDB tables",
 }
 
@@ -252,6 +259,8 @@ class DomainSection:
 
 def domain_for_check(check_id: str) -> str | None:
     """Resolve a check id to a capability domain key."""
+    if check_id in _DOMAIN_EXCLUDED_CHECKS:
+        return None
     try:
         from app.services.composite_controls import primary_composite_id_for_check
 

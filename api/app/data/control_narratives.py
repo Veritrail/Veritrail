@@ -366,8 +366,8 @@ NARRATIVES: dict[str, str] = {
         "Block Public Access at account and bucket level."
     ),
     "A.12.3.1": (
-        "Veritrail verifies backup-related controls: RDS deletion protection enabled and "
-        "DynamoDB Point-in-Time Recovery enabled on tables."
+        "Veritrail verifies collected data-protection settings: DynamoDB Point-in-Time Recovery "
+        "for restoration and RDS deletion protection as a preventive safeguard."
     ),
     "A.17.2.1": (
         "Veritrail verifies RDS Multi-AZ deployment for production databases requiring "
@@ -381,10 +381,11 @@ NARRATIVES: dict[str, str] = {
         "Availability criteria are in scope."
     ),
     "A1.2": (
-        "Data backup processes and recovery infrastructure are configured and monitored. "
-        "Veritrail verifies AWS Backup plan coverage, RDS automated backups, Multi-AZ "
-        "deployment, deletion protection on stateful services, and DynamoDB point-in-time "
-        "recovery. Evidence is collected at each scan and retained for the audit period."
+        "Data backup and restoration mechanisms are configured and monitored. Veritrail "
+        "collects evidence of configured AWS Backup plans, RDS automated backup retention, "
+        "DynamoDB point-in-time recovery, and RDS deletion protection as a preventive safeguard. "
+        "Evidence is collected at each scan and retained for the audit period; successful restore "
+        "testing is not inferred from configuration."
     ),
     "A1.3": (
         "Recovery procedures are tested to support system recovery objectives. "
