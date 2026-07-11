@@ -157,3 +157,53 @@ across the selected period:
 **Evidence (dev):** `GET /v1/audit-readiness`, shared narrative builder extracted from
 `pdf_narrative.py` (`audit_readiness.py`), and `AuditReadiness.tsx` route + nav. Shipped in
 `89f51588`.
+
+## 9. Gap — check-less human criteria (CC7.4, A1.3, CC7.5, A1.1) can't receive external evidence — **open** (spec)
+
+**Correction to an earlier verbal claim:** I said the runbook could already be attached to CC7.4 /
+A1.3. That was wrong for these specific criteria. Backend + model + upload modal *do* support
+control-level tagging — but the **UI never offers a check-less criterion as an upload target**, so
+they're unreachable.
+
+**Root cause (verified in code + data):**
+- `control_mappings.json`: **CC7.4** (incident response), **A1.3** (DR test), **CC7.5** (recovery),
+  **A1.1** (capacity) each have **0 automated checks** — they are purely human/external evidence.
+- `underlyingCriteriaForComposite` (`web/src/pages/Controls.tsx:1234`) builds the per-criterion list
+  by intersecting a composite's `check_ids` with each control's `check_ids`. A criterion with no
+  checks never matches → excluded.
+- `ExternalEvidencePanel` (`web/src/components/ExternalEvidencePanel.tsx:106`) builds its control
+  picker **only** from `underlyingCriteria`. No "browse all framework controls" fallback exists.
+- Net: CC7.4 / A1.3 / CC7.5 / A1.1 appear in no composite drill-down and in no upload picker. The
+  runbook + DR-test photos have nowhere to attach, even though `EvidenceArtifact.control_id`,
+  the upload route, and `CriterionEvidenceUploadModal` all support it.
+
+**Deeper question to confirm during build:** do these check-less criteria render **anywhere** on the
+Compliance page today? Composite membership is derived from checks, so a 0-check criterion may be
+orphaned entirely (not shown, not gradeable, not attachable). If so, they're invisible — worse than
+just un-attachable.
+
+**Fix (frontend-led, backend already supports it):**
+1. Surface check-less framework criteria as **upload targets**. Two options:
+   - (a) Loosen `underlyingCriteriaForComposite` / the picker to also include criteria that map to the
+     composite's framework controls even with 0 checks (needs a control→composite mapping that isn't
+     check-derived — may require a small backend/data addition since composite membership is
+     currently check-based); OR
+   - (b) Add a dedicated **"Manual controls"** section on the Compliance page (or in the audit-readiness
+     page, item 8) listing all framework criteria with 0 automated checks — each with an "Attach
+     evidence" action → the existing `CriterionEvidenceUploadModal` with that `control_id`. This is
+     the cleaner option and reuses the shipped upload flow verbatim.
+2. Such criteria grade as **needs_evidence** until accepted external evidence is attached, then
+   **externally_covered** — same state machine as the external-only categories.
+3. Auditor-visible: the attached runbook/photos show on that criterion and in the evidence pack under
+   CC7.4 / A1.3.
+
+**Acceptance:**
+1. CC7.4, A1.3, CC7.5, A1.1 are visible on the Compliance (or audit-readiness) page as manual criteria.
+2. Each offers "Attach evidence" → uploads tagged to that exact `control_id`.
+3. Attaching accepted evidence flips the criterion to externally_covered and surfaces it in the
+   evidence pack under that control.
+4. Confirms/closes the orphaned-criterion question (they must render somewhere, not vanish).
+
+**Priority:** high for the audit-readiness story — this is the exact use case (hand-written IR/DR
+runbook + test photos) that a real customer already has and can't currently file. Relates to item 8
+(the external-attach state) and item 4 of the SOC 2 map (EXTERNAL criteria).
