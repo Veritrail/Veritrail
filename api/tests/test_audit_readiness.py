@@ -135,7 +135,7 @@ def test_resource_inventory_marks_workload_scanning_not_applicable():
     )
 
     assert len(items) == 1
-    assert items[0]["label"] == "Inspector and workload scanning"
+    assert items[0]["label"] == "Amazon Inspector and ECR image scanning"
     assert items[0]["status"] == "not_applicable"
     assert items[0]["applicability_reason"] == (
         "No EC2, ECS, EKS, or ECR workloads in the latest complete inventory"
@@ -182,7 +182,7 @@ def test_inspector_playbook_is_applicable_for_ec2_workloads():
     assert items[0]["finding_count"] == 1
 
 
-def test_ec2_inspector_never_claims_verified_without_positive_enablement_evidence():
+def test_ec2_inspector_is_not_assessed_without_positive_enablement_evidence():
     controls = [
         {
             "control_id": "CC7.1",
@@ -209,8 +209,8 @@ def test_ec2_inspector_never_claims_verified_without_positive_enablement_evidenc
     )
 
     assert len(items) == 1
-    assert items[0]["status"] == "action"
-    assert items[0]["action_kind"] == "review"
+    assert items[0]["status"] == "not_assessed"
+    assert items[0]["action_kind"] is None
     assert "cannot distinguish" in items[0]["summary"]
 
 
@@ -244,6 +244,111 @@ def test_dr_rows_are_na_without_stateful_resources():
     assert len(items) == 3
     assert {item["status"] for item in items} == {"not_applicable"}
     assert all("latest complete inventory" in item["summary"] for item in items)
+
+
+def _dr_items(controls, scanned_entity_types):
+    playbook = next(
+        definition
+        for definition in _AUDITOR_TECHNICAL_PLAYBOOKS
+        if definition["key"] == "disaster_recovery"
+    )
+    return _technical_playbook_items(
+        playbook,
+        controls,
+        framework="soc2",
+        named_sources=[],
+        scanned_entity_types=scanned_entity_types,
+    )
+
+
+def test_dynamodb_pitr_action_requires_inventory_and_explicit_disabled_evidence():
+    finding = {
+        "id": "pitr-disabled",
+        "check_id": "dynamodb.table.no_pitr",
+        "resource_arn": "arn:aws:dynamodb:us-east-1:123:table/orders",
+        "title": "DynamoDB table `orders` does not have point-in-time recovery enabled",
+        "severity": "medium",
+    }
+    controls = [
+        {
+            "control_id": "A1.2",
+            "check_evidence_classes": {"dynamodb.table.no_pitr": "benchmark"},
+            "findings": [finding],
+            "exceptions": [],
+        }
+    ]
+
+    present = _dr_items(controls, {"dynamodb_table"})
+    pitr = next(item for item in present if item["key"] == "dynamodb_recovery")
+    assert pitr["status"] == "action"
+    assert pitr["action_kind"] == "activate"
+    assert pitr["action_label"] == "Enable"
+
+    unknown = _dr_items(controls, None)
+    pitr_unknown = next(item for item in unknown if item["key"] == "dynamodb_recovery")
+    assert pitr_unknown["status"] == "not_assessed"
+    assert pitr_unknown["action_kind"] is None
+
+    absent = _dr_items(controls, {"s3_bucket"})
+    pitr_absent = next(item for item in absent if item["key"] == "dynamodb_recovery")
+    assert pitr_absent["status"] == "not_applicable"
+    assert pitr_absent["action_kind"] is None
+
+
+def test_dynamodb_inventory_without_disabled_evidence_is_not_an_action():
+    controls = [
+        {
+            "control_id": "A1.2",
+            "check_evidence_classes": {"dynamodb.table.no_pitr": "benchmark"},
+            "findings": [],
+            "exceptions": [],
+        }
+    ]
+
+    pitr = next(
+        item
+        for item in _dr_items(controls, {"dynamodb_table"})
+        if item["key"] == "dynamodb_recovery"
+    )
+    assert pitr["status"] == "verified"
+    assert pitr["action_kind"] is None
+
+
+@pytest.mark.parametrize(
+    ("check_id", "entity_type", "item_key"),
+    [
+        ("rds.instance.no_automated_backup", "rds_instance", "rds_backups"),
+        ("backup.plan.missing", "ec2_instance", "backup_coverage"),
+    ],
+)
+def test_resource_scoped_recovery_actions_require_matching_latest_inventory(
+    check_id, entity_type, item_key
+):
+    controls = [
+        {
+            "control_id": "A1.2",
+            "check_evidence_classes": {check_id: "benchmark"},
+            "findings": [
+                {
+                    "id": check_id,
+                    "check_id": check_id,
+                    "resource_arn": "arn:aws:test:us-east-1:123:resource/example",
+                    "title": "Collected disabled evidence",
+                    "severity": "high",
+                }
+            ],
+            "exceptions": [],
+        }
+    ]
+
+    applicable = next(
+        item for item in _dr_items(controls, {entity_type}) if item["key"] == item_key
+    )
+    assert applicable["status"] == "action"
+
+    unknown = next(item for item in _dr_items(controls, None) if item["key"] == item_key)
+    assert unknown["status"] == "not_assessed"
+    assert unknown["action_kind"] is None
 
 
 def test_not_applicable_checks_are_excluded_from_readiness_rollup():

@@ -11,6 +11,7 @@ const STATUS_LABELS = {
   verified: "Verified",
   action: "Action needed",
   not_applicable: "Not applicable",
+  not_assessed: "Not assessed",
 } as const;
 
 function narrativeText(
@@ -132,6 +133,8 @@ export default function AuditReadiness() {
                   playbook.narrative_domain_keys.includes(domain.key),
                 );
                 const text = narrativeText(playbook.label, playbook.question, narratives);
+                const priorityItems = playbook.items.filter((item) => item.status === "action");
+                const secondaryItems = playbook.items.filter((item) => item.status !== "action");
                 return (
                   <article key={playbook.key} className="audit-readiness__playbook">
                     <header className="audit-readiness__playbook-head">
@@ -147,67 +150,106 @@ export default function AuditReadiness() {
                       </span>
                     </header>
 
-                    <div className="audit-readiness__checklist" role="list">
-                      {playbook.items.map((item) => {
-                        const reviewHref =
-                          findingsHrefForCheckIds(item.check_ids) ?? "/integrations";
-                        return (
-                          <div
-                            key={item.key}
-                            className={`audit-readiness__row audit-readiness__row--${item.status}`}
-                            role="listitem"
-                          >
-                            <span className="audit-readiness__row-icon" aria-hidden>
-                              {item.status === "verified" ? "✓" : item.status === "action" ? "!" : "—"}
-                            </span>
-                            <div className="audit-readiness__row-copy">
-                              <div className="audit-readiness__row-heading">
-                                <span>{item.label}</span>
-                                <span className="audit-readiness__row-state">
-                                  {STATUS_LABELS[item.status]}
-                                </span>
-                              </div>
-                              <p className="audit-readiness__row-summary">{item.summary}</p>
-                              {item.finding_count > 0 ? (
+                    {priorityItems.length > 0 ? (
+                      <div className="audit-readiness__checklist" role="list">
+                        {priorityItems.map((item, index) => {
+                          const reviewHref =
+                            findingsHrefForCheckIds(item.check_ids) ?? "/integrations";
+                          return (
+                            <div
+                              key={item.key}
+                              className="audit-readiness__row"
+                              role="listitem"
+                            >
+                              <span className="audit-readiness__row-rank" aria-hidden>
+                                {index + 1}
+                              </span>
+                              <div className="audit-readiness__row-copy">
+                                <div className="audit-readiness__row-heading">
+                                  <span>{item.label}</span>
+                                </div>
+                                <p className="audit-readiness__row-summary">{item.summary}</p>
                                 <p className="audit-readiness__row-meta">
                                   {item.finding_count} open finding
                                   {item.finding_count === 1 ? "" : "s"}
                                   {item.highest_severity
-                                    ? ` · highest severity: ${item.highest_severity}`
+                                    ? ` · ${item.highest_severity} severity`
+                                    : ""}
+                                  {item.controls.length > 0
+                                    ? ` · ${item.controls.slice(0, 2).join(", ")}`
                                     : ""}
                                 </p>
-                              ) : null}
+                              </div>
+                              {item.action_kind === "activate" && item.action_url ? (
+                                <a
+                                  className="audit-readiness__row-action"
+                                  href={item.action_url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                >
+                                  {item.action_label ?? "Enable"} <span aria-hidden>→</span>
+                                </a>
+                              ) : (
+                                <Link className="audit-readiness__row-action" to={reviewHref}>
+                                  {item.action_label ?? "Review"} <span aria-hidden>→</span>
+                                </Link>
+                              )}
                             </div>
-                            <div className="audit-readiness__row-controls" aria-label="Control mapping">
-                              {item.controls.slice(0, 3).map((control) => (
-                                <span key={control} className="audit-readiness__tag">
-                                  {control}
-                                </span>
-                              ))}
-                              {item.controls.length > 3 ? (
-                                <span className="audit-readiness__tag">+{item.controls.length - 3}</span>
-                              ) : null}
-                            </div>
-                            {item.status === "action" && item.action_kind === "activate" && item.action_url ? (
-                              <a
-                                className="audit-readiness__row-action"
-                                href={item.action_url}
-                                target="_blank"
-                                rel="noreferrer"
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="audit-readiness__clear">
+                        No priority actions from the currently collected evidence.
+                      </p>
+                    )}
+
+                    {secondaryItems.length > 0 ? (
+                      <details className="audit-readiness__secondary">
+                        <summary>
+                          Verified, not assessed, and out-of-scope checks ({secondaryItems.length})
+                        </summary>
+                        <div className="audit-readiness__secondary-list" role="list">
+                          {secondaryItems.map((item) => (
+                            <div
+                              key={item.key}
+                                className="audit-readiness__secondary-row"
+                              role="listitem"
+                            >
+                              <span
+                                className={`audit-readiness__secondary-state audit-readiness__secondary-state--${item.status}`}
                               >
-                                {item.action_label} <span aria-hidden>→</span>
-                              </a>
-                            ) : item.status === "action" ? (
-                              <Link className="audit-readiness__row-action" to={reviewHref}>
-                                {item.action_label ?? "Review"} <span aria-hidden>→</span>
-                              </Link>
-                            ) : (
-                              <span />
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
+                                {item.status === "verified" ? "✓" : "—"}
+                              </span>
+                              <div className="audit-readiness__row-copy">
+                                <div className="audit-readiness__row-heading">
+                                  <span>{item.label}</span>
+                                  <span className="audit-readiness__row-state">
+                                    {STATUS_LABELS[item.status]}
+                                  </span>
+                                </div>
+                                <p className="audit-readiness__row-summary">{item.summary}</p>
+                              </div>
+                              <div
+                                className="audit-readiness__row-controls"
+                                aria-label="Control mapping"
+                              >
+                                {item.controls.slice(0, 3).map((control) => (
+                                  <span key={control} className="audit-readiness__tag">
+                                    {control}
+                                  </span>
+                                ))}
+                                {item.controls.length > 3 ? (
+                                  <span className="audit-readiness__tag">
+                                    +{item.controls.length - 3}
+                                  </span>
+                                ) : null}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </details>
+                    ) : null}
 
                     {playbook.additional_action_count > 0 ? (
                       <p className="audit-readiness__remainder">

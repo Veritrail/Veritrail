@@ -71,8 +71,9 @@
 .audit-readiness__scope {
   margin-bottom: 0.8rem;
   padding: 0.75rem 0.9rem;
-  border-left: 3px solid #94a3b8;
-  background: #f8fafc;
+  border: 1px solid var(--vt-border, #e2e8f0);
+  border-radius: 0.625rem;
+  background: #fff;
   color: #475569;
   font-size: 0.78rem;
   line-height: 1.5;
@@ -135,26 +136,33 @@
 
 .audit-readiness__status {
   flex: 0 0 auto;
-  padding: 0.25rem 0.55rem;
-  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
   font-size: 0.65rem;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 
+.audit-readiness__status::before {
+  width: 0.35rem;
+  height: 0.35rem;
+  border-radius: 999px;
+  background: currentColor;
+  content: "";
+}
+
 .audit-readiness__status--verified {
-  background: #ecfdf5;
   color: #047857;
 }
 
 .audit-readiness__status--action {
-  background: #fff7ed;
   color: #c2410c;
 }
 
-.audit-readiness__status--not_applicable {
-  background: #f1f5f9;
+.audit-readiness__status--not_applicable,
+.audit-readiness__status--not_assessed {
   color: #64748b;
 }
 
@@ -164,45 +172,29 @@
 
 .audit-readiness__row {
   display: grid;
-  grid-template-columns: 1.5rem minmax(18rem, 1fr) minmax(8rem, auto) minmax(9rem, auto);
+  grid-template-columns: 1.5rem minmax(18rem, 1fr) auto;
   align-items: center;
-  gap: 0.85rem;
-  min-height: 4.1rem;
-  padding: 0.8rem 1.35rem;
+  gap: 1rem;
+  min-height: 4.75rem;
+  padding: 1rem 1.35rem;
+  background: #fff;
 }
 
 .audit-readiness__row + .audit-readiness__row {
   border-top: 1px solid #f1f5f9;
 }
 
-.audit-readiness__row--action {
-  background: #fffbeb;
-}
-
-.audit-readiness__row--not_applicable {
-  background: #f8fafc;
-}
-
-.audit-readiness__row-icon {
-  display: grid;
-  place-items: center;
-  width: 1.35rem;
-  height: 1.35rem;
+.audit-readiness__row-rank {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
   border-radius: 999px;
-  background: #dcfce7;
-  color: #15803d;
-  font-size: 0.72rem;
-  font-weight: 750;
-}
-
-.audit-readiness__row--action .audit-readiness__row-icon {
-  background: #ffedd5;
-  color: #c2410c;
-}
-
-.audit-readiness__row--not_applicable .audit-readiness__row-icon {
-  background: #e2e8f0;
+  background: #f1f5f9;
   color: #64748b;
+  font-size: 0.75rem;
+  font-weight: 600;
 }
 
 .audit-readiness__row-copy {
@@ -236,7 +228,7 @@
 }
 
 .audit-readiness__row-meta {
-  color: #9a3412;
+  color: #94a3b8;
 }
 
 .audit-readiness__row-controls {
@@ -257,25 +249,71 @@
 
 .audit-readiness__row-action {
   justify-self: end;
-  padding: 0.48rem 0.7rem;
-  border: 1px solid #d6e5e3;
-  border-radius: 0.5rem;
+  padding: 0.5625rem 1rem;
+  border: 1px solid var(--vt-border, #e2e8f0);
+  border-radius: 0.625rem;
   background: #fff;
-  color: var(--vt-accent, #0d9488);
-  font-size: 0.75rem;
-  font-weight: 650;
+  color: #334155;
+  font-size: 0.8125rem;
+  font-weight: 600;
   text-decoration: none;
   white-space: nowrap;
 }
 
 .audit-readiness__row-action:hover {
-  border-color: var(--vt-accent, #0d9488);
+  border-color: #cbd5e1;
+  background: #f8fafc;
 }
 
+.audit-readiness__clear,
 .audit-readiness__remainder {
   margin: 0;
-  padding: 0.7rem 1.35rem;
+  padding: 1rem 1.35rem;
   border-top: 1px solid #f1f5f9;
+  color: var(--vt-text-muted, #64748b);
+  font-size: 0.75rem;
+}
+
+.audit-readiness__clear {
+  border-top: 0;
+}
+
+.audit-readiness__secondary {
+  border-top: 1px solid #f1f5f9;
+  color: var(--vt-text-muted, #64748b);
+  font-size: 0.75rem;
+}
+
+.audit-readiness__secondary > summary {
+  padding: 0.75rem 1.35rem;
+  cursor: pointer;
+}
+
+.audit-readiness__secondary-list {
+  border-top: 1px solid #f1f5f9;
+}
+
+.audit-readiness__secondary-row {
+  display: grid;
+  grid-template-columns: 1.25rem minmax(18rem, 1fr) minmax(8rem, auto);
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.75rem 1.35rem;
+  background: #fff;
+}
+
+.audit-readiness__secondary-row + .audit-readiness__secondary-row {
+  border-top: 1px solid #f1f5f9;
+}
+
+.audit-readiness__secondary-state {
+  color: #94a3b8;
+  font-weight: 700;
+  text-align: center;
+}
+
+.audit-readiness__secondary-state--verified {
+  color: #047857;
 }
 
 .audit-readiness__footer {
@@ -285,7 +323,7 @@
   gap: 1rem;
   padding: 0.7rem 1.35rem;
   border-top: 1px solid #f1f5f9;
-  background: #fcfdfe;
+  background: #fff;
 }
 
 .audit-readiness__narrative {
@@ -326,6 +364,10 @@
 @media (max-width: 850px) {
   .audit-readiness__row {
     grid-template-columns: 1.5rem minmax(0, 1fr) auto;
+  }
+
+  .audit-readiness__secondary-row {
+    grid-template-columns: 1.25rem minmax(0, 1fr);
   }
 
   .audit-readiness__row-controls {

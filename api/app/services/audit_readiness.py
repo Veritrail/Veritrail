@@ -72,28 +72,50 @@ _AUDITOR_TECHNICAL_PLAYBOOKS: tuple[dict[str, Any], ...] = (
         "key": "disaster_recovery",
         "label": "Disaster recovery (DR)",
         "question": "Can in-scope data services be recovered after a failure?",
-        "outcome": "Recovery protections are checked only for data and stateful resources found in the latest complete inventory.",
+        "outcome": "RDS backup retention, Multi-AZ, deletion protection, DynamoDB PITR, and AWS Backup are shown only when supported by current inventory and check evidence.",
         "narrative_domain_keys": ("backup_dr",),
         "items": (
             {
-                "key": "rds_recovery",
-                "label": "RDS recovery protections",
-                "verified_text": "Automated backups, deletion protection, and configured resilience checks report no open gaps.",
-                "action_text": "Enable or review RDS backups and recovery protection.",
-                "checks": (
-                    "rds.instance.no_automated_backup",
-                    "rds.instance.no_deletion_protection",
-                    "rds.instance.no_multi_az",
-                ),
+                "key": "rds_backups",
+                "label": "RDS automated backups and point-in-time recovery",
+                "verified_text": "RDS automated backup retention is enabled, which provides point-in-time recovery within the retention window.",
+                "action_text": "Set backup retention above 0 days on the affected RDS databases.",
+                "checks": ("rds.instance.no_automated_backup",),
                 "required_types": frozenset({"rds_instance"}),
                 "resource_label": "RDS databases",
-                "activation_checks": (
-                    "rds.instance.no_automated_backup",
-                    "rds.instance.no_deletion_protection",
-                    "rds.instance.no_multi_az",
-                ),
-                "action_label": "Activate RDS recovery",
+                "activation_checks": ("rds.instance.no_automated_backup",),
+                "action_label": "Enable",
                 "action_url": "https://console.aws.amazon.com/rds/home#databases:",
+                "activation_label": "Enable RDS automated backups and point-in-time recovery",
+                "recovery_priority": 0,
+            },
+            {
+                "key": "rds_multi_az",
+                "label": "RDS Multi-AZ deployment",
+                "verified_text": "RDS Multi-AZ configuration reports no open gaps.",
+                "action_text": "Enable a Multi-AZ deployment on the affected RDS databases.",
+                "checks": ("rds.instance.no_multi_az",),
+                "required_types": frozenset({"rds_instance"}),
+                "resource_label": "RDS databases",
+                "activation_checks": ("rds.instance.no_multi_az",),
+                "action_label": "Enable",
+                "action_url": "https://console.aws.amazon.com/rds/home#databases:",
+                "activation_label": "Enable Multi-AZ on affected RDS databases",
+                "recovery_priority": 2,
+            },
+            {
+                "key": "rds_deletion_protection",
+                "label": "RDS deletion protection",
+                "verified_text": "RDS deletion protection reports no open gaps.",
+                "action_text": "Enable deletion protection on the affected RDS databases.",
+                "checks": ("rds.instance.no_deletion_protection",),
+                "required_types": frozenset({"rds_instance"}),
+                "resource_label": "RDS databases",
+                "activation_checks": ("rds.instance.no_deletion_protection",),
+                "action_label": "Enable",
+                "action_url": "https://console.aws.amazon.com/rds/home#databases:",
+                "activation_label": "Enable deletion protection on affected RDS databases",
+                "recovery_priority": 3,
             },
             {
                 "key": "dynamodb_recovery",
@@ -104,12 +126,14 @@ _AUDITOR_TECHNICAL_PLAYBOOKS: tuple[dict[str, Any], ...] = (
                 "required_types": frozenset({"dynamodb_table"}),
                 "resource_label": "DynamoDB tables",
                 "activation_checks": ("dynamodb.table.no_pitr",),
-                "action_label": "Activate PITR",
+                "action_label": "Enable",
                 "action_url": "https://console.aws.amazon.com/dynamodbv2/home#tables",
+                "activation_label": "Enable point-in-time recovery on affected DynamoDB tables",
+                "recovery_priority": 1,
             },
             {
                 "key": "backup_coverage",
-                "label": "Backup plan coverage",
+                "label": "AWS Backup plan coverage",
                 "verified_text": "AWS Backup plan coverage reports no open gaps for eligible resources.",
                 "action_text": "Create or extend an AWS Backup plan for uncovered resources.",
                 "checks": ("backup.plan.missing",),
@@ -118,8 +142,10 @@ _AUDITOR_TECHNICAL_PLAYBOOKS: tuple[dict[str, Any], ...] = (
                 ),
                 "resource_label": "backup-eligible resources",
                 "activation_checks": ("backup.plan.missing",),
-                "action_label": "Activate AWS Backup",
+                "action_label": "Enable",
                 "action_url": "https://console.aws.amazon.com/backup/home",
+                "activation_label": "Add affected resources to an AWS Backup plan",
+                "recovery_priority": 4,
             },
         ),
     },
@@ -141,8 +167,10 @@ _AUDITOR_TECHNICAL_PLAYBOOKS: tuple[dict[str, Any], ...] = (
                     "cloudtrail.event.guardduty_disabled",
                 ),
                 "activation_checks": ("guardduty.detector.not_enabled",),
-                "action_label": "Activate GuardDuty",
+                "action_label": "Enable",
                 "action_url": "https://console.aws.amazon.com/guardduty/home",
+                "activation_label": "Enable Amazon GuardDuty",
+                "review_label": "Review unresolved Amazon GuardDuty findings",
             },
             {
                 "key": "security_hub",
@@ -151,12 +179,13 @@ _AUDITOR_TECHNICAL_PLAYBOOKS: tuple[dict[str, Any], ...] = (
                 "action_text": "Enable Security Hub for centralized security findings.",
                 "checks": ("aws.securityhub.not_enabled",),
                 "activation_checks": ("aws.securityhub.not_enabled",),
-                "action_label": "Activate Security Hub",
+                "action_label": "Enable",
                 "action_url": "https://console.aws.amazon.com/securityhub/home",
+                "activation_label": "Enable AWS Security Hub",
             },
             {
                 "key": "workload_scanning",
-                "label": "Inspector and workload scanning",
+                "label": "Amazon Inspector and ECR image scanning",
                 "verified_text": "Applicable compute or container workloads have collected vulnerability-scanning evidence.",
                 "action_text": "Enable Inspector or ECR image scanning for the workloads found in scope.",
                 "checks": (
@@ -181,8 +210,10 @@ _AUDITOR_TECHNICAL_PLAYBOOKS: tuple[dict[str, Any], ...] = (
                     "ecr.registry.enhanced_scanning_disabled",
                     "ecr.repository.image_scan_disabled",
                 ),
-                "action_label": "Activate workload scanning",
+                "action_label": "Enable",
                 "action_url": "https://console.aws.amazon.com/inspector/v2/home",
+                "activation_label": "Enable Amazon Inspector or ECR image scanning",
+                "review_label": "Review Amazon Inspector or ECR vulnerability findings",
             },
         ),
     },
@@ -195,13 +226,15 @@ _AUDITOR_TECHNICAL_PLAYBOOKS: tuple[dict[str, Any], ...] = (
         "items": (
             {
                 "key": "cloudtrail",
-                "label": "CloudTrail audit logging",
+                "label": "CloudTrail configuration",
                 "verified_text": "CloudTrail coverage, integrity, encryption, and log delivery checks report no open gaps.",
                 "action_text": "Enable CloudTrail or review trail integrity and delivery settings.",
                 "prefixes": ("cloudtrail.trail.",),
                 "activation_checks": ("cloudtrail.trail.not_enabled",),
-                "action_label": "Activate CloudTrail",
+                "action_label": "Enable",
                 "action_url": "https://console.aws.amazon.com/cloudtrail/home",
+                "activation_label": "Enable CloudTrail audit logging",
+                "review_label": "Review CloudTrail configuration findings",
             },
             {
                 "key": "config_monitoring",
@@ -210,27 +243,62 @@ _AUDITOR_TECHNICAL_PLAYBOOKS: tuple[dict[str, Any], ...] = (
                 "action_text": "Enable AWS Config or review non-compliant managed rules.",
                 "checks": ("aws.config.not_enabled", "aws.config.rules_non_compliant"),
                 "activation_checks": ("aws.config.not_enabled",),
-                "action_label": "Activate AWS Config",
+                "action_label": "Enable",
                 "action_url": "https://console.aws.amazon.com/config/home",
+                "activation_label": "Turn on AWS Config recording",
+                "review_label": "Review AWS Config rule findings",
             },
             {
-                "key": "network_service_logs",
-                "label": "Network and service telemetry",
-                "verified_text": "Applicable VPC, load-balancer, and cluster logging checks report no open gaps.",
-                "checks": (
-                    "vpc.flow_logs.not_enabled",
-                    "elb.load_balancer.no_access_logs",
-                    "eks.cluster.control_plane_logging_disabled",
-                    "ecs.cluster.container_insights_disabled",
-                ),
-                "required_types": frozenset(
-                    {"vpc", "elb_load_balancer", "eks_cluster", "ecs_cluster"}
-                ),
-                "resource_label": "VPC, load-balancer, EKS, or ECS resources",
+                "key": "vpc_flow_logs",
+                "label": "VPC Flow Logs",
+                "verified_text": "VPC Flow Logs report no open gaps for in-scope VPCs.",
+                "checks": ("vpc.flow_logs.not_enabled",),
+                "required_types": frozenset({"vpc"}),
+                "resource_label": "VPCs",
                 "activation_checks": ("vpc.flow_logs.not_enabled",),
-                "action_text": "Enable the missing telemetry or review affected services.",
-                "action_label": "Activate telemetry",
+                "action_text": "Enable VPC Flow Logs for the affected VPCs.",
+                "action_label": "Enable",
                 "action_url": "https://console.aws.amazon.com/vpc/home#vpcs:",
+                "activation_label": "Enable VPC Flow Logs for affected VPCs",
+            },
+            {
+                "key": "load_balancer_access_logs",
+                "label": "Load-balancer access logs",
+                "verified_text": "Load-balancer access logging reports no open gaps.",
+                "checks": ("elb.load_balancer.no_access_logs",),
+                "required_types": frozenset({"elb_load_balancer"}),
+                "resource_label": "load balancers",
+                "activation_checks": ("elb.load_balancer.no_access_logs",),
+                "action_text": "Enable access logs on the affected load balancers.",
+                "action_label": "Enable",
+                "action_url": "https://console.aws.amazon.com/ec2/home#LoadBalancers:",
+                "activation_label": "Enable access logs on affected load balancers",
+            },
+            {
+                "key": "eks_control_plane_logs",
+                "label": "EKS control-plane logs",
+                "verified_text": "EKS control-plane logging reports no open gaps.",
+                "checks": ("eks.cluster.control_plane_logging_disabled",),
+                "required_types": frozenset({"eks_cluster"}),
+                "resource_label": "EKS clusters",
+                "activation_checks": ("eks.cluster.control_plane_logging_disabled",),
+                "action_text": "Enable EKS control-plane logs on the affected clusters.",
+                "action_label": "Enable",
+                "action_url": "https://console.aws.amazon.com/eks/home#/clusters",
+                "activation_label": "Enable EKS control-plane logs on affected clusters",
+            },
+            {
+                "key": "ecs_container_insights",
+                "label": "ECS Container Insights",
+                "verified_text": "ECS Container Insights reports no open gaps.",
+                "checks": ("ecs.cluster.container_insights_disabled",),
+                "required_types": frozenset({"ecs_cluster"}),
+                "resource_label": "ECS clusters",
+                "activation_checks": ("ecs.cluster.container_insights_disabled",),
+                "action_text": "Enable Container Insights on the affected ECS clusters.",
+                "action_label": "Enable",
+                "action_url": "https://console.aws.amazon.com/ecs/v2/clusters",
+                "activation_label": "Enable Container Insights on affected ECS clusters",
             },
         ),
     },
@@ -253,6 +321,7 @@ _AUDITOR_TECHNICAL_PLAYBOOKS: tuple[dict[str, Any], ...] = (
                     "iam.role.least_privilege_policy",
                 ),
                 "action_text": "Review privileged identities and close the highest-risk access gaps.",
+                "review_label": "Review root MFA, root access keys, and administrator access",
             },
             {
                 "key": "credential_hygiene",
@@ -266,6 +335,7 @@ _AUDITOR_TECHNICAL_PLAYBOOKS: tuple[dict[str, Any], ...] = (
                     "iam.account.password_policy_weak",
                 ),
                 "action_text": "Review stale or weak credentials.",
+                "review_label": "Review stale access keys and account password policy",
             },
             {
                 "key": "external_access",
@@ -278,8 +348,10 @@ _AUDITOR_TECHNICAL_PLAYBOOKS: tuple[dict[str, Any], ...] = (
                 ),
                 "activation_checks": ("aws.access_analyzer.not_enabled",),
                 "action_text": "Enable Access Analyzer or review external trust relationships.",
-                "action_label": "Activate Access Analyzer",
+                "action_label": "Enable",
                 "action_url": "https://console.aws.amazon.com/access-analyzer/home",
+                "activation_label": "Enable IAM Access Analyzer",
+                "review_label": "Review IAM external trust findings",
             },
         ),
     },
@@ -316,6 +388,7 @@ _AUDITOR_TECHNICAL_PLAYBOOKS: tuple[dict[str, Any], ...] = (
                 ),
                 "resource_label": "supported data stores",
                 "action_text": "Review unencrypted data resources.",
+                "review_label": "Review unencrypted data-store findings",
             },
             {
                 "key": "storage_access",
@@ -329,6 +402,7 @@ _AUDITOR_TECHNICAL_PLAYBOOKS: tuple[dict[str, Any], ...] = (
                 "required_types": frozenset({"s3_bucket"}),
                 "resource_label": "S3 buckets",
                 "action_text": "Review affected S3 policies and public-access settings.",
+                "review_label": "Review affected S3 public-access and HTTPS settings",
             },
             {
                 "key": "secrets_and_keys",
@@ -345,6 +419,7 @@ _AUDITOR_TECHNICAL_PLAYBOOKS: tuple[dict[str, Any], ...] = (
                 ),
                 "resource_label": "KMS keys, Secrets Manager secrets, or SSM parameters",
                 "action_text": "Review key and secret-management gaps.",
+                "review_label": "Review KMS rotation, key policies, and secret storage",
             },
         ),
     },
@@ -363,6 +438,7 @@ _AUDITOR_TECHNICAL_PLAYBOOKS: tuple[dict[str, Any], ...] = (
                 "required_types": frozenset({"security_group"}),
                 "resource_label": "security groups",
                 "action_text": "Review unrestricted ingress rules.",
+                "review_label": "Review unrestricted security-group ingress rules",
             },
             {
                 "key": "public_data_resources",
@@ -379,6 +455,7 @@ _AUDITOR_TECHNICAL_PLAYBOOKS: tuple[dict[str, Any], ...] = (
                 ),
                 "resource_label": "RDS, AMI, or EBS snapshot resources",
                 "action_text": "Review publicly exposed data resources.",
+                "review_label": "Review public RDS, AMI, and EBS snapshot findings",
             },
             {
                 "key": "public_workload_endpoints",
@@ -395,6 +472,7 @@ _AUDITOR_TECHNICAL_PLAYBOOKS: tuple[dict[str, Any], ...] = (
                 ),
                 "resource_label": "EKS, ECS, Lambda, or load-balancer resources",
                 "action_text": "Review public endpoints and weak transport settings.",
+                "review_label": "Review public EKS, ECS, Lambda, and load-balancer endpoints",
             },
         ),
     },
@@ -418,6 +496,7 @@ _AUDITOR_TECHNICAL_PLAYBOOKS: tuple[dict[str, Any], ...] = (
                     "gitlab.repo.self_merge_allowed",
                 ),
                 "action_text": "Review repositories without enforced change review.",
+                "review_label": "Review repositories missing branch and peer-review rules",
             },
             {
                 "key": "deployment_gates",
@@ -428,6 +507,7 @@ _AUDITOR_TECHNICAL_PLAYBOOKS: tuple[dict[str, Any], ...] = (
                     "gitlab.repo.no_env_protection",
                 ),
                 "action_text": "Review unprotected deployment environments.",
+                "review_label": "Review repository deployment-environment protection",
             },
             {
                 "key": "code_security",
@@ -439,6 +519,7 @@ _AUDITOR_TECHNICAL_PLAYBOOKS: tuple[dict[str, Any], ...] = (
                     "github.repo.dependabot_disabled",
                 ),
                 "action_text": "Review repositories missing automated code-security checks.",
+                "review_label": "Review missing secret, code, and dependency scanning",
             },
         ),
     },
@@ -773,11 +854,11 @@ def _technical_playbook_items(
         gaps = dedupe_findings(gaps_by_check)
         exceptions = dedupe_findings(exceptions_by_check)
         required_types = definition.get("required_types")
-        has_observed_result = any(check_id in observed_check_ids for check_id in check_ids)
         positive_evidence_gap_types = definition.get("positive_evidence_gap_types") or frozenset()
         applicability_reason: str | None = None
         inventory_unknown = False
-        if required_types and not has_observed_result:
+        positive_evidence_unknown = False
+        if required_types:
             if scanned_entity_types is None:
                 inventory_unknown = True
             elif not scanned_entity_types.intersection(required_types):
@@ -785,9 +866,17 @@ def _technical_playbook_items(
                     f"No {definition['resource_label']} in the latest complete inventory"
                 )
             elif scanned_entity_types.intersection(positive_evidence_gap_types):
-                inventory_unknown = True
+                positive_evidence_unknown = not gaps
 
-        state = "not_applicable" if applicability_reason else "action" if gaps or inventory_unknown else "verified"
+        state = (
+            "not_applicable"
+            if applicability_reason
+            else "not_assessed"
+            if inventory_unknown or positive_evidence_unknown
+            else "action"
+            if gaps
+            else "verified"
+        )
         ranked_gaps = sorted(
             gaps,
             key=lambda finding: (
@@ -808,19 +897,18 @@ def _technical_playbook_items(
             activation_checks
             and any(str(finding.get("check_id") or "") in activation_checks for finding in gaps)
         )
-        if inventory_unknown:
+        if inventory_unknown or positive_evidence_unknown:
             summary = (
                 "Review Inspector coverage for EC2; the current automated check cannot distinguish "
                 "enabled-with-zero-findings from disabled."
-                if scanned_entity_types
-                and scanned_entity_types.intersection(positive_evidence_gap_types)
+                if positive_evidence_unknown
                 else (
-                    f"Review applicability: no complete latest inventory is available for "
+                    f"Not assessed: no complete latest inventory is available for "
                     f"{definition['resource_label']}."
                 )
             )
-            action_kind = "review"
-            action_label = "Review scan coverage"
+            action_kind = None
+            action_label = None
             action_url = None
         elif state == "not_applicable":
             summary = applicability_reason
@@ -836,14 +924,20 @@ def _technical_playbook_items(
             summary = definition["action_text"]
             action_kind = "activate" if activate else "review"
             action_label = (
-                definition.get("action_label") if activate else "Review findings"
+                definition.get("action_label") if activate else "Review"
             )
             action_url = definition.get("action_url") if activate else None
         items.append(
             {
                 "key": definition["key"],
                 "check_ids": check_ids,
-                "label": definition["label"],
+                "label": (
+                    definition.get("activation_label", definition["label"])
+                    if state == "action" and activate
+                    else definition.get("review_label", definition["label"])
+                    if state == "action"
+                    else definition["label"]
+                ),
                 "status": state,
                 "summary": summary,
                 "controls": [
@@ -861,6 +955,7 @@ def _technical_playbook_items(
                 "action_kind": action_kind,
                 "action_label": action_label,
                 "action_url": action_url,
+                "recovery_priority": definition.get("recovery_priority", 99),
             }
         )
     return items
@@ -894,11 +989,18 @@ def _build_technical_playbooks(
         )
         if not all_items:
             continue
-        action_items = [item for item in all_items if item["status"] == "action"]
+        action_items = sorted(
+            (item for item in all_items if item["status"] == "action"),
+            key=lambda item: (
+                _SEVERITY_ORDER.get(str(item.get("highest_severity") or "").lower(), 9),
+                item.get("recovery_priority", 99),
+                item["label"],
+            ),
+        )
         included_action_keys = {item["key"] for item in action_items[:3]}
         items = [
             item
-            for item in all_items
+            for item in action_items + [candidate for candidate in all_items if candidate["status"] != "action"]
             if item["status"] != "action" or item["key"] in included_action_keys
         ]
         additional_action_count = max(0, len(action_items) - 3)
@@ -906,6 +1008,8 @@ def _build_technical_playbooks(
             status = "action"
         elif all(item["status"] == "not_applicable" for item in all_items):
             status = "not_applicable"
+        elif any(item["status"] == "not_assessed" for item in all_items):
+            status = "not_assessed"
         else:
             status = "verified"
         playbooks.append(
