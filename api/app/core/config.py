@@ -117,6 +117,16 @@ class Settings(BaseSettings):
     # dashboard (/v1/platform-admin + /admin in the web app). Empty = nobody.
     PLATFORM_ADMIN_EMAILS: str = ""
 
+    # Platform-admin dashboard hostname (e.g. admin.veritrail.io). Read from the
+    # same env var the nginx bootstrap uses. Enables "Sign in with Google" on
+    # the admin origin (one-time code handoff); empty disables admin SSO.
+    ADMIN_DOMAIN: str = ""
+
+    @property
+    def admin_url(self) -> str:
+        domain = self.ADMIN_DOMAIN.strip()
+        return f"https://{domain}" if domain else ""
+
     # Optional Ed25519 seed (32 bytes, base64) to sign evidence pack checksum manifests.
     # Generate: python -c "import base64,os; print(base64.urlsafe_b64encode(os.urandom(32)).decode())"
     EVIDENCE_PACK_SIGNING_KEY: str = ""
