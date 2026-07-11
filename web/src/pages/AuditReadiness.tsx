@@ -65,19 +65,26 @@ export default function AuditReadiness() {
     }
   };
 
-  const exportAll = () => {
-    if (!data) return;
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = `audit-readiness-${framework}.json`;
-    anchor.click();
-    URL.revokeObjectURL(url);
-  };
-
   return (
     <div className="audit-readiness">
+      <div className="audit-readiness__framework-card">
+        <label className="audit-readiness__framework-label" htmlFor="audit-framework">
+          Framework
+        </label>
+        <select
+          id="audit-framework"
+          className="audit-readiness__select"
+          value={framework}
+          onChange={(event) => setFramework(event.target.value)}
+        >
+          {FRAMEWORKS.map((item) => (
+            <option key={item.id} value={item.id}>
+              {item.label}
+            </option>
+          ))}
+        </select>
+      </div>
+
       <header className="audit-readiness__header">
         <div>
           <p className="audit-readiness__eyebrow">Technical evidence playbook</p>
@@ -85,23 +92,6 @@ export default function AuditReadiness() {
           <p className="audit-readiness__lede">
             Auditor-facing outcomes backed by configuration Veritrail can collect automatically.
           </p>
-        </div>
-        <div className="audit-readiness__toolbar">
-          <select
-            className="audit-readiness__select"
-            value={framework}
-            onChange={(event) => setFramework(event.target.value)}
-            aria-label="Framework"
-          >
-            {FRAMEWORKS.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.label}
-              </option>
-            ))}
-          </select>
-          <button type="button" className="audit-readiness__btn" disabled={!data} onClick={exportAll}>
-            Export JSON
-          </button>
         </div>
       </header>
 
