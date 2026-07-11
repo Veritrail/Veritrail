@@ -1,43 +1,27 @@
-/* App sidebar — dark navy premium glassy navigation panel */
-
-/* Shared translucent glass surface for sidebar cards */
-.glass-card {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.03));
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    0 10px 30px rgba(0, 0, 0, 0.24);
-  backdrop-filter: blur(18px) saturate(140%);
-  -webkit-backdrop-filter: blur(18px) saturate(140%);
-}
+/* App sidebar — premium dark navigation panel */
 
 .app-sidebar {
-  --sidebar-active: var(--vt-sidebar-accent, #20d6d2);
-  --sidebar-active-soft: rgba(32, 214, 210, 0.14);
-  --sidebar-muted: #c8d2e0;
-  --sidebar-icon-muted: #b4c1d2;
-  --sidebar-hover: rgba(255, 255, 255, 0.05);
-  --sidebar-border: rgba(255, 255, 255, 0.08);
+  --sidebar-active: #20d6d2;
+  --sidebar-muted: rgba(226, 232, 240, 0.82);
+  --sidebar-hover: rgba(24, 63, 88, 0.28);
+  --sidebar-border: rgba(148, 163, 184, 0.14);
 
   position: fixed;
   inset: 0 auto 0 0;
   z-index: 30;
   display: flex;
-  width: 348px;
-  min-height: 100vh;
-  height: 100vh;
+  width: 20rem;
   flex-direction: column;
   overflow-x: hidden;
   overflow-y: auto;
-  padding: 32px 22px 20px;
-  /* Deeper, blacker navy — the blue radial glows were washing the rail lighter
-     than the reference. Softer glows, darker base. */
   background:
-    radial-gradient(circle at 20% 8%, rgba(46, 111, 255, 0.09), transparent 26%),
-    radial-gradient(circle at 82% 58%, rgba(0, 150, 255, 0.05), transparent 22%),
-    linear-gradient(180deg, #040b16 0%, #030d1c 45%, #01070f 100%);
-  border-right: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 18px 0 48px -28px rgba(0, 0, 0, 0.45);
+    radial-gradient(74% 38% at 50% 0%, rgba(29, 78, 216, 0.22) 0%, transparent 68%),
+    radial-gradient(78% 55% at 58% 45%, rgba(37, 99, 235, 0.12) 0%, transparent 72%),
+    linear-gradient(180deg, #020815 0%, #071020 50%, #020712 100%);
+  border-right: 1px solid rgba(191, 219, 254, 0.12);
+  box-shadow:
+    12px 0 36px -32px rgba(15, 23, 42, 0.9),
+    inset -1px 0 0 rgba(255, 255, 255, 0.04);
   transition: width 0.22s ease;
 }
 
@@ -45,11 +29,16 @@
   content: "";
   pointer-events: none;
   position: absolute;
-  inset: 0;
+  top: 12rem;
+  left: 1.7rem;
+  right: 1.7rem;
+  height: 31rem;
   background:
-    radial-gradient(ellipse 60% 35% at 50% 0%, rgba(255, 255, 255, 0.025) 0%, transparent 70%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.02) 0%, transparent 14%, transparent 86%, rgba(0, 0, 0, 0.12) 100%);
-  opacity: 0.7;
+    linear-gradient(145deg, rgba(19, 42, 84, 0.48) 0%, rgba(7, 18, 38, 0.28) 54%, rgba(10, 28, 58, 0.42) 100%);
+  border: 1px solid rgba(59, 130, 246, 0.08);
+  clip-path: polygon(50% 0%, 100% 18%, 100% 74%, 56% 100%, 0% 74%, 0% 18%);
+  opacity: 0.68;
+  filter: drop-shadow(0 24px 42px rgba(8, 20, 44, 0.38));
 }
 
 .app-sidebar::after {
@@ -58,114 +47,83 @@
   position: absolute;
   inset: 0 0 0 auto;
   width: 1px;
-  background: linear-gradient(
-    180deg,
-    transparent,
-    rgba(255, 255, 255, 0.08) 42%,
-    rgba(255, 255, 255, 0.05) 72%,
-    transparent
-  );
+  background: linear-gradient(180deg, transparent, rgba(147, 197, 253, 0.25) 38%, rgba(147, 197, 253, 0.12) 72%, transparent);
 }
 
 .app-sidebar__brand {
   position: relative;
   z-index: 1;
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   align-items: center;
-  justify-content: flex-start;
-  gap: 11px;
-  margin-bottom: 36px;
-  padding: 0;
-  text-align: left;
+  justify-content: center;
+  gap: 0.7rem;
+  padding: 4.7rem 1.75rem 2.85rem;
+  text-align: center;
 }
 
 .app-sidebar__logo {
-  width: 46px;
-  height: 46px;
+  width: 5rem;
+  height: 5rem;
   flex-shrink: 0;
   object-fit: contain;
   background: transparent;
+  filter: drop-shadow(0 12px 26px rgba(37, 99, 235, 0.38));
 }
 
 .app-sidebar__wordmark {
-  font-size: 27px;
-  font-weight: 600;
+  font-size: 2rem;
+  font-weight: 700;
   line-height: 1;
-  letter-spacing: -0.025em;
+  letter-spacing: -0.045em;
   color: #fff;
+  text-shadow: 0 2px 16px rgba(15, 23, 42, 0.72);
 }
 
-.app-sidebar__collapse-row {
+.app-sidebar__collapse-toggle {
+  position: absolute;
+  top: 11.55rem;
+  right: 0;
+  z-index: 4;
   display: flex;
-  width: 100%;
-  align-items: center;
-  gap: 9px;
-  margin-top: 2px;
-  border: 0;
-  border-radius: 8px;
-  background: transparent;
-  padding: 8px 10px;
-  font-size: 12px;
-  font-weight: 500;
-  line-height: 1.25;
-  color: rgba(178, 190, 206, 0.82);
-  text-align: left;
-  cursor: pointer;
-  transition: color 0.15s ease, background 0.15s ease;
-}
-
-.app-sidebar__collapse-row:hover {
-  background: rgba(255, 255, 255, 0.05);
-  color: #e8eef6;
-}
-
-.app-sidebar__collapse-row:hover,
-.app-sidebar__collapse-row:focus-visible {
-  color: rgba(200, 210, 224, 0.9);
-  background: transparent;
-  outline: none;
-}
-
-.app-sidebar__collapse-icon-btn {
-  display: inline-flex;
-  width: 24px;
-  height: 24px;
-  flex-shrink: 0;
+  width: 1.25rem;
+  height: 3.4rem;
   align-items: center;
   justify-content: center;
-  border-radius: 6px;
-  background: transparent;
-  color: rgba(170, 183, 200, 0.65);
+  border: 0;
+  border-radius: 999px 0 0 999px;
+  background: rgba(59, 130, 246, 0.32);
+  color: rgba(219, 234, 254, 0.86);
+  cursor: pointer;
+  box-shadow:
+    0 0 10px rgba(59, 130, 246, 0.22),
+    inset 1px 0 0 rgba(255, 255, 255, 0.08);
+  transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.app-sidebar__collapse-icon-btn svg {
-  width: 0.875rem;
-  height: 0.875rem;
+.app-sidebar__collapse-toggle:hover,
+.app-sidebar__collapse-toggle:focus-visible {
+  background: rgba(59, 130, 246, 0.55);
+  color: #fff;
+  outline: none;
+  box-shadow:
+    0 0 12px rgba(59, 130, 246, 0.32),
+    inset 1px 0 0 rgba(255, 255, 255, 0.12);
 }
 
-.app-sidebar__collapse-label {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.app-sidebar__footer-divider {
-  margin: 12px 0 0;
-  padding-top: 14px;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+.app-sidebar__collapse-toggle svg {
+  width: 0.9rem;
+  height: 0.9rem;
 }
 
 .app-sidebar__nav {
   position: relative;
   z-index: 1;
   display: flex;
-  flex: 0 0 auto;
+  flex: 1 1 auto;
   flex-direction: column;
-  gap: 2px;
-  margin-top: 32px;
-  padding: 0;
+  gap: 0.35rem;
+  padding: 0 1.75rem;
 }
 
 .app-sidebar__divider {
@@ -177,7 +135,7 @@
   position: relative;
   z-index: 1;
   margin-top: auto;
-  padding: 0;
+  padding: 1.7rem 1.75rem 3.25rem;
   border-top: 0;
 }
 
@@ -191,11 +149,11 @@
   border: 1px solid transparent;
   border-radius: 10px;
   padding: 0 14px;
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 500;
   line-height: 1.25;
   letter-spacing: -0.01em;
-  color: #c8d2e0;
+  color: var(--sidebar-muted);
   text-decoration: none;
   transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
@@ -214,9 +172,9 @@
   flex-shrink: 0;
 }
 
-.app-sidebar__link:not(.is-active) svg,
-.app-sidebar__link:not(.is-active) .app-sidebar__icon {
-  color: #b4c1d2;
+.app-sidebar__link svg,
+.app-sidebar__icon {
+  color: inherit;
 }
 
 .app-sidebar__icon {
@@ -228,6 +186,7 @@
 
 .app-sidebar__link:hover {
   background: var(--sidebar-hover);
+  border-color: rgba(32, 214, 210, 0.1);
   color: #e2e8f0;
 }
 
@@ -255,9 +214,12 @@
     0 0 12px rgba(32, 214, 210, 0.18);
 }
 
+.app-sidebar__link.is-active svg {
+  color: #20d6d2;
+}
+
 .app-sidebar__link.is-active svg,
 .app-sidebar__link.is-active .app-sidebar__icon {
-  color: #20d6d2;
   filter: none;
 }
 
@@ -297,7 +259,6 @@
 .app-sidebar.is-collapsed {
   overflow: visible;
   width: 6rem;
-  padding: 24px 12px;
 }
 
 .app-sidebar.is-collapsed::before {
@@ -305,22 +266,16 @@
 }
 
 .app-sidebar.is-collapsed .app-sidebar__brand {
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 1.5rem;
-  padding: 0;
-  text-align: center;
+  padding: 4.05rem 1rem 5.15rem;
 }
 
 .app-sidebar.is-collapsed .app-sidebar__logo {
-  width: 2.75rem;
-  height: 2.75rem;
+  width: 3.25rem;
+  height: 3.25rem;
 }
 
 .app-sidebar.is-collapsed .app-sidebar__wordmark,
-.app-sidebar.is-collapsed .app-sidebar__label,
-.app-sidebar.is-collapsed .app-sidebar__collapse-label {
+.app-sidebar.is-collapsed .app-sidebar__label {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -329,18 +284,14 @@
   white-space: nowrap;
 }
 
-.app-sidebar.is-collapsed .app-sidebar__collapse-row {
-  justify-content: center;
-  padding: 0;
+.app-sidebar.is-collapsed .app-sidebar__collapse-toggle {
+  top: 8.55rem;
+  background: rgba(59, 130, 246, 0.48);
 }
 
 .app-sidebar.is-collapsed .app-sidebar__nav {
   gap: 0.9rem;
-  padding: 0;
-}
-
-.app-sidebar.is-collapsed .app-sidebar__footer {
-  padding: 0;
+  padding: 0 1rem;
 }
 
 .app-sidebar.is-collapsed .app-sidebar__link {
@@ -356,7 +307,7 @@
 }
 
 .app-sidebar.is-collapsed .app-sidebar__link:hover {
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(30, 41, 67, 0.46);
 }
 
 .app-sidebar.is-collapsed .app-sidebar__link svg,
@@ -380,6 +331,10 @@
   border-radius: 999px 0 0 999px;
 }
 
+.app-sidebar.is-collapsed .app-sidebar__footer {
+  padding: 1.25rem 1rem 2.35rem;
+}
+
 .app-sidebar.is-collapsed .app-sidebar__workspace-card {
   width: 4rem;
   min-height: 4rem;
@@ -392,7 +347,7 @@
 
 .app-sidebar.is-collapsed .app-sidebar__workspace-card:hover,
 .app-sidebar.is-collapsed .app-sidebar__workspace-card:focus-visible {
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(30, 41, 67, 0.46);
   box-shadow: none;
 }
 
@@ -402,7 +357,7 @@
 }
 
 .app-sidebar.is-collapsed .app-sidebar__workspace-card[aria-expanded="true"] {
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(30, 41, 67, 0.46);
 }
 
 .app-sidebar.is-collapsed .app-sidebar__workspace-avatar {
@@ -456,25 +411,22 @@
   display: flex;
   width: 100%;
   align-items: center;
-  gap: 12px;
-  min-height: 62px;
-  height: 62px;
-  border-radius: 13px;
-  padding: 11px 14px;
+  gap: 0.85rem;
+  min-height: 4.25rem;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 0.875rem;
+  background:
+    linear-gradient(180deg, rgba(16, 28, 52, 0.72), rgba(9, 18, 35, 0.76));
+  padding: 0.7rem 0.9rem;
   text-align: left;
   cursor: pointer;
   outline: none;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 16px 32px -26px rgba(0, 0, 0, 0.86);
+  backdrop-filter: blur(12px);
   transition: background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
   -webkit-tap-highlight-color: transparent;
-  /* Same flat quiet panel as the account cards — one card language per rail. */
-  background: rgba(255, 255, 255, 0.045);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
-}
-
-.app-sidebar__workspace-card:hover {
-  background: rgba(255, 255, 255, 0.07);
-  border-color: rgba(255, 255, 255, 0.12);
 }
 
 .app-sidebar__user {
@@ -483,53 +435,53 @@
 
 .app-sidebar__workspace-card:hover,
 .app-sidebar__workspace-card:focus-visible {
-  border-color: rgba(255, 255, 255, 0.12);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.04));
+  border-color: rgba(148, 163, 184, 0.28);
+  background:
+    linear-gradient(180deg, rgba(20, 34, 61, 0.78), rgba(10, 21, 40, 0.82));
   outline: none;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.1),
-    0 12px 32px rgba(0, 0, 0, 0.28);
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 18px 36px -28px rgba(0, 0, 0, 0.9);
 }
 
 .app-sidebar__workspace-avatar {
   position: relative;
   display: inline-flex;
-  width: 38px;
-  height: 38px;
+  width: 2.7rem;
+  height: 2.7rem;
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
   border-radius: 999px;
-  /* Deep teal gradient + inner ring — the flat grey circle read unfinished. */
-  background: linear-gradient(135deg, #0f766e 0%, #134e5e 100%);
-  font-size: 12.5px;
-  font-weight: 650;
-  letter-spacing: 0.03em;
-  color: #f0fdfa;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
-}
-
-/* Online status dot — anchors the avatar, borrowed from the old design's one
-   good idea, recolored to the teal system. */
-.app-sidebar__workspace-avatar::after {
-  content: "";
-  position: absolute;
-  right: -1px;
-  bottom: -1px;
-  width: 10px;
-  height: 10px;
-  border-radius: 999px;
-  background: #2dd4bf;
-  border: 2px solid #0a1522;
+  background:
+    radial-gradient(circle at 34% 22%, rgba(255, 255, 255, 0.1), transparent 32%),
+    linear-gradient(145deg, rgba(30, 41, 59, 0.92), rgba(15, 23, 42, 0.96));
+  color: rgba(226, 232, 240, 0.86);
+  font-size: 0.875rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 0 0 1px rgba(148, 163, 184, 0.12),
+    0 12px 24px -18px rgba(0, 0, 0, 0.9);
 }
 
 .app-sidebar__workspace-avatar svg {
-  width: 1.25rem;
-  height: 1.25rem;
+  width: 1.35rem;
+  height: 1.35rem;
 }
 
 .app-sidebar__workspace-status {
-  display: none;
+  position: absolute;
+  right: 0.18rem;
+  bottom: 0.28rem;
+  width: 0.72rem;
+  height: 0.72rem;
+  border-radius: 999px;
+  background: #2563eb;
+  box-shadow:
+    0 0 0 2px #071020,
+    0 0 0 3px rgba(96, 165, 250, 0.28);
 }
 
 .app-sidebar__workspace-copy {
@@ -544,21 +496,21 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 14px;
-  font-weight: 600;
-  line-height: 1.25;
-  letter-spacing: -0.01em;
-  color: #f8fafc;
+  font-size: 0.9375rem;
+  font-weight: 650;
+  line-height: 1.2;
+  letter-spacing: -0.015em;
+  color: #fff;
 }
 
 .app-sidebar__workspace-org {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 11.5px;
+  font-size: 0.85rem;
   font-weight: 500;
-  line-height: 1.25;
-  color: rgba(170, 183, 200, 0.85);
+  line-height: 1.2;
+  color: rgba(148, 163, 184, 0.95);
 }
 
 .app-sidebar__workspace-card:hover .app-sidebar__user-chevron,
@@ -578,7 +530,7 @@
   padding: 0.35rem;
   border-radius: 0.8rem;
   border: 1px solid rgba(148, 163, 184, 0.13);
-  background: rgba(18, 18, 20, 0.94);
+  background: rgba(8, 15, 30, 0.94);
   box-shadow: 0 18px 40px -18px rgba(0, 0, 0, 0.72);
   backdrop-filter: blur(14px);
 }
@@ -613,10 +565,10 @@
 }
 
 .app-sidebar__user-chevron {
-  width: 1.1rem;
-  height: 1.1rem;
+  width: 1.25rem;
+  height: 1.25rem;
   flex-shrink: 0;
-  color: rgba(170, 183, 200, 0.55);
+  color: rgba(203, 213, 225, 0.74);
   transition: color 0.18s ease;
 }
 
@@ -862,6 +814,60 @@
   outline: none;
 }
 
+/* ── Grafted from current build: collapse row, footer divider, mobile drawer ── */
+.app-sidebar__collapse-row {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 9px;
+  margin-top: 2px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  padding: 8px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.25;
+  color: rgba(178, 190, 206, 0.82);
+  text-align: left;
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+.app-sidebar__collapse-row:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #e8eef6;
+}
+.app-sidebar__collapse-icon-btn {
+  display: inline-flex;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: transparent;
+  color: rgba(170, 183, 200, 0.65);
+}
+.app-sidebar__collapse-icon-btn svg {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+.app-sidebar__collapse-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.app-sidebar__footer-divider {
+  margin: 12px 0 0;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+.app-sidebar.is-collapsed .app-sidebar__collapse-row {
+  justify-content: center;
+  padding: 0;
+}
+
 /* Mobile / tablet: off-canvas drawer (spec: design-consistency-audit.md §P0-1) */
 .app-sidebar__backdrop {
   display: none;
@@ -909,4 +915,3 @@
     display: none;
   }
 }
-

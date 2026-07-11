@@ -135,8 +135,8 @@
 @layer components {
   .veritrail-app-main {
     isolation: isolate;
-    margin-left: 348px;
-    width: calc(100% - 348px);
+    margin-left: 20rem;
+    width: calc(100% - 20rem);
     background:
       linear-gradient(180deg, #fbfcff 0%, #f7f9fc 42%, #f8fafc 100%);
   }

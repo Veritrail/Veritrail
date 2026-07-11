@@ -3,13 +3,6 @@ import { Link } from "react-router-dom";
 import { logout } from "../api";
 import { resolveUserDisplayName } from "../lib/displayNames";
 
-function userInitials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "?";
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return `${parts[0][0] ?? ""}${parts[parts.length - 1][0] ?? ""}`.toUpperCase();
-}
-
 type SidebarUserCardProps = {
   email: string;
   displayName?: string | null;
@@ -99,7 +92,14 @@ export default function SidebarUserCard({
         onClick={() => setOpen((v) => !v)}
       >
         <span className="app-sidebar__workspace-avatar" aria-hidden>
-          {userInitials(name)}
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.65}>
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.5 19.5a7.5 7.5 0 0 1 15 0v.75H4.5v-.75Z"
+            />
+          </svg>
+          <span className="app-sidebar__workspace-status" />
         </span>
         <span className="app-sidebar__workspace-copy">
           <span className="app-sidebar__workspace-name">{name}</span>
