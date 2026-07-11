@@ -5075,6 +5075,19 @@ button.accounts-flow-step:hover {
   color: #0f172a;
 }
 
+.veritrail-app-header__slot .accounts-dashboard__manage-link {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #475569;
+  text-decoration: none;
+}
+
+.veritrail-app-header__slot .accounts-dashboard__manage-link:hover {
+  color: #0f172a;
+}
+
 .accounts-detail-overview__severity-cell {
   display: flex;
   flex-shrink: 0;

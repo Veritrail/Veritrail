@@ -207,3 +207,10 @@ just un-attachable.
 **Priority:** high for the audit-readiness story — this is the exact use case (hand-written IR/DR
 runbook + test photos) that a real customer already has and can't currently file. Relates to item 8
 (the external-attach state) and item 4 of the SOC 2 map (EXTERNAL criteria).
+
+## 11. Remove account switcher from the sidebar rail → pure nav (org-first) — **done**
+
+**Evidence (dev):** `SidebarAccountSwitcher` removed from `Layout.tsx`; rail is brand → nav → user
+card only. "All accounts (N)" rehomed to org-home header slot; "+ Add account" remains on the
+management list and Integrations connect flows. Orphaned `sidebar-accounts*` CSS deleted. Shipped in
+`4b274870`.

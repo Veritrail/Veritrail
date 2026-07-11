@@ -12,7 +12,6 @@ import HelpMenu from "./components/HelpMenu";
 import SidebarUserCard from "./components/SidebarUserCard";
 import { useAccountsPlanUsage } from "./hooks/useAccountsPlanUsage";
 import SidebarNavLink from "./components/SidebarNavLink";
-import SidebarAccountSwitcher from "./components/SidebarAccountSwitcher";
 import { isAccountConnected } from "./lib/accountConnection";
 import { pathRequiresConnectedAccount } from "./lib/postAuthRedirect";
 import "./styles/sidebar.css";
@@ -218,8 +217,6 @@ export default function Layout() {
           <img src={SIDEBAR_LOGO_SRC} alt="" className="app-sidebar__logo" decoding="async" />
           <span className="app-sidebar__wordmark">Veritrail</span>
         </div>
-
-        <SidebarAccountSwitcher collapsed={sidebarCollapsed} canManageAccounts={canManageAccounts} />
 
         <nav className="app-sidebar__nav">
           {canManageAccounts && (

@@ -7450,7 +7450,7 @@ export default function Accounts() {
   const pageEnd = Math.min(page * effectivePageSize, sortedFilteredRows.length);
 
   const connectedOptionsQ = useConnectedAccountOptions();
-  const { accountId: sidebarAccountId } = useSelectedAccountId(
+  const { accountId: urlAccountId } = useSelectedAccountId(
     connectedOptionsQ.options,
     connectedOptionsQ.isSuccess,
     { disableUrlSync: orgHome },
@@ -7466,9 +7466,9 @@ export default function Accounts() {
       setSelectedRowKey(null);
       return;
     }
-    const fromSidebar = accountListRowFromId(sidebarAccountId, filteredRows);
-    if (fromSidebar) {
-      const key = accountListRowKey(fromSidebar);
+    const fromUrl = accountListRowFromId(urlAccountId, filteredRows);
+    if (fromUrl) {
+      const key = accountListRowKey(fromUrl);
       if (selectedRowKey !== key) setSelectedRowKey(key);
       return;
     }
@@ -7478,7 +7478,7 @@ export default function Accounts() {
         row.kind === "aws" ? isAccountConnected(row.account) : isCloudAccountConnected(row.cloud),
       ) ?? filteredRows[0];
     setSelectedRowKey(accountListRowKey(preferred));
-  }, [filteredRows, selectedRowKey, sidebarAccountId]);
+  }, [filteredRows, selectedRowKey, urlAccountId]);
 
   useEffect(() => {
     if (page > totalPages) setPage(totalPages);
@@ -7830,6 +7830,17 @@ export default function Accounts() {
         </div>
       )}
 
+      {showAccountList && orgHome && (
+        <HeaderSlot>
+          <div className="header-filter-bar accounts-dashboard__header-bar">
+            <Link to="/accounts?view=all" className="accounts-dashboard__manage-link">
+              All accounts
+              {sortedFilteredRows.length > 0 ? ` (${sortedFilteredRows.length})` : ""}
+            </Link>
+          </div>
+        </HeaderSlot>
+      )}
+
       {showAccountList && !viewAll && (
         <>
           <HeaderSlot>
@@ -7876,7 +7887,7 @@ export default function Accounts() {
             <div className="accounts-detail-empty">
               <p className="accounts-detail-empty__title">Select an account</p>
               <p className="accounts-detail-empty__body">
-                Pick an account from the sidebar, or open{" "}
+                Open{" "}
                 <Link to="/accounts?view=all" className="accounts-detail-empty__link">
                   all accounts
                 </Link>{" "}
