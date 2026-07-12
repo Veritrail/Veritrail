@@ -207,6 +207,7 @@ type StatusFilter =
   | "expired";
 
 type ComplianceView = "composite" | "detailed";
+type CompliancePageView = "controls" | "checks";
 
 const statusExpandedBg: Record<string, string> = {
   pass: "bg-zinc-50/40",
@@ -1371,6 +1372,39 @@ function ComplianceToolbarLoadingSkeleton() {
       <div className="h-8 w-24 rounded-full bg-zinc-100" />
       <div className="h-8 w-20 rounded-full bg-zinc-100" />
       <div className="h-8 w-28 rounded-full bg-zinc-100" />
+    </div>
+  );
+}
+
+function CompliancePageViewToggle({
+  pageView,
+  onChange,
+  className = "",
+}: {
+  pageView: CompliancePageView;
+  onChange: (view: CompliancePageView) => void;
+  className?: string;
+}) {
+  return (
+    <div className={["compliance-header-view-toggle shrink-0", className].filter(Boolean).join(" ")}>
+      <div
+        className="vt-toolbar-segmented compliance-page-view-toggle"
+        role="tablist"
+        aria-label="Compliance view"
+      >
+        {(["controls", "checks"] as const).map((option) => (
+          <button
+            key={option}
+            type="button"
+            role="tab"
+            aria-selected={pageView === option}
+            className={`vt-toolbar-segment${pageView === option ? " vt-toolbar-segment--active" : ""}`}
+            onClick={() => onChange(option)}
+          >
+            {option === "controls" ? "Controls" : "Criteria"}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
@@ -3845,6 +3879,9 @@ export default function Controls() {
   const urlView = searchParams.get("view");
   const urlStatus = searchParams.get("status");
   const urlTab = searchParams.get("tab");
+  const [pageView, setPageView] = useState<CompliancePageView>(() =>
+    urlView === "checks" ? "checks" : "controls",
+  );
   const [framework, setFramework] = useState(() =>
     urlFramework && FRAMEWORKS.some((f) => f.id === urlFramework)
       ? urlFramework
@@ -3947,6 +3984,25 @@ export default function Controls() {
     );
   }
 
+  function setPageViewWithUrl(view: CompliancePageView) {
+    setPageView(view);
+    setSelectedControlId(null);
+    setSelectedKind(null);
+    setStatusFilter("all");
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("control");
+        next.delete("composite");
+        next.delete("tab");
+        if (view === "checks") next.set("view", "checks");
+        else next.delete("view");
+        return next;
+      },
+      { replace: true },
+    );
+  }
+
   const controls = useQuery({
     queryKey: ["controls", framework, activeAccount?.id],
     queryFn: () =>
@@ -3967,6 +4023,10 @@ export default function Controls() {
     }
     prevScanAtRef.current = scanAt;
   }, [activeAccount?.last_scan_at, qc]);
+
+  useEffect(() => {
+    setPageView(urlView === "checks" ? "checks" : "controls");
+  }, [urlView]);
 
   const meQ = useMe();
   const canAttest = roleAtLeast(meQ.data?.role, "admin");
@@ -4329,6 +4389,11 @@ export default function Controls() {
     [rows, selectedControlId, selectedKind],
   );
 
+  // The Criteria tab reuses the detailed framework-control list (family nav +
+  // rich rows + drawer) — same presentation, reachable without the composite
+  // drill-down breadcrumb.
+  const detailedListActive =
+    pageView === "checks" || (pageView === "controls" && complianceView === "detailed");
   const groupedRows = useMemo(
     () => groupControls(filteredRows, framework),
     [filteredRows, framework],
@@ -4657,6 +4722,7 @@ export default function Controls() {
                 onSelect={handleFrameworkChange}
               />
             ) : null}
+            <CompliancePageViewToggle pageView={pageView} onChange={setPageViewWithUrl} />
           </HeaderFilterBar>
         </HeaderSlot>
       )}
@@ -4688,7 +4754,9 @@ export default function Controls() {
                 statusFilter={statusFilter}
                 onStatusFilterChange={handleStatusFilterChange}
                 statusCounts={
-                  complianceView === "composite"
+                  pageView === "checks"
+                    ? { total, passed, failed, noData }
+                    : complianceView === "composite"
                     ? {
                         total: compositeTotal,
                         passed: compositePassed,
@@ -4702,9 +4770,10 @@ export default function Controls() {
                       }
                     : { total, passed, failed, noData }
                 }
-                compositeStatusFilter={complianceView === "composite"}
+                compositeStatusFilter={pageView === "controls" && complianceView === "composite"}
                 toolbarLoading={compositeToolbarLoading}
                 showStatusFilter={
+                  pageView === "checks" ? total > 0 :
                   (complianceView === "composite" &&
                     !compositeInitialLoading &&
                     primaryComposites.length > 0) ||
@@ -4715,14 +4784,16 @@ export default function Controls() {
               />
             }
             section={
-              complianceView === "detailed" ? (
+              detailedListActive ? (
                 <div className="compliance-detail-shell-nav">
-                  <ComplianceDetailBreadcrumb
-                    framework={framework}
-                    controlId={urlControl}
-                    compositeTitle={breadcrumbCompositeTitle}
-                    onBack={handleBackToCategories}
-                  />
+                  {pageView === "controls" ? (
+                    <ComplianceDetailBreadcrumb
+                      framework={framework}
+                      controlId={urlControl}
+                      compositeTitle={breadcrumbCompositeTitle}
+                      onBack={handleBackToCategories}
+                    />
+                  ) : null}
                   {groupedRows.length > 1 && selectedGroup ? (
                     <ComplianceFamilyNav
                       groups={groupedRows}
@@ -4738,13 +4809,14 @@ export default function Controls() {
               ) : undefined
             }
           >
-            {complianceView === "composite" && compositeInitialLoading && (
+
+            {pageView === "controls" && complianceView === "composite" && compositeInitialLoading && (
               <div className="px-5 py-8">
                 <LoadingSkeleton />
               </div>
             )}
 
-            {complianceView === "composite" &&
+            {pageView === "controls" && complianceView === "composite" &&
               !compositeInitialLoading &&
               primaryComposites.length > 0 &&
               filteredCompositePanelRows.length === 0 &&
@@ -4754,7 +4826,7 @@ export default function Controls() {
                 </div>
               )}
 
-            {complianceView === "composite" &&
+            {pageView === "controls" && complianceView === "composite" &&
               !compositeInitialLoading &&
               filteredCompositePanelRows.length > 0 && (
                 <CompositeControlsPanel
@@ -4769,7 +4841,7 @@ export default function Controls() {
                 />
               )}
 
-            {complianceView === "composite" &&
+            {pageView === "controls" && complianceView === "composite" &&
               !compositeInitialLoading &&
               primaryComposites.length === 0 &&
               total > 0 && (
@@ -4786,13 +4858,13 @@ export default function Controls() {
                 </div>
               )}
 
-            {complianceView === "detailed" && rows.length === 0 && (
+            {detailedListActive && rows.length === 0 && (
               <div className="px-6 py-16 text-center text-sm text-zinc-400">
                 No controls found for this framework.
               </div>
             )}
 
-            {complianceView === "detailed" &&
+            {detailedListActive &&
               rows.length > 0 &&
               filteredRows.length === 0 &&
               statusFilter !== "all" && (
@@ -4801,7 +4873,7 @@ export default function Controls() {
                 </div>
               )}
 
-            {complianceView === "detailed" &&
+            {detailedListActive &&
               groupedRows.length > 0 &&
               selectedGroup &&
               selectedGroup.rows.map((ctrl) => {
@@ -4829,14 +4901,7 @@ export default function Controls() {
                           : "hover:bg-zinc-50/60"
                       } ${isSelected ? "is-expanded" : ""}`}
                     >
-                      <div className="compliance-control-card__main min-w-0 flex-1">
-                        <span
-                          className={`compliance-control-card__chevron${isSelected ? " is-open" : ""}`}
-                          aria-hidden
-                        >
-                          ›
-                        </span>
-                        <div className="min-w-0 flex-1 py-0.5">
+                      <div className="min-w-0 flex-1 py-0.5">
                         <p className="text-body font-semibold leading-snug text-zinc-900">
                           <span className="font-mono text-meta font-semibold text-zinc-500">
                             {ctrl.control_id}
@@ -4852,19 +4917,20 @@ export default function Controls() {
                             {ctrl.description}
                           </p>
                         ) : null}
-                        </div>
                       </div>
                       <div className="flex shrink-0 flex-col items-end gap-2 self-center sm:flex-row sm:items-center">
-                        <ControlEvidenceDrawerTrigger
-                          control={ctrl}
-                          artifacts={externalEvidence.data ?? []}
-                          findingCountByCheck={findingCountByCheck}
-                          displayStatus={displayStatus}
-                          submittedCount={
-                            submittedCountByControl.get(ctrl.id) ?? 0
-                          }
-                          onOpen={() => selectDetailedControl(ctrl.id, "evidence")}
-                        />
+                        {pageView === "controls" ? (
+                          <ControlEvidenceDrawerTrigger
+                            control={ctrl}
+                            artifacts={externalEvidence.data ?? []}
+                            findingCountByCheck={findingCountByCheck}
+                            displayStatus={displayStatus}
+                            submittedCount={
+                              submittedCountByControl.get(ctrl.id) ?? 0
+                            }
+                            onOpen={() => selectDetailedControl(ctrl.id, "evidence")}
+                          />
+                        ) : null}
                         <ComplianceRowSummary
                           displayStatus={displayStatus}
                           href={findingsHref}
@@ -4950,7 +5016,6 @@ export default function Controls() {
                 setSelectedControlId(null);
                 setSelectedKind(null);
               }}
-              headerEyebrow={frameworkControlLabel(framework, selectedDetailedControl.control_id)}
               headerTitle={shortControlTitle(selectedDetailedControl.title)}
               headerDescription={selectedDetailedControl.description}
               headerStatus={
