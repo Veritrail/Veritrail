@@ -350,7 +350,7 @@
   flex: 0 0 auto;
   min-width: max-content;
   border-radius: 0.5rem;
-  border-color: #cbd5e1;
+  border: 1px solid #cbd5e1;
   color: #374151;
   box-shadow: none;
 }
@@ -363,7 +363,7 @@
 
 /* Scan = Veritrail teal primary, not a neutral outline. */
 .findings-v2-page .findings-v2-toolbar-btn--scan {
-  border-color: var(--vt-teal);
+  border: 1px solid var(--vt-teal);
   background: var(--vt-teal);
   color: #ffffff;
   box-shadow: 0 1px 2px rgba(13, 148, 136, 0.28);
@@ -823,7 +823,7 @@
    lone button (All-cloud scope has no Scan beside it) look hover-stuck. Clean
    outline, no fill: reads as a button, rests flat. */
 .findings-v2-page .findings-v2-actions-group .findings-v2-toolbar-btn:not(.findings-v2-toolbar-btn--scan) {
-  border-color: #b6c0cd;
+  border: 1px solid #b6c0cd;
   background: transparent;
 }
 
