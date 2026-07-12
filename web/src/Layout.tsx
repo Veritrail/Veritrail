@@ -37,27 +37,6 @@ function SidebarIcon({ name }: { name: SidebarIconName }) {
   return <span className="app-sidebar__icon" style={style} aria-hidden />;
 }
 
-/** Inline line-icons for nav items with no PNG asset (Home, Audit). Inherit
- *  currentColor → pick up the active-blue state like the masked icons. */
-function HomeNavIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" opacity={0.9} aria-hidden>
-      <path d="M3 10.75 12 3.5l9 7.25" />
-      <path d="M5.25 9.5V19.5a1 1 0 0 0 1 1H10v-5.5h4V20.5h3.75a1 1 0 0 0 1-1V9.5" />
-    </svg>
-  );
-}
-
-/** Audit = assurance / audit-ready. Shield-check, distinct from Compliance's clipboard. */
-function AuditNavIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" opacity={0.9} aria-hidden>
-      <path d="M12 3.25 19 6v5.2c0 4.55-3 7.6-7 9.05-4-1.45-7-4.5-7-9.05V6l7-2.75Z" />
-      <path d="m8.75 12 2.25 2.25L15.5 9.5" />
-    </svg>
-  );
-}
-
 type AccountRow = { status: string; account_id: string | null };
 
 const DEFAULT_HISTORY_FRAMEWORK = "soc2";
@@ -242,7 +221,7 @@ export default function Layout() {
         <nav className="app-sidebar__nav">
           {canManageAccounts && (
             <SidebarNavLink to="/accounts" title="Home">
-              <HomeNavIcon />
+              <SidebarIcon name="accounts" />
               <span className="app-sidebar__label">Home</span>
             </SidebarNavLink>
           )}
@@ -257,9 +236,9 @@ export default function Layout() {
             <span className="app-sidebar__label">Compliance</span>
           </SidebarNavLink>
 
-          <SidebarNavLink to="/audit" title="Audit">
-            <AuditNavIcon />
-            <span className="app-sidebar__label">Audit</span>
+          <SidebarNavLink to="/audit" title="Audit readiness">
+            <SidebarIcon name="compliance" />
+            <span className="app-sidebar__label">Audit readiness</span>
           </SidebarNavLink>
 
           <SidebarNavLink to="/history" title="History">
