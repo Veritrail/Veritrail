@@ -8338,7 +8338,7 @@ button.accounts-flow-step:hover {
 .org-home__timeline-row {
   display: flex;
   align-items: baseline;
-  gap: 1rem;
+  gap: 0.45rem;
   padding: 0.875rem 0;
 }
 
@@ -8347,7 +8347,7 @@ button.accounts-flow-step:hover {
 }
 
 .org-home__timeline-time {
-  flex: 0 0 5.5rem;
+  flex: 0 0 3.25rem;
   font-size: 0.875rem;
   color: #98a2b3;
   white-space: nowrap;
@@ -8702,8 +8702,19 @@ button.accounts-flow-step:hover {
 
 .org-home__timeline-section--compact .org-home__section-head { margin-bottom: 0.4rem; }
 .org-home__timeline-section--compact .org-home__section-title { font-size: 0.9rem; }
-.org-home__timeline-section--compact .org-home__timeline-row { padding: 0.65rem 0; }
-.org-home__timeline-section--compact .org-home__timeline-time { font-size: 0.72rem; }
+.org-home__timeline-section--compact .org-home__timeline-row {
+  gap: 0.35rem;
+  padding: 0.5rem 0;
+}
+.org-home__timeline-section--compact .org-home__timeline-time {
+  flex-basis: 2.75rem;
+  font-size: 0.72rem;
+}
+.org-home__timeline-section--compact .org-home__timeline-dot {
+  width: 0.4375rem;
+  height: 0.4375rem;
+  margin-inline: 0.05rem;
+}
 .org-home__timeline-section--compact .org-home__timeline-text { font-size: 0.78rem; }
 
 .org-home__skeleton--top {

@@ -171,7 +171,7 @@ export function OrgReadinessHome() {
       queryKey: ["org-readiness", "timeline", account.id],
       queryFn: () =>
         api<ComplianceHistoryResponse>(
-          `/v1/accounts/${account.id}/compliance-timeline?framework=soc2&days=14&limit=10`,
+          `/v1/accounts/${account.id}/compliance-timeline?framework=soc2&days=90&limit=40`,
           { schema: complianceTimelineSchema },
         ),
       enabled: !!account.last_scan_at,
@@ -490,8 +490,8 @@ export function OrgReadinessHome() {
       </section>
 
       {awsAccounts.length > 0 ? (
-        <section className="org-home__timeline-section org-home__timeline-section--compact" aria-label="Timeline">
-          <SectionHead title="Timeline" linkTo="/history" linkLabel="History" />
+        <section className="org-home__timeline-section org-home__timeline-section--compact" aria-label="Recent AWS activity">
+          <SectionHead title="Recent AWS activity" linkTo="/history" linkLabel="History" />
           {timelineEvents.length === 0 ? (
             <p className="org-home__timeline-empty">AWS activity appears after the first completed scan.</p>
           ) : (
