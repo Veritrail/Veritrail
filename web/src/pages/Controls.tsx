@@ -4818,8 +4818,6 @@ export default function Controls() {
                   ctrl.check_ids,
                   findingCountByCheck,
                 );
-                const compositeIconId = compositeIdByControlId.get(ctrl.id);
-
                 return (
                   <div
                     key={ctrl.id}
@@ -4839,9 +4837,14 @@ export default function Controls() {
                         >
                           ›
                         </span>
-                        <CompositeGroupIcon
-                          id={compositeIconId ?? "framework_control"}
-                        />
+                        {pageView === "controls" ? (
+                          <CompositeGroupIcon
+                            id={
+                              compositeIdByControlId.get(ctrl.id) ??
+                              "framework_control"
+                            }
+                          />
+                        ) : null}
                         <div className="compliance-control-card__title">
                           <h3>
                             {frameworkControlRowTitle(
