@@ -30,6 +30,7 @@ from app.services.user_display_name import (
     apply_display_name_if_empty,
     oauth_avatar_url_from_profile,
     oauth_display_name_from_profile,
+    resolve_user_avatar_url,
 )
 from app.services.user_session import record_user_session
 from app.routes.github_integration import (
@@ -129,7 +130,13 @@ def _oauth_login_redirect(
     if request is not None and db is not None:
         record_user_session(db, user.id, refresh, request, auth_method=auth_method)
         db.commit()
-    resp = RedirectResponse(f"{_frontend_url()}/auth/callback?token={quote(token, safe='')}")
+    callback_params = {"token": token}
+    avatar_url = resolve_user_avatar_url(user)
+    if avatar_url:
+        callback_params["avatar_url"] = avatar_url
+    resp = RedirectResponse(
+        f"{_frontend_url()}/auth/callback?{urlencode(callback_params, quote_via=quote)}"
+    )
     attach_refresh_cookie(resp, refresh, remember_me=remember_me)
     return resp
 

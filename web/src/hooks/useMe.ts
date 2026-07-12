@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { api } from "../api";
+import { api, clearSessionAvatarUrl, readSessionAvatarUrl } from "../api";
 import { meSchema, type Me } from "../lib/apiSchemas";
 
 export type OrgRole = Me["role"];
@@ -58,7 +58,19 @@ export function formatOrgRole(role: string | undefined | null): string | null {
 export function useMe() {
   return useQuery<Me>({
     queryKey: ["me"],
-    queryFn: () => api("/v1/auth/me", { schema: meSchema }),
+    queryFn: async () => {
+      const me = await api("/v1/auth/me", { schema: meSchema });
+      const storedAvatar = me.avatar_url?.trim();
+      if (storedAvatar) {
+        clearSessionAvatarUrl();
+        return me;
+      }
+      const sessionAvatar = readSessionAvatarUrl();
+      if (sessionAvatar) {
+        return { ...me, avatar_url: sessionAvatar };
+      }
+      return me;
+    },
     staleTime: 60_000,
   });
 }

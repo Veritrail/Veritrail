@@ -44,6 +44,28 @@ def apply_avatar_url_from_profile(user: User, profile: dict) -> None:
         user.avatar_url = avatar_url
 
 
+def oauth_avatar_fallback_url(user: User) -> str | None:
+    """Derive a public profile photo URL from linked OAuth provider IDs."""
+    github_id = (user.github_id or "").strip()
+    if github_id.isdigit():
+        return f"https://avatars.githubusercontent.com/u/{github_id}?v=4"
+    gitlab_id = (user.gitlab_id or "").strip()
+    if gitlab_id.isdigit():
+        return f"https://gitlab.com/uploads/-/system/user/avatar/{gitlab_id}/avatar.png"
+    return None
+
+
+def resolve_user_avatar_url(user: User, *, persist_fallback: bool = False) -> str | None:
+    """Stored avatar_url, else a provider-ID fallback when available."""
+    stored = (user.avatar_url or "").strip()
+    if stored.startswith("http"):
+        return stored
+    fallback = oauth_avatar_fallback_url(user)
+    if fallback and persist_fallback:
+        user.avatar_url = fallback
+    return fallback
+
+
 def resolve_user_display_name(user: User) -> str:
     """display_name > formatted email local part > full email."""
     stored = (user.display_name or "").strip()

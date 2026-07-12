@@ -608,13 +608,19 @@ def get_me(principal: dict = Depends(current_principal), db: Session = Depends(g
     user = db.get(User, uuid.UUID(principal["sub"]))
     if not user:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "user not found")
+    from app.services.user_display_name import resolve_user_avatar_url
+
+    had_avatar = bool((user.avatar_url or "").strip())
+    avatar_url = resolve_user_avatar_url(user, persist_fallback=True)
+    if not had_avatar and avatar_url:
+        db.commit()
     has_workspace = bool(list_memberships(db, user.id))
     org = db.get(Org, user.org_id)
     return MeOut(
         id=str(user.id),
         email=user.email,
         display_name=resolve_user_display_name(user),
-        avatar_url=user.avatar_url,
+        avatar_url=avatar_url,
         role=normalize_role(user.role),
         evidence_role=membership_evidence_role(
             db, user.id, user.org_id, fallback_org_role=user.role

@@ -9,8 +9,10 @@ from app.services.user_display_name import (
     apply_display_name_if_empty,
     default_display_name_for_email,
     format_email_local_display_name,
+    oauth_avatar_fallback_url,
     oauth_avatar_url_from_profile,
     oauth_display_name_from_profile,
+    resolve_user_avatar_url,
     resolve_user_display_name,
 )
 
@@ -52,6 +54,36 @@ def test_apply_avatar_url_from_profile_persists_provider_photo():
         {"picture": "https://lh3.googleusercontent.com/a/example"},
     )
     assert user.avatar_url == "https://lh3.googleusercontent.com/a/example"
+
+
+def test_oauth_avatar_fallback_url_uses_github_id():
+    user = User(
+        id=uuid.uuid4(),
+        org_id=uuid.uuid4(),
+        email="elazar.chodjayev@cloud-castles.com",
+        password_hash="",
+        github_id="96201125",
+    )
+    assert oauth_avatar_fallback_url(user) == "https://avatars.githubusercontent.com/u/96201125?v=4"
+
+
+def test_resolve_user_avatar_url_prefers_stored_then_persists_fallback():
+    user = User(
+        id=uuid.uuid4(),
+        org_id=uuid.uuid4(),
+        email="elazar.chodjayev@cloud-castles.com",
+        password_hash="",
+        github_id="96201125",
+    )
+    assert resolve_user_avatar_url(user) == "https://avatars.githubusercontent.com/u/96201125?v=4"
+    assert user.avatar_url is None
+
+    persisted = resolve_user_avatar_url(user, persist_fallback=True)
+    assert persisted == "https://avatars.githubusercontent.com/u/96201125?v=4"
+    assert user.avatar_url == persisted
+
+    user.avatar_url = "https://lh3.googleusercontent.com/a/stored"
+    assert resolve_user_avatar_url(user) == "https://lh3.googleusercontent.com/a/stored"
 
 
 def test_resolve_user_display_name_priority():

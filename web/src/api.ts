@@ -15,6 +15,7 @@ export type ApiInit<T = unknown> = RequestInit & {
 
 const ACCESS_KEY = "veritrail_access_token";
 const AUDITOR_KEY = "veritrail_auditor_token";
+const AVATAR_URL_KEY = "veritrail_avatar_url";
 export const SIGNED_OUT_KEY = "veritrail_signed_out";
 const PENDING_INVITE_KEY = "veritrail_pending_invite_token";
 export { PENDING_INVITE_KEY };
@@ -43,6 +44,23 @@ export function storeAccessToken(access: string) {
   sessionStorage.setItem(ACCESS_KEY, access);
 }
 
+/** OAuth callback may pass avatar_url before GET /v1/auth/me backfills the DB column. */
+export function storeSessionAvatarUrl(url: string) {
+  const trimmed = url.trim();
+  if (trimmed.startsWith("http")) {
+    sessionStorage.setItem(AVATAR_URL_KEY, trimmed);
+  }
+}
+
+export function readSessionAvatarUrl(): string | null {
+  const stored = sessionStorage.getItem(AVATAR_URL_KEY)?.trim();
+  return stored?.startsWith("http") ? stored : null;
+}
+
+export function clearSessionAvatarUrl() {
+  sessionStorage.removeItem(AVATAR_URL_KEY);
+}
+
 /** @deprecated refresh is HttpOnly; kept for OAuth transition */
 export function storeTokens(access: string, _refresh?: string) {
   storeAccessToken(access);
@@ -58,6 +76,7 @@ export function markSignedOut() {
   sessionStorage.removeItem(PENDING_INVITE_KEY);
   sessionStorage.removeItem(PENDING_CREDENTIALS_KEY);
   sessionStorage.removeItem(MFA_STORAGE_KEY);
+  sessionStorage.removeItem(AVATAR_URL_KEY);
 }
 
 export function consumeSignedOut(): boolean {
