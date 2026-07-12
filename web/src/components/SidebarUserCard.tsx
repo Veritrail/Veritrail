@@ -3,12 +3,15 @@ import { Link } from "react-router-dom";
 import { logout } from "../api";
 import { resolveUserDisplayName } from "../lib/displayNames";
 
-function userInitials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "?";
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return `${parts[0][0] ?? ""}${parts[parts.length - 1][0] ?? ""}`.toUpperCase();
-}
+const NULL_AVATAR_ICON = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.65} aria-hidden>
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.5 19.5a7.5 7.5 0 0 1 15 0v.75H4.5v-.75Z"
+    />
+  </svg>
+);
 
 type SidebarUserCardProps = {
   email: string;
@@ -114,7 +117,7 @@ export default function SidebarUserCard({
           {showAvatar ? (
             <img src={trimmedAvatarUrl} alt="" onError={() => setAvatarFailed(true)} />
           ) : (
-            userInitials(name)
+            NULL_AVATAR_ICON
           )}
         </span>
         <span className="app-sidebar__workspace-copy">
