@@ -391,7 +391,6 @@ export function OrgReadinessHome() {
       <div className="org-home">
         <header className="org-home__top">
           <div>
-            <p className="org-home__eyebrow">Home</p>
             <h1 className="org-home__title">{orgName}</h1>
             <p className="org-home__description">
               Connect a cloud, identity, or source-control integration to establish your technical
@@ -416,7 +415,6 @@ export function OrgReadinessHome() {
     <div className="org-home">
       <header className="org-home__top">
         <div>
-          <p className="org-home__eyebrow">Home</p>
           <h1 className="org-home__title">{orgName}</h1>
           <p className="org-home__description">
             {homeState === "incomplete"
