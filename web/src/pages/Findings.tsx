@@ -1,7 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
-import { AccountFilterDropdown } from "../components/AccountFilterDropdown";
 import { HeaderFilterBar } from "../components/HeaderFilterBar";
 import { HeaderSlot } from "../context/HeaderSlot";
 import { FilterChipBar } from "../components/FilterChipBar";
@@ -20,12 +19,10 @@ import ConnectAwsEmptyState from "../components/ConnectAwsEmptyState";
 import {
   ALL_CLOUD_SCOPE_ID,
   buildFindingsScopeGroups,
-  findingsScopeDropdownValue,
   findingsScopeParams,
   flattenScopeGroups,
   IDENTITY_SCOPE_ID,
   parseFindingsProviderScope,
-  SCOPE_SENTINEL_PREFIX,
   SOURCE_CONTROL_SCOPE_ID,
   useConnectedAccountOptions,
   type FindingsProviderScope,
@@ -107,13 +104,6 @@ function findingBelongsToAccount(finding: Finding, account: { id: string; accoun
 
 function parseProviderScope(value: string | null) {
   return parseFindingsProviderScope(value);
-}
-
-function scopeSentinelToProvider(scope: string): string | null {
-  if (scope === "all_cloud") return "all_cloud";
-  if (scope === "source_control") return "source_control";
-  if (scope === "identity") return "identity";
-  return null;
 }
 
 type Account = {
@@ -867,7 +857,6 @@ export function FindingsWorkspace({ lockedAccountId, embedded = false }: Finding
   const {
     accountId: selectedAccountId,
     activeAccount: selectedActiveAccount,
-    setAccountId: setSelectedAccountId,
   } = useSelectedAccountId(cloudAccounts, accountsReady, {
     holdUrlSyncWhenParams: isLocked || embedded ? ["account_id", "account", "provider"] : ["provider"],
     scopeDefaults: {
@@ -1359,27 +1348,6 @@ export function FindingsWorkspace({ lockedAccountId, embedded = false }: Finding
     );
   }
 
-  function handleAccountChange(id: string) {
-    if (id.startsWith(SCOPE_SENTINEL_PREFIX)) {
-      const scope = id.slice(SCOPE_SENTINEL_PREFIX.length);
-      const provider = scopeSentinelToProvider(scope);
-      if (!provider) return;
-      writeStoredSelectedAccountId(id);
-      setSearchParams(
-        (prev) => {
-          const next = new URLSearchParams(prev);
-          next.set("provider", provider);
-          next.delete("account_id");
-          return next;
-        },
-        { replace: true },
-      );
-      return;
-    }
-    writeStoredSelectedAccountId(id);
-    setSelectedAccountId(id, { removeParams: ["provider"] });
-  }
-
   function handleSearch(value: string) {
     setSearchText(value);
     if (!syncFiltersToUrl) return;
@@ -1481,12 +1449,6 @@ export function FindingsWorkspace({ lockedAccountId, embedded = false }: Finding
         {!embedded && connectedScopeOptions.length > 0 && (
           <HeaderSlot>
           <HeaderFilterBar>
-            <AccountFilterDropdown
-              accounts={connectedScopeOptions}
-              groups={scopeGroups.map((group) => ({ heading: group.heading, accounts: group.options }))}
-              value={findingsScopeDropdownValue(providerScope, effectiveAccountId)}
-              onChange={handleAccountChange}
-            />
             <BenchmarkFrameworkSelect selected={selectedFrameworks} onChange={handleBenchmarkChange} />
             <FindingsStatusSelect value={status} onChange={setStatus} />
           </HeaderFilterBar>

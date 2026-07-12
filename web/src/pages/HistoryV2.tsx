@@ -4,10 +4,9 @@ import { Navigate, useSearchParams } from "react-router-dom";
 
 import { api } from "../api";
 import { complianceTimelineSchema, compositeControlListSchema } from "../lib/apiSchemas";
-import { AccountFilterDropdown } from "../components/AccountFilterDropdown";
 import { CloudFeatureComingSoon } from "../components/CloudFeatureComingSoon";
 import { HeaderFilterBar } from "../components/HeaderFilterBar";
-import { HeaderSegmentCard } from "../components/SelectorCard";
+import { HeaderViewSelect } from "../components/HeaderViewSelect";
 import { HeaderSlot } from "../context/HeaderSlot";
 import { useConnectedAccountOptions } from "../hooks/useConnectedAccountOptions";
 import { useSelectedAccountId } from "../hooks/useSelectedAccountId";
@@ -110,29 +109,16 @@ function HistoryPageViewToggle({
   className?: string;
 }) {
   return (
-    <HeaderSegmentCard label="View" className={className}>
-      <div
-        className="vt-toolbar-segmented history-page-view-toggle"
-        role="tablist"
-        aria-label="History view"
-      >
-        {([
-          { id: "controls", label: "Controls" },
-          { id: "activity", label: "Activity" },
-        ] as const).map((option) => (
-          <button
-            key={option.id}
-            type="button"
-            role="tab"
-            aria-selected={view === option.id}
-            className={`vt-toolbar-segment${view === option.id ? " vt-toolbar-segment--active" : ""}`}
-            onClick={() => onChange(option.id)}
-          >
-            {option.label}
-          </button>
-        ))}
-      </div>
-    </HeaderSegmentCard>
+    <HeaderViewSelect
+      value={view}
+      options={[
+        { value: "controls", label: "Controls" },
+        { value: "activity", label: "Activity" },
+      ]}
+      onChange={onChange}
+      ariaLabel="History view"
+      className={className}
+    />
   );
 }
 
@@ -154,7 +140,7 @@ export default function HistoryV2() {
 
   const { options: connectedAccounts, isLoading: accountsLoading, isSuccess: accountsReady } =
     useConnectedAccountOptions();
-  const { accountId: effectiveAccountId, activeAccount, setAccountId } = useSelectedAccountId(
+  const { accountId: effectiveAccountId, activeAccount } = useSelectedAccountId(
     connectedAccounts,
     accountsReady,
   );
@@ -277,16 +263,6 @@ export default function HistoryV2() {
     <div className="history-page history-page--fill px-1 sm:px-0">
       <HeaderSlot>
         <HeaderFilterBar>
-          <AccountFilterDropdown
-            accounts={connectedAccounts}
-            value={effectiveAccountId}
-            onChange={(id) => {
-              setAccountId(id);
-              setPageSize(DEFAULT_VISIBLE_EVENTS);
-              setPage(1);
-            }}
-          />
-
           {isAwsAccount ? (
             <>
               <HistoryFilterDropdown
