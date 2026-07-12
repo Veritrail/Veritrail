@@ -322,12 +322,6 @@ export function OrgReadinessHome() {
       : evidenceClear
         ? "clear"
         : "action";
-  const homeStateLabel = {
-    incomplete: "Data incomplete",
-    "not-assessed": "Not assessed",
-    clear: "Evidence clear",
-    action: "Action required",
-  }[homeState];
   const nextActionCount = blockerGroups.length + capabilityItems.length;
   const actionReasons = [
     highCount > 0
