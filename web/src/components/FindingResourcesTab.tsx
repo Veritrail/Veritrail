@@ -14,7 +14,7 @@ import {
   summarizeRefreshOutcome,
   waitForRecheckUpdate,
 } from "../lib/recheckPoll";
-import { resourceAffectedReason } from "../lib/resourceAffectedReason";
+import { resourceAffectedReason, resourceAffectedReasonParts } from "../lib/resourceAffectedReason";
 import type { JiraIssueStatus } from "../hooks/useJiraIssueStatus";
 import {
   isJiraDoneBeforeVerification,
@@ -191,26 +191,24 @@ function StripMetric({
 }
 
 function ResourceWhyAffectedCompact({ finding }: { finding: ResourcesTabFinding }) {
-  const reason = resourceAffectedReason(finding);
+  const reason = resourceAffectedReasonParts(finding);
+  const accessibleReason = reason.detail ? `${reason.title}. ${reason.detail}` : reason.title;
+  const detailParts = reason.detail.split(" · ").filter(Boolean);
   return (
-    <div className="flex min-w-0 items-center gap-2.5 rounded-lg border border-rose-100 bg-rose-50 px-3.5 py-3">
-      <svg
-        className="h-4 w-4 shrink-0 text-red-500"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth={1.5}
-        viewBox="0 0 24 24"
-        aria-hidden
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"
-        />
-      </svg>
-      <p className="min-w-0 flex-1 hyphens-none text-[13px] font-semibold leading-snug text-red-600">
-        {reason}
-      </p>
+    <div className="finding-resources-tab__reason" title={accessibleReason}>
+      <div className="finding-resources-tab__reason-copy">
+        <p className="finding-resources-tab__reason-title">{reason.title}</p>
+        {detailParts.length ? (
+          <p className="finding-resources-tab__reason-detail">
+            <span>{detailParts[0]}</span>
+            {detailParts.slice(1).map((part, index) => (
+              <span key={`${part}-${index}`} className="finding-resources-tab__reason-evidence">
+                {part}
+              </span>
+            ))}
+          </p>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -1026,10 +1024,10 @@ export function FindingResourcesTab({
               {selectionEnabled ? <col className="w-10" /> : null}
               <col className="finding-resources-tab__resource-col" />
               <col className="finding-resources-tab__type-col" />
-              <col className="min-w-[7.5rem]" />
-              <col />
-              <col />
-              <col className="min-w-[14rem]" />
+              <col className="finding-resources-tab__account-col" />
+              <col className="finding-resources-tab__seen-col" />
+              <col className="finding-resources-tab__seen-col" />
+              <col className="finding-resources-tab__reason-col" />
             </colgroup>
             <thead>
               <tr className="border-b border-zinc-100 text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
@@ -1148,7 +1146,7 @@ export function FindingResourcesTab({
                       </p>
                       <p className="mt-1 text-[11px] leading-4 text-zinc-500">{last.sub}</p>
                     </td>
-                    <td className="px-4 py-4 align-middle">
+                    <td className="finding-resources-tab__reason-cell px-4 py-4 align-middle">
                       <ResourceWhyAffectedCompact finding={f} />
                     </td>
                   </tr>

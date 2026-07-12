@@ -302,10 +302,11 @@
   }
 }
 
-/* Expanded accordion borrows metadata columns beside the finding title. */
+/* Expanded accordion uses the full row; the card supplies its own alignment. */
 @media (min-width: 1024px) {
   .findings-v2-page .findings-v2-accordion-grid > div:has(.findings-affected-resources-card) {
-    grid-column: 3 / -1;
+    grid-column: 1 / -1;
+    padding-inline: 1.25rem;
   }
 }
 
@@ -313,7 +314,7 @@
 
 .findings-v2-page .findings-affected-resource-row {
   display: grid;
-  gap: 0.75rem 1rem;
+  gap: 0.75rem 1.25rem;
   align-items: center;
   min-width: 0;
 }
@@ -363,6 +364,22 @@
   text-overflow: ellipsis;
 }
 
+.findings-v2-page .findings-affected-resource-row__meta .veritrail-kicker {
+  color: #a1a1aa;
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.055em;
+  line-height: 1.15;
+}
+
+.findings-v2-page .findings-affected-resource-row__meta-value {
+  color: #52525b;
+  font-size: 13.5px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  line-height: 1.3;
+}
+
 .findings-v2-page .findings-affected-resource-row__meta .truncate,
 .findings-v2-page .findings-affected-resource-row__meta p span.truncate {
   display: block;
@@ -372,8 +389,33 @@
 }
 
 .findings-v2-page .findings-affected-resource-row__action {
-  white-space: nowrap;
+  display: inline-flex;
   flex-shrink: 0;
+  align-items: center;
+  gap: 0.5rem;
+  white-space: nowrap;
+  min-height: 2.25rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid #e4e4e7;
+  background: #ffffff;
+  color: #52525b;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: 1;
+  text-decoration: none;
+  transition:
+    border-color 120ms ease,
+    background-color 120ms ease,
+    color 120ms ease;
+}
+
+.findings-v2-page .findings-affected-resource-row__action:hover {
+  border-color: var(--vt-border-strong, #d8dee8);
+  background: #f8fafc;
+  color: #52525b;
 }
 
 .findings-v2-page .findings-affected-resources-card > .flex.items-start {
@@ -409,9 +451,10 @@
 
 @media (min-width: 1024px) {
   .findings-v2-page .findings-affected-resource-row {
+    column-gap: 2rem;
     grid-template-columns:
       2.5rem
-      minmax(9rem, 1.5fr)
+      minmax(11rem, 1.8fr)
       minmax(7rem, 1fr)
       minmax(7rem, 1fr)
       minmax(7rem, 1fr)
@@ -420,6 +463,7 @@
 
   .findings-v2-page .findings-affected-resource-row__identity {
     grid-column: 2;
+    padding-inline-end: 1.5rem;
   }
 
   .findings-v2-page .findings-affected-resource-row__meta-grid {
@@ -428,6 +472,7 @@
 
   .findings-v2-page .findings-affected-resource-row__meta-grid > .findings-affected-resource-row__meta--account {
     grid-column: 3;
+    padding-inline-start: 1rem;
   }
 
   .findings-v2-page .findings-affected-resource-row__meta-grid > .findings-affected-resource-row__meta--last-seen {

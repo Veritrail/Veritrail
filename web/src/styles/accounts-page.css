@@ -1549,7 +1549,7 @@ button.accounts-flow-step:hover {
 
 .accounts-connect-field__status--success { color: #047857; }
 .accounts-connect-field__status--error { color: #dc2626; }
-.accounts-connect-field__status--pending { color: #0f766e; }
+.accounts-connect-field__status--pending { color: #2563eb; }
 
 /* Deploy panel sits inside a column card — drop its own card chrome. */
 .accounts-connect-shell--deploy-review .accounts-deploy-rail--column,
@@ -2025,7 +2025,7 @@ button.accounts-flow-step:hover {
   font-weight: 600;
 }
 
-.accounts-cap-card__badge--teal { background: #ccfbf1; color: #0f766e; }
+.accounts-cap-card__badge--blue { background: #dbeafe; color: #1d4ed8; }
 .accounts-cap-card__badge--slate { background: #f4f4f5; color: #52525b; }
 .accounts-cap-card__badge--amber { background: #ffedd5; color: #c2410c; }
 
@@ -2163,7 +2163,7 @@ button.accounts-flow-step:hover {
   gap: 0.45rem;
   border: 0;
   border-radius: 0.75rem;
-  background: #0d9488;
+  background: #2563eb;
   padding: 0.8rem 1.35rem;
   font-size: 0.875rem;
   font-weight: 600;
@@ -2173,7 +2173,7 @@ button.accounts-flow-step:hover {
 }
 
 .accounts-connect-shell__cta:hover:not(:disabled) {
-  background: #0f766e;
+  background: #1d4ed8;
 }
 
 .accounts-connect-shell__cta:disabled {
@@ -2295,6 +2295,40 @@ button.accounts-flow-step:hover {
 .accounts-connect-shell__footer--verify {
   justify-content: space-between;
   background: #fff;
+}
+
+.accounts-connect-shell__footer--connect-only {
+  justify-content: flex-end;
+}
+
+.accounts-connect-permissions-toggle {
+  margin: 0 2rem 0.35rem;
+}
+
+@media (max-width: 640px) {
+  .accounts-connect-permissions-toggle {
+    margin-inline: 1.25rem;
+  }
+}
+
+.accounts-connect-permissions-panel {
+  padding-top: 0.35rem;
+  padding-bottom: 0.15rem;
+}
+
+.accounts-connect-shell--creating {
+  display: flex;
+  min-height: 12rem;
+  align-items: center;
+  justify-content: center;
+  padding: 2.5rem;
+}
+
+.accounts-connect-shell__creating {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: #52525b;
 }
 
 .accounts-review-card-grid {
@@ -8496,6 +8530,13 @@ button.accounts-flow-step:hover {
   letter-spacing: -0.04em;
 }
 
+/* One-line header: "{org} — 32 high findings stand between you and SOC 2."
+   Statement inherits the title scale; only the count carries color. */
+.org-home__title-statement {
+  font-weight: 620;
+  color: #1e293b;
+}
+
 .org-home__description {
   max-width: 48rem;
   margin: 0.4rem 0 0;
@@ -8573,9 +8614,9 @@ button.accounts-flow-step:hover {
 
 .org-home__primary-action:hover,
 .org-home__next-action:hover {
-  border-color: #99d5d0;
-  background: #f0fdfa;
-  color: #0f766e;
+  border-color: #cbd5e1;
+  background: #f8fafc;
+  color: #1e293b;
 }
 
 .org-home__actions {
@@ -8584,6 +8625,27 @@ button.accounts-flow-step:hover {
   border-radius: 0.875rem;
   background: #fff;
   box-shadow: 0 1px 2px rgb(15 23 42 / 3%);
+}
+
+.org-home__priority-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.75rem;
+}
+
+.org-home__priority-section { min-width: 0; }
+
+.org-home__priority-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.8rem;
+}
+
+.org-home__priority-section .org-home__next-list,
+.org-home__priority-section .org-home__actions-empty {
+  border-top: 0;
 }
 
 .org-home__actions-head {
@@ -8604,7 +8666,7 @@ button.accounts-flow-step:hover {
 
 .org-home__next-row {
   display: grid;
-  grid-template-columns: 4.5rem minmax(0, 1fr) auto;
+  grid-template-columns: 2rem minmax(0, 1fr) auto;
   align-items: center;
   gap: 0.85rem;
   min-height: 4.2rem;
@@ -8613,20 +8675,20 @@ button.accounts-flow-step:hover {
 
 .org-home__next-row + .org-home__next-row { border-top: 1px solid #f1f5f9; }
 
-.org-home__next-type {
+.org-home__next-rank {
+  display: inline-flex;
+  width: 1.65rem;
+  height: 1.65rem;
+  align-items: center;
+  justify-content: center;
   justify-self: start;
+  border: 1px solid #dbe4ea;
   border-radius: 999px;
-  background: #fff7ed;
-  padding: 0.2rem 0.5rem;
-  color: #b45309;
-  font-size: 0.66rem;
-  font-weight: 650;
-  text-transform: capitalize;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 0.72rem;
+  font-weight: 700;
 }
-
-.org-home__next-type--critical { background: #fef2f2; color: #b91c1c; }
-.org-home__next-type--high { background: #fff7ed; color: #b45309; }
-.org-home__next-type--enable { background: #f0fdfa; color: #0f766e; }
 
 .org-home__next-copy {
   display: flex;
@@ -8728,8 +8790,279 @@ button.accounts-flow-step:hover {
 
 @media (max-width: 600px) {
   .org-home__empty-card { align-items: flex-start; flex-direction: column; }
-  .org-home__next-row { grid-template-columns: 4.25rem minmax(0, 1fr); }
+  .org-home__next-row { grid-template-columns: 2rem minmax(0, 1fr); }
   .org-home__next-action { grid-column: 2; justify-self: start; }
   .org-home__next-copy strong,
   .org-home__next-copy span { white-space: normal; }
+}
+
+.accounts-connect-shell__header-copy {
+  min-width: 0;
+}
+
+.accounts-connect-shell__header-actions {
+  flex-shrink: 0;
+}
+
+.accounts-connect-shell__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.accounts-connect-permissions {
+  position: relative;
+}
+
+.accounts-connect-permissions__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 0;
+  background: transparent;
+  padding: 0.35rem 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #2563eb;
+}
+
+.accounts-connect-permissions__toggle:hover {
+  color: #1d4ed8;
+}
+
+.accounts-connect-permissions__chevron {
+  width: 1rem;
+  height: 1rem;
+  transition: transform 0.15s ease;
+}
+
+.accounts-connect-permissions__chevron.is-open {
+  transform: rotate(180deg);
+}
+
+.accounts-connect-permissions__panel,
+.accounts-connect-permissions__inline {
+  margin: 0 2rem 1rem;
+  border: 1px solid #dbeafe;
+  border-radius: 0.75rem;
+  background: #eff6ff;
+  padding: 1rem 1.1rem;
+}
+
+.accounts-connect-permissions__title {
+  margin: 0 0 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #1e3a8a;
+}
+
+.accounts-connect-permissions__lede {
+  margin: 0 0 0.85rem;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: #334155;
+}
+
+.accounts-connect-auth-choices {
+  display: grid;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.accounts-connect-auth-choice {
+  position: relative;
+  display: grid;
+  gap: 0.25rem;
+  border: 1px solid #e4e4e7;
+  border-radius: 0.75rem;
+  background: #fff;
+  padding: 0.85rem 1rem;
+  text-align: left;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.accounts-connect-auth-choice.is-selected {
+  border-color: #93c5fd;
+  background: #eff6ff;
+}
+
+.accounts-connect-auth-choice__badge {
+  position: absolute;
+  top: 0.65rem;
+  right: 0.75rem;
+  border-radius: 999px;
+  background: #dbeafe;
+  padding: 0.15rem 0.45rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: #1d4ed8;
+}
+
+.accounts-connect-auth-choice__title {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #18181b;
+}
+
+.accounts-connect-auth-choice__desc {
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: #52525b;
+}
+
+.accounts-connect-project-form {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.accounts-connect-code-block {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.accounts-connect-code-block .accounts-code-scroll {
+  max-height: 16rem;
+  overflow: auto;
+  border: 1px solid #e4e4e7;
+  border-radius: 0.65rem;
+  background: #fafafa;
+  padding: 0.85rem 1rem;
+  font-size: 0.6875rem;
+  line-height: 1.45;
+}
+
+.accounts-connect-stage__error {
+  margin: 0 2rem 1rem;
+}
+
+.accounts-connect-setup-steps {
+  margin: 0;
+  padding-left: 1.15rem;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: #52525b;
+}
+
+.accounts-connect-setup-steps li + li {
+  margin-top: 0.35rem;
+}
+
+.accounts-cloud-connect-page {
+  width: 100%;
+  max-width: none;
+  padding-bottom: 2rem;
+}
+
+.accounts-cloud-connect-page__breadcrumb {
+  margin-bottom: 1rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+.accounts-cloud-connect-page__breadcrumb a {
+  color: #64748b;
+}
+
+.accounts-cloud-connect-page__header {
+  margin-bottom: 1.25rem;
+}
+
+.accounts-cloud-connect-page__brand {
+  display: flex;
+  gap: 0.875rem;
+  align-items: flex-start;
+}
+
+.accounts-cloud-connect-page__title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.accounts-cloud-connect-page__title {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #18181b;
+}
+
+.accounts-cloud-connect-page__badge {
+  border-radius: 999px;
+  background: #dbeafe;
+  padding: 0.15rem 0.55rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #1d4ed8;
+}
+
+.accounts-cloud-connect-page__subtitle {
+  margin: 0.35rem 0 0;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: #52525b;
+}
+
+.accounts-cloud-connect-page__loading {
+  font-size: 0.875rem;
+  color: #71717a;
+}
+
+.accounts-cloud-connect-page__list {
+  margin-top: 1.5rem;
+  border: 1px solid #e4e4e7;
+  border-radius: 1rem;
+  background: #fff;
+  padding: 1.25rem 1.5rem;
+}
+
+.accounts-cloud-connect-page__list-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.accounts-cloud-connect-page__list-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #18181b;
+}
+
+.accounts-cloud-connect-page__items {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.accounts-cloud-connect-page__item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border-top: 1px solid #f4f4f5;
+  padding: 0.85rem 0;
+}
+
+.accounts-cloud-connect-page__item:first-child {
+  border-top: 0;
+}
+
+.accounts-cloud-connect-page__item-meta {
+  margin-top: 0.2rem;
+  font-size: 0.8125rem;
+  color: #71717a;
+}
+
+.accounts-cloud-connect-page__item-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
 }

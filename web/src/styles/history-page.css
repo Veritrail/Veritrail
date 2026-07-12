@@ -271,6 +271,11 @@
   color: #526179;
 }
 
+/* Period — neutral zinc to match View / Group header selectors (not teal). */
+.history-filter-dropdown--period .selector-card__icon-box--period {
+  color: #52525b;
+}
+
 .history-filter-menu__icon.history-filter-menu__aws,
 .history-filter-menu__icon.history-filter-menu__provider {
   width: 34px;

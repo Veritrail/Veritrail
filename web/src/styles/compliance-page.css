@@ -43,6 +43,81 @@
   flex: 0 0 auto;
 }
 
+.compliance-check-list__group {
+  padding: 0.65rem 1.25rem;
+  border-bottom: 1px solid var(--vt-border);
+  background: #f8fafc;
+  color: #64748b;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.compliance-check-row {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.9rem 1.25rem;
+  border-bottom: 1px solid #f0f2f5;
+  background: #fff;
+  text-align: left;
+  transition: background 0.15s ease;
+}
+
+.compliance-check-row:hover,
+.compliance-check-row.is-selected {
+  background: #f8fafc;
+}
+
+.compliance-check-row__dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  flex: 0 0 auto;
+  border-radius: 999px;
+}
+
+.compliance-check-row__dot.is-passing { background: #10b981; }
+.compliance-check-row__dot.is-failing { background: #f59e0b; }
+.compliance-check-row__dot.is-neutral { background: #cbd5e1; }
+
+.compliance-check-row__copy {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.compliance-check-row__copy strong {
+  overflow: hidden;
+  color: #18181b;
+  font-size: 0.875rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.compliance-check-row__copy span {
+  overflow: hidden;
+  color: #71717a;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.72rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.compliance-check-row__status {
+  flex: 0 0 auto;
+  font-size: 0.75rem;
+  font-weight: 650;
+}
+
+.compliance-check-row__status.is-passing { color: #047857; }
+.compliance-check-row__status.is-failing { color: #b45309; }
+.compliance-check-row__status.is-neutral { color: #94a3b8; }
+.compliance-check-row__chevron { color: #a1a1aa; font-size: 1.25rem; }
+
 /* Generate Audit Package — teal primary CTA in toolbar. */
 .compliance-page .findings-v2-toolbar-btn--scan {
   border-color: var(--vt-teal);

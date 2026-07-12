@@ -73,17 +73,6 @@ function prettifyOrgName(value: string): string {
     .join(" ");
 }
 
-function SectionHead({ title, linkTo, linkLabel }: { title: string; linkTo: string; linkLabel: string }) {
-  return (
-    <div className="org-home__section-head">
-      <h2 className="org-home__section-title">{title}</h2>
-      <Link to={linkTo} className="org-home__section-link">
-        {linkLabel} <span aria-hidden>→</span>
-      </Link>
-    </div>
-  );
-}
-
 export function OrgReadinessHome() {
   const meQ = useMe();
   const orgName = prettifyOrgName(meQ.data?.org_name?.trim() || "Your company");
@@ -305,7 +294,6 @@ export function OrgReadinessHome() {
       : evidenceClear
         ? "clear"
         : "action";
-  const nextActionCount = blockerGroups.length + capabilityItems.length;
   const actionReasons = [
     highCount > 0
       ? `${highCount} critical or high finding${highCount === 1 ? "" : "s"}`
@@ -317,15 +305,11 @@ export function OrgReadinessHome() {
       ? `${controlsSummary.failing} failing control${controlsSummary.failing === 1 ? "" : "s"}`
       : null,
   ].filter((reason): reason is string => !!reason);
-  const rankedNextActions = [
-    ...blockerGroups.map((group) => {
+  const priorityFindings = blockerGroups.slice(0, 3).map((group) => {
       const controls =
         group.failingControlIds.length > 0 ? group.failingControlIds : group.soc2ControlIds;
       return {
         key: `finding:${group.checkId}`,
-        type: "review" as const,
-        priority: group.severity === "critical" ? 0 : 1,
-        tone: group.severity,
         title: labelForCheck(group.checkId),
         detail: [
           group.location,
@@ -336,30 +320,17 @@ export function OrgReadinessHome() {
           .join(" · "),
         href: findingsHref(group.checkId),
       };
-    }),
-    ...capabilityItems.map((item) => ({
+    });
+  const enableActions = capabilityItems.slice(0, 3).map((item) => ({
       key: `enable:${item.checkId}`,
-      type: "enable" as const,
-      priority: 2,
-      tone: "enable" as const,
       title: item.capability,
       detail: `${absenceGapPrompt(item.checkId).awsOption}${item.scopeLabel ? ` · ${item.scopeLabel}` : ""} · ${item.findingCount} affected`,
       href: item.consoleUrl,
-    })),
-  ]
-    .sort((left, right) => left.priority - right.priority);
-  let nextActions = rankedNextActions.slice(0, 5);
-  const firstEnableAction = rankedNextActions.find((action) => action.type === "enable");
-  if (firstEnableAction && !nextActions.some((action) => action.type === "enable")) {
-    nextActions = [...nextActions.slice(0, 4), firstEnableAction];
-  }
+    }));
 
-  if (nextActions.length === 0 && controlsSummary.failing > 0) {
-    nextActions.push({
+  if (priorityFindings.length === 0 && controlsSummary.failing > 0) {
+    priorityFindings.push({
       key: "controls:failing",
-      type: "review",
-      priority: 3,
-      tone: "high",
       title: "Review failing controls",
       detail: `${controlsSummary.failing} control${controlsSummary.failing === 1 ? "" : "s"} need attention`,
       href: "/controls?framework=soc2",
@@ -368,13 +339,15 @@ export function OrgReadinessHome() {
 
   // Narrative subline for the action state: what fixing the queue actually buys.
   const shownGroups = blockerGroups.filter((group) =>
-    nextActions.some((action) => action.key === `finding:${group.checkId}`),
+    priorityFindings.some((action) => action.key === `finding:${group.checkId}`),
   );
   const shownCleared = clearedByBlockers(shownGroups);
   const shownControls = formatControlList(unblockedControlIds(shownGroups));
+  // Hero headline above already states the total ("32 high findings…"), so
+  // the subline says "of them" instead of repeating the count.
   const actionSubline =
     shownGroups.length > 0
-      ? `Fixing the ${shownGroups.length === 1 ? "item" : `${shownGroups.length} items`} below clears ${shownCleared} of ${highCount} critical or high finding${highCount === 1 ? "" : "s"}${shownControls ? ` and unblocks ${shownControls}` : ""}.`
+      ? `Fixing the ${shownGroups.length === 1 ? "item" : `${shownGroups.length} items`} below clears ${shownCleared} of them${shownControls ? ` and unblocks ${shownControls}` : ""}.`
       : `${actionReasons.join(" · ")} require attention.`;
 
   if (loading) {
@@ -415,7 +388,20 @@ export function OrgReadinessHome() {
     <div className="org-home">
       <header className="org-home__top">
         <div>
-          <h1 className="org-home__title">{orgName}</h1>
+          <h1 className="org-home__title">
+            {orgName}
+            {homeState === "action" && highCount > 0 ? (
+              <span className="org-home__title-statement">
+                {" — "}
+                <span className="org-home__headline-em">{highCount} high</span> finding
+                {highCount === 1 ? "" : "s"} stand{highCount === 1 ? "s" : ""} between you and SOC 2.
+              </span>
+            ) : homeState === "clear" ? (
+              <span className="org-home__title-statement">
+                {" "}— no high findings stand between you and SOC 2.
+              </span>
+            ) : null}
+          </h1>
           <p className="org-home__description">
             {homeState === "incomplete"
               ? "Some evidence sources could not be loaded. Readiness data may be incomplete."
@@ -428,68 +414,93 @@ export function OrgReadinessHome() {
         </div>
       </header>
 
-      <section className="org-home__actions" aria-label="Next actions">
-        <div className="org-home__actions-head">
-          <div>
-            <p className="org-home__section-kicker">Priority queue</p>
-            <h2 className="org-home__section-title">Next actions</h2>
+      <div className="org-home__priority-grid">
+        <section className="org-home__priority-section" aria-label="What's blocking you">
+          <div className="org-home__priority-heading">
+            <h2 className="org-home__section-title">What&apos;s blocking you</h2>
           </div>
-          <Link to={defaultFindingsHref} className="org-home__section-link">
-            All findings <span aria-hidden>→</span>
-          </Link>
-        </div>
-        {nextActions.length > 0 ? (
-          <div className="org-home__next-list">
-            {nextActions.map((action) => (
-              <div key={action.key} className="org-home__next-row">
-                <span className={`org-home__next-type org-home__next-type--${action.tone}`}>
-                  {action.type === "enable" ? "Enable" : action.tone}
-                </span>
-                <div className="org-home__next-copy">
-                  <strong>{action.title}</strong>
-                  <span>{action.detail}</span>
-                </div>
-                {action.href ? (
-                  action.type === "enable" ? (
-                    <a href={action.href} target="_blank" rel="noopener noreferrer" className="org-home__next-action">
-                      Enable <span aria-hidden>→</span>
-                    </a>
-                  ) : (
+          <div className="org-home__actions">
+            {priorityFindings.length > 0 ? (
+              <div className="org-home__next-list">
+                {priorityFindings.map((action, index) => (
+                  <div key={action.key} className="org-home__next-row">
+                    <span className="org-home__next-rank" aria-label={`Priority ${index + 1}`}>
+                      {index + 1}
+                    </span>
+                    <div className="org-home__next-copy">
+                      <strong>{action.title}</strong>
+                      <span>{action.detail}</span>
+                    </div>
                     <Link to={action.href} className="org-home__next-action">
                       Review <span aria-hidden>→</span>
                     </Link>
-                  )
+                  </div>
+                ))}
+                {blockerGroups.length > priorityFindings.length ? (
+                  <div className="org-home__next-footer">
+                    {blockerGroups.length - priorityFindings.length} additional priorit{blockerGroups.length - priorityFindings.length === 1 ? "y" : "ies"} ·{" "}
+                    <Link to={defaultFindingsHref}>Findings <span aria-hidden>→</span></Link>
+                  </div>
                 ) : null}
               </div>
-            ))}
-            {nextActionCount > nextActions.length ? (
-              <div className="org-home__next-footer">
-                {nextActionCount - nextActions.length} additional action{nextActionCount - nextActions.length === 1 ? "" : "s"} ·{" "}
-                <Link to={defaultFindingsHref}>Findings <span aria-hidden>→</span></Link>{" "}
-                <Link to="/audit">Audit <span aria-hidden>→</span></Link>
+            ) : dataIncomplete ? (
+              <div className="org-home__actions-empty">
+                <span>Some data could not be loaded, so no complete action list is available.</span>
+                <button type="button" onClick={() => window.location.reload()}>Retry</button>
               </div>
-            ) : null}
+            ) : homeState === "not-assessed" ? (
+              <div className="org-home__actions-empty">
+                Next actions appear after the first completed scan or integration sync.
+              </div>
+            ) : (
+              <div className="org-home__actions-empty is-clear">
+                <span aria-hidden>✓</span>
+                No priority findings require action.
+              </div>
+            )}
           </div>
-        ) : dataIncomplete ? (
-          <div className="org-home__actions-empty">
-            <span>Some data could not be loaded, so no complete action list is available.</span>
-            <button type="button" onClick={() => window.location.reload()}>Retry</button>
-          </div>
-        ) : homeState === "not-assessed" ? (
-          <div className="org-home__actions-empty">
-            Next actions appear after the first completed scan or integration sync.
-          </div>
-        ) : (
-          <div className="org-home__actions-empty is-clear">
-            <span aria-hidden>✓</span>
-            No priority findings or missing technical capabilities require action.
-          </div>
-        )}
-      </section>
+        </section>
+
+        {enableActions.length > 0 ? (
+          <section className="org-home__priority-section" aria-label="Capabilities to turn on">
+            <div className="org-home__priority-heading">
+              <h2 className="org-home__section-title">Capabilities to turn on</h2>
+            </div>
+            <div className="org-home__actions">
+              <div className="org-home__next-list">
+                {enableActions.map((action, index) => (
+                  <div key={action.key} className="org-home__next-row">
+                    <span className="org-home__next-rank" aria-label={`Enablement priority ${index + 1}`}>
+                      {index + 1}
+                    </span>
+                    <div className="org-home__next-copy">
+                      <strong>{action.title}</strong>
+                      <span>{action.detail}</span>
+                    </div>
+                    {action.href ? (
+                      <a href={action.href} target="_blank" rel="noopener noreferrer" className="org-home__next-action">
+                        Enable <span aria-hidden>→</span>
+                      </a>
+                    ) : null}
+                  </div>
+                ))}
+                {capabilityItems.length > enableActions.length ? (
+                  <div className="org-home__next-footer">
+                    {capabilityItems.length - enableActions.length} additional enablement priorit{capabilityItems.length - enableActions.length === 1 ? "y" : "ies"} ·{" "}
+                    <Link to="/audit">Audit <span aria-hidden>→</span></Link>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </section>
+        ) : null}
+      </div>
 
       {awsAccounts.length > 0 ? (
         <section className="org-home__timeline-section org-home__timeline-section--compact" aria-label="Recent AWS activity">
-          <SectionHead title="Recent AWS activity" linkTo="/history" linkLabel="History" />
+          <div className="org-home__section-head">
+            <h2 className="org-home__section-title">Recent AWS activity</h2>
+          </div>
           {timelineEvents.length === 0 ? (
             <p className="org-home__timeline-empty">AWS activity appears after the first completed scan.</p>
           ) : (

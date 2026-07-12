@@ -37,6 +37,49 @@ function SidebarIcon({ name }: { name: SidebarIconName }) {
   return <span className="app-sidebar__icon" style={style} aria-hidden />;
 }
 
+/** House for Home — no PNG in the sidebar set; drawn inline and dimmed to
+ *  sit flush with the masked-PNG icons. */
+function HomeNavIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.5}
+      opacity={0.9}
+      aria-hidden
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M3.5 10.5 12 3.75l8.5 6.75M5.25 9.25V19a1 1 0 0 0 1 1h3.5v-5.25a1 1 0 0 1 1-1h2.5a1 1 0 0 1 1 1V20h3.5a1 1 0 0 0 1-1V9.25"
+      />
+    </svg>
+  );
+}
+
+/** Shield-check for Audit readiness — no PNG in the sidebar set; drawn inline
+ *  and dimmed to sit flush with the masked-PNG icons. */
+function AuditNavIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.5}
+      opacity={0.9}
+      aria-hidden
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M12 3l7 3v5c0 4.5-3 8.4-7 9.5C8 19.4 5 15.5 5 11V6l7-3Z"
+      />
+      <path strokeLinecap="round" strokeLinejoin="round" d="m9.25 11.75 2 2 3.5-4" />
+    </svg>
+  );
+}
+
 type AccountRow = { status: string; account_id: string | null };
 
 const DEFAULT_HISTORY_FRAMEWORK = "soc2";
@@ -221,7 +264,7 @@ export default function Layout() {
         <nav className="app-sidebar__nav">
           {canManageAccounts && (
             <SidebarNavLink to="/accounts" title="Home">
-              <SidebarIcon name="accounts" />
+              <HomeNavIcon />
               <span className="app-sidebar__label">Home</span>
             </SidebarNavLink>
           )}
@@ -237,7 +280,7 @@ export default function Layout() {
           </SidebarNavLink>
 
           <SidebarNavLink to="/audit" title="Audit readiness">
-            <SidebarIcon name="compliance" />
+            <AuditNavIcon />
             <span className="app-sidebar__label">Audit readiness</span>
           </SidebarNavLink>
 

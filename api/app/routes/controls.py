@@ -44,7 +44,7 @@ from app.services.check_coverage import (
 from app.services.check_evidence import all_evidence_classes, evidence_class_for_check
 from app.services.check_frameworks import check_framework_map, framework_catalog
 from app.services.cis_benchmark_coverage import cis_benchmark_coverage
-from app.services.compliance_timeline import build_control_history
+from app.services.compliance_timeline import build_control_history, build_framework_history
 from app.services.composite_controls import composite_control_definitions, list_composite_controls
 from app.services.control_status import compute_control_status
 from app.services.evidence_artifact_storage import (
@@ -94,6 +94,10 @@ class ControlOut(BaseModel):
     evidence_refs: list[str] = []
     known_gaps: list[str] = []
     check_ids: list[str]
+    # Subset of check_ids actually exercised for this account/org (latest cloud
+    # scan checks_run + synced org integrations). Azure/GCP/unconnected-provider
+    # checks mapped to the control but never run are excluded.
+    scanned_check_ids: list[str] = []
     coverage_tier: str = "core"  # core | extended | mixed | no_data
     coverage_label: str | None = None
     extended_check_ids: list[str] = []
@@ -1125,7 +1129,16 @@ def list_controls(
         run_stats = latest_run.stats if latest_run and isinstance(latest_run.stats, dict) else {}
         latest_checks_raw = run_stats.get("checks_run") if isinstance(run_stats, dict) else None
         if isinstance(latest_checks_raw, list):
-            latest_checks_run = {str(cid) for cid in latest_checks_raw}
+            from app.checks.registry import is_integration_sync_check, is_source_control_check
+
+            # Older scan runs recorded integration/MDM/source-control checks in
+            # checks_run before those moved to the sync path; drop them here —
+            # the grading contexts below re-add whichever are genuinely synced.
+            latest_checks_run = {
+                str(cid) for cid in latest_checks_raw
+                if not is_integration_sync_check(str(cid))
+                and not is_source_control_check(str(cid))
+            }
         errors_raw = run_stats.get("check_errors") if isinstance(run_stats, dict) else None
         if isinstance(errors_raw, list):
             for err in errors_raw:
@@ -1212,6 +1225,10 @@ def list_controls(
                 evidence_refs=list(detail.get("evidence_refs") or []),
                 known_gaps=list(detail.get("known_gaps") or []),
                 check_ids=check_ids,
+                scanned_check_ids=[
+                    cid for cid in check_ids
+                    if cid in latest_checks_run or cid in open_by_check
+                ],
                 coverage_tier=cov_tier,
                 coverage_label=tier_display_label(cov_tier),
                 extended_check_ids=ext_ids,
@@ -1545,6 +1562,25 @@ def control_evidence(
             for s in snaps
         ],
     }
+
+
+@router.get("/history-summary")
+def controls_history_summary(
+    framework: str = Query(...),
+    account_id: str = Query(...),
+    days: int = Query(default=90, ge=7, le=365),
+    p=Depends(current_principal),
+    db: Session = Depends(get_db),
+):
+    """Per-control pass/fail timeline segments across a whole framework."""
+    if framework not in FRAMEWORKS:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, f"framework must be one of {sorted(FRAMEWORKS)}")
+
+    acc = db.get(AwsAccount, uuid.UUID(account_id))
+    if not acc or str(acc.org_id) != p["org_id"]:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "account not found")
+
+    return build_framework_history(db, acc.id, framework, days)
 
 
 @router.get("/{control_id}/history")

@@ -5,6 +5,9 @@ export type BlockerFinding = {
   id: string;
   check_id: string;
   severity: string;
+  account_id?: string | null;
+  account_label?: string | null;
+  account_name?: string | null;
   first_seen?: string;
   resource_arn?: string;
   evidence?: Record<string, unknown>;

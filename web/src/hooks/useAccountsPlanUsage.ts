@@ -38,3 +38,35 @@ export function formatAccountLimitText(used: number, maxAccounts: number | null)
   const noun = maxAccounts === 1 ? "account" : "accounts";
   return `${used} of ${maxAccounts} ${noun}`;
 }
+
+/** Compact label above the sidebar accounts progress bar. */
+export function formatSidebarAccountsLabel(used: number, maxAccounts: number | null): string {
+  if (maxAccounts == null) {
+    const noun = used === 1 ? "account" : "accounts";
+    return `${used} ${noun} connected`;
+  }
+  const limitNoun = maxAccounts === 1 ? "account" : "accounts";
+  return `${used} out of ${maxAccounts} ${limitNoun} connected`;
+}
+
+/** Screen-reader label for the sidebar accounts progress bar. */
+export function formatSidebarAccountsStatus(
+  used: number,
+  maxAccounts: number | null,
+  planLabel?: string,
+): string {
+  const plan = formatPlanDisplayLabel(planLabel) ?? "org plan";
+  if (maxAccounts == null) {
+    const noun = used === 1 ? "account" : "accounts";
+    return `${used} ${noun} connected (${plan})`;
+  }
+  const limitNoun = maxAccounts === 1 ? "account" : "accounts";
+  return `${used} out of ${maxAccounts} ${limitNoun} connected (${plan})`;
+}
+
+/** Fill percentage for the sidebar accounts progress bar (0–100). */
+export function getSidebarAccountsBarFill(used: number, maxAccounts: number | null): number {
+  if (maxAccounts == null) return 100;
+  if (maxAccounts <= 0) return 0;
+  return Math.min(100, (used / maxAccounts) * 100);
+}

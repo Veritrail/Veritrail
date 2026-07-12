@@ -568,6 +568,7 @@ export const controlListItemSchema = z
     status: z.string(),
     finding_count: z.number().default(0),
     check_ids: z.array(z.string()).default([]),
+    scanned_check_ids: z.array(z.string()).optional(),
     kind: z.string().optional(),
   })
   .passthrough();
@@ -732,6 +733,35 @@ export const externalEvidenceArtifactSchema = z
   .passthrough();
 
 export const externalEvidenceListSchema = z.array(externalEvidenceArtifactSchema);
+
+export const controlTimelineSegmentSchema = z.object({
+  status: z.enum(["pass", "fail", "no_data"]),
+  from: z.string(),
+  to: z.string(),
+  duration_seconds: z.number(),
+});
+
+export const controlsHistorySummarySchema = z.object({
+  framework: z.string(),
+  period_days: z.number(),
+  from: z.string(),
+  to: z.string(),
+  controls: z.array(
+    z.object({
+      control_id: z.string(),
+      title: z.string(),
+      check_ids: z.array(z.string()).default([]),
+      current_status: z.enum(["pass", "fail", "no_data"]),
+      failing_since: z.string().nullable(),
+      days_failing: z.number().nullable(),
+      open_finding_count: z.number(),
+      segments: z.array(controlTimelineSegmentSchema).default([]),
+    }),
+  ),
+});
+
+export type ControlsHistorySummary = z.infer<typeof controlsHistorySummarySchema>;
+export type ControlTimelineRow = ControlsHistorySummary["controls"][number];
 
 export const complianceTimelineSchema = z
   .object({

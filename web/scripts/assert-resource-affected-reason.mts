@@ -8,17 +8,17 @@ const FIXTURES = [
   {
     check_id: "iam.role.least_privilege_policy",
     evidence: { sources: ["customer managed full admin: AdminAccessPolicy"] },
-    expected: "Granted via customer managed full admin: AdminAccessPolicy.",
+    expected: "Full admin access — Customer-managed · AdminAccessPolicy",
   },
   {
     check_id: "iam.role.least_privilege_policy",
     evidence: { scope: "full_admin" },
-    expected: "Grants full admin (Action:* + Resource:*).",
+    expected: "Full admin access — Action:* · Resource:*",
   },
   {
     check_id: "iam.user.admin_policy_attached",
     evidence: { admin_policies: ["AdministratorAccess"] },
-    expected: "Admin policy attached: AdministratorAccess.",
+    expected: "Full admin via managed policy — Attached · AdministratorAccess",
   },
   {
     check_id: "ec2.security_group.unrestricted_ssh",
@@ -34,27 +34,27 @@ const FIXTURES = [
         },
       ],
     },
-    expected: "Allows 0.0.0.0/0 on port 22.",
+    expected: "Internet-exposed SSH — 0.0.0.0/0 · Port 22",
   },
   {
     check_id: "kms.key.policy_wildcard_principal",
     evidence: { alias: "alias/prod-secrets", key_id: "abc-123" },
-    expected: "Key policy for alias/prod-secrets allows principal *.",
+    expected: "Any principal can use KMS key — Principal:* · alias/prod-secrets",
   },
   {
     check_id: "iam.role.external_account_trust",
     evidence: { external_account_ids: ["111122223333", "444455556666"] },
-    expected: "Trusts external AWS account 111122223333, 444455556666.",
+    expected: "External account can assume role — Trusted · 111122223333, 444455556666",
   },
   {
     check_id: "iam.access_key.unused_90d",
     evidence: { days_unused: 120 },
-    expected: "No use recorded in 120+ days.",
+    expected: "Stale access key — No use · 120+ days",
   },
   {
     check_id: "s3.bucket.no_kms",
     evidence: {},
-    expected: "Objects are stored without SSE KMS at rest.",
+    expected: "No KMS encryption — No customer-controlled key protection",
   },
 ] as const;
 

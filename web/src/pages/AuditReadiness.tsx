@@ -6,6 +6,7 @@ import { AccountFilterDropdown } from "../components/AccountFilterDropdown";
 import { ComplianceFrameworkSelect } from "../components/ComplianceFrameworkSelect";
 import { HeaderFilterBar } from "../components/HeaderFilterBar";
 import { HeaderSlot } from "../context/HeaderSlot";
+import { frameworkLabel } from "../data/frameworks";
 import { useConnectedAccountOptions } from "../hooks/useConnectedAccountOptions";
 import { useSelectedAccountId } from "../hooks/useSelectedAccountId";
 import { auditReadinessSchema } from "../lib/apiSchemas";
@@ -158,57 +159,94 @@ export default function AuditReadiness() {
           </p>
         ) : (
           <>
-            <section className="audit-readiness__summary" aria-label="Readiness summary">
-              <div className="audit-readiness__score">
-                <span className="audit-readiness__score-value">
-                  {dashboard.totalChecks > 0
-                    ? `${dashboard.passingChecks} / ${dashboard.totalChecks}`
-                    : "—"}
-                </span>
-                <span className="audit-readiness__metric-label">Automated checks passing</span>
-                <span className="audit-readiness__metric-note">
-                  Mapped technical checks in the selected framework
-                </span>
+            <section className="audit-readiness__overview" aria-label="Readiness summary">
+              <div className="audit-readiness__overview-main">
+                <div className="audit-readiness__overview-heading">
+                  <p className="audit-readiness__overview-kicker">Readiness brief</p>
+                  <span className={`audit-readiness__overview-status ${dashboard.actionCount > 0 ? "is-action" : "is-clear"}`}>
+                    {dashboard.actionCount > 0 ? "Needs attention" : "On track"}
+                  </span>
+                </div>
+                <h1>{frameworkLabel(framework)} technical evidence</h1>
+                <p className="audit-readiness__overview-copy">
+                  {dashboard.actionCount > 0 ? (
+                    <>
+                      <strong>{dashboard.actionCount} prioritized action{dashboard.actionCount === 1 ? "" : "s"}</strong>{" "}
+                      {dashboard.actionCount === 1 ? "remains" : "remain"} across {dashboard.areasNeedingAction} evidence area{dashboard.areasNeedingAction === 1 ? "" : "s"}. Start with the highest-impact work below.
+                    </>
+                  ) : (
+                    <>No automated actions remain. Continue collecting evidence and completing manual verification.</>
+                  )}
+                </p>
               </div>
-              <div className="audit-readiness__metric">
-                <span className="audit-readiness__metric-value">{dashboard.actionCount}</span>
-                <span className="audit-readiness__metric-label">Actions identified</span>
-                <span className="audit-readiness__metric-note">Prioritized below</span>
+
+              <div className="audit-readiness__overview-progress">
+                <div className="audit-readiness__progress-item">
+                  <div className="audit-readiness__progress-head">
+                    <span>Automated checks</span>
+                    <strong>{dashboard.totalChecks > 0 ? `${dashboard.passingChecks} / ${dashboard.totalChecks}` : "—"}</strong>
+                  </div>
+                  <div
+                    className="audit-readiness__progress-track"
+                    role="progressbar"
+                    aria-label="Automated checks passing"
+                    aria-valuemin={0}
+                    aria-valuemax={Math.max(dashboard.totalChecks, 1)}
+                    aria-valuenow={dashboard.passingChecks}
+                  >
+                    <span
+                      style={{ width: `${dashboard.totalChecks > 0 ? Math.round((dashboard.passingChecks / dashboard.totalChecks) * 100) : 0}%` }}
+                    />
+                  </div>
+                  <p>{dashboard.totalChecks > 0 ? `${Math.round((dashboard.passingChecks / dashboard.totalChecks) * 100)}% passing` : "No mapped checks"}</p>
+                </div>
+
+                <div className="audit-readiness__progress-item audit-readiness__progress-item--verification">
+                  <div className="audit-readiness__progress-head">
+                    <span>Checklist verification</span>
+                    <strong>{dashboard.totalItems > 0 ? `${dashboard.verifiedItems} / ${dashboard.totalItems}` : "—"}</strong>
+                  </div>
+                  <div
+                    className="audit-readiness__progress-track"
+                    role="progressbar"
+                    aria-label="Checklist items verified"
+                    aria-valuemin={0}
+                    aria-valuemax={Math.max(dashboard.totalItems, 1)}
+                    aria-valuenow={dashboard.verifiedItems}
+                  >
+                    <span
+                      style={{ width: `${dashboard.totalItems > 0 ? Math.round((dashboard.verifiedItems / dashboard.totalItems) * 100) : 0}%` }}
+                    />
+                  </div>
+                  <p>{dashboard.totalItems > 0 ? `${Math.round((dashboard.verifiedItems / dashboard.totalItems) * 100)}% verified` : "No checklist items"}</p>
+                </div>
               </div>
-              <div className="audit-readiness__metric">
-                <span className="audit-readiness__metric-value">
-                  {dashboard.areasNeedingAction}
-                </span>
-                <span className="audit-readiness__metric-label">Areas needing work</span>
-                <span className="audit-readiness__metric-note">
-                  of {data.playbooks.length} evidence areas
-                </span>
-              </div>
-              <div className="audit-readiness__metric">
-                <span className="audit-readiness__metric-value audit-readiness__metric-value--verified">
-                  {dashboard.verifiedItems}
-                </span>
-                <span className="audit-readiness__metric-label">Items verified</span>
-                <span className="audit-readiness__metric-note">
-                  of {dashboard.totalItems} checklist items
-                </span>
-              </div>
+
+              <p className="audit-readiness__scope-note">
+                <span aria-hidden>ⓘ</span>
+                Automated evidence only. Policies, runbooks, recovery exercises, and human processes
+                are not marked verified.
+              </p>
             </section>
 
-            <p className="audit-readiness__scope-note">
-              <span aria-hidden>ⓘ</span>
-              Automated evidence only. Policies, runbooks, recovery exercises, and human processes
-              are not marked verified.
-            </p>
-
             <div className="audit-readiness__focus-grid">
-              <section className="audit-readiness__focus-card">
-                <header className="audit-readiness__section-head">
+              <details className="audit-readiness__focus-card" open>
+                <summary className="audit-readiness__section-head">
                   <div>
                     <p className="audit-readiness__section-kicker">Priority queue</p>
                     <h2>What should be addressed next?</h2>
                   </div>
-                </header>
+                  <span className="audit-readiness__queue-summary">
+                    <span className="audit-readiness__queue-count">
+                      {dashboard.actionCount > 0
+                        ? `${dashboard.actionCount} action${dashboard.actionCount === 1 ? "" : "s"} · top ${dashboard.priorityActions.length} shown`
+                        : "No open actions"}
+                    </span>
+                    <svg className="audit-readiness__queue-chevron" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="m6 9 6 6 6-6" />
+                    </svg>
+                  </span>
+                </summary>
 
                 {dashboard.priorityActions.length > 0 ? (
                   <div className="audit-readiness__priority-list">
@@ -241,7 +279,7 @@ export default function AuditReadiness() {
                     <span aria-hidden>✓</span> No priority actions in the collected evidence.
                   </p>
                 )}
-              </section>
+              </details>
             </div>
 
             <section className="audit-readiness__coverage">

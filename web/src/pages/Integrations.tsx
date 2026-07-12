@@ -33,17 +33,10 @@ import {
   getExploreStripEntries,
   type ConnectedCatalogState,
 } from "../lib/integrationCatalog";
-import { PostureMetricCell } from "./Workspace";
 import "../styles/integrations-page.css";
-import "../styles/workspace-page.css";
 
-// d-path icons for the Workspace-style KPI strip.
-const IK = {
-  connected: "M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z",
-  syncing: "M16.02 9.35h4.16V5.19M20.18 9.35A8.25 8.25 0 0 0 5.82 6.3M7.98 14.65H3.82v4.16M3.82 14.65a8.25 8.25 0 0 0 14.36 3.05",
-  errors: "M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z",
-  sources: "M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 8.25V6Zm0 9.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25Zm9.75-9.75A2.25 2.25 0 0 1 15.75 3.75H18A2.25 2.25 0 0 1 20.25 6v2.25a2.25 2.25 0 0 1-2.25 2.25h-2.25a2.25 2.25 0 0 1-2.25-2.25V6Zm0 9.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25a2.25 2.25 0 0 1-2.25-2.25v-2.25Z",
-} as const;
+const CATALOG_ICON =
+  "M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 8.25V6Zm0 9.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25Zm9.75-9.75A2.25 2.25 0 0 1 15.75 3.75H18A2.25 2.25 0 0 1 20.25 6v2.25a2.25 2.25 0 0 1-2.25 2.25h-2.25a2.25 2.25 0 0 1-2.25-2.25V6Zm0 9.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25a2.25 2.25 0 0 1-2.25-2.25v-2.25Z";
 
 type ProviderSummary = {
   id: string;
@@ -407,7 +400,6 @@ function IntegrationsContent() {
   const activeScanner = [wizScanner.data, tenableScanner.data, qualysScanner.data, snykScanner.data, orcaScanner.data, aikidoScanner.data].find((s) => s?.connected);
 
   const awsConnected = awsAccount?.status === "connected";
-  const cloudConnectedCount = accountsList.filter(isCloudAccountConnected).length;
   const githubConnected = !!github.data;
   const gitlabConnected = !!gitlab.data;
   const googleConnected = !!googleWorkspace.data;
@@ -415,43 +407,6 @@ function IntegrationsContent() {
   const jiraConnected = !!jira.data?.connected;
   const splunkConnected = !!splunkSiem.data?.connected;
   const datadogConnected = !!datadogSiem.data?.connected;
-
-  const connectedCount = [
-    awsConnected,
-    githubConnected,
-    gitlabConnected,
-    googleConnected,
-    entraConnected,
-    slackConnected,
-    gcpConnected,
-    azureConnected,
-    scannerConnected,
-    jiraConnected,
-    splunkConnected,
-    datadogConnected,
-  ].filter(Boolean).length;
-  const syncingCount = [
-    awsScanRunning,
-    gcpScanRunning,
-    azureScanRunning,
-    githubSync.isSyncing,
-    gitlabSync.isSyncing,
-    googleWorkspaceSync.isSyncing,
-    entraSync.isSyncing,
-  ].filter(Boolean).length;
-  const errorCount = [
-    cloudAccounts.isError,
-    github.isError,
-    gitlab.isError,
-    googleWorkspace.isError,
-    entra.isError,
-    settings.isError,
-    github.data?.status === "error",
-    gitlab.data?.status === "error",
-    !!awsAccount?.last_error?.trim(),
-    !!gcpProject?.last_error?.trim(),
-    !!azureSub?.last_error?.trim(),
-  ].filter(Boolean).length;
 
   const awsHealth = cloudIntegrationHealth({
     scanning: awsScanRunning,
@@ -746,13 +701,6 @@ function IntegrationsContent() {
 
   return (
     <div className="integrations-page">
-      <div className="integrations-kpi-strip workspace-summary workspace-summary--metrics">
-        <PostureMetricCell icon={IK.connected} label="Connected" value={String(connectedCount)} detail="Active connectors" valueTone="ok" />
-        <PostureMetricCell icon={IK.syncing} label="Syncing" value={String(syncingCount)} detail={syncingCount ? "In progress" : "Idle"} valueTone={syncingCount ? "info" : "default"} />
-        <PostureMetricCell icon={IK.errors} label="Errors" value={String(errorCount)} detail={errorCount ? "Need attention" : "None"} valueTone={errorCount ? "warn" : "default"} />
-        <PostureMetricCell icon={IK.sources} label="Cloud accounts" value={String(cloudConnectedCount)} detail={`${accountsList.length} configured`} />
-      </div>
-
       {awsScanRunning && <ScanProgressBanner />}
 
       <div className="integrations-page__body">
@@ -868,7 +816,7 @@ function RecommendedIntegrations({ hiddenKeys }: { hiddenKeys: ReadonlySet<strin
         <Link to="/integrations/catalog" className="integrations-catalog-card">
           <span className="integrations-catalog-card__icon" aria-hidden>
             <svg fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d={IK.sources} />
+              <path strokeLinecap="round" strokeLinejoin="round" d={CATALOG_ICON} />
             </svg>
           </span>
           <div className="integrations-catalog-card__body">

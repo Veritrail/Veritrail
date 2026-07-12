@@ -317,6 +317,52 @@ export function collapseRedundantFindingEvents(events: HistoryEvent[]): HistoryE
   return out;
 }
 
+const FLAP_EVENT_TYPES = new Set(["finding_resolved", "finding_reopened"]);
+
+function flapIdentityKey(event: HistoryEvent): string | null {
+  if (!FLAP_EVENT_TYPES.has(event.type)) return null;
+  const check = event.check_id ?? controlOf(event)?.id ?? "";
+  const resource = event.resource_arn ?? historyResourceLabel(event);
+  return `${check}|${resource}`;
+}
+
+/**
+ * Collapse findings that flap between resolved and reopened across the window
+ * (e.g. Root MFA resolved→reopened→resolved 4×) into one row: the latest event
+ * carrying `flap_count` and the merged `flap_events` for expansion.
+ * Expects newest-first input; first-time changes pass through untouched.
+ */
+export function collapseFlappingFindings(events: HistoryEvent[]): HistoryEvent[] {
+  const groups = new Map<string, HistoryEvent[]>();
+  for (const event of events) {
+    const key = flapIdentityKey(event);
+    if (!key) continue;
+    const group = groups.get(key);
+    if (group) group.push(event);
+    else groups.set(key, [event]);
+  }
+  // Three or more state changes = at least one full resolve→reopen→resolve churn cycle.
+  const flappingKeys = new Set(
+    [...groups].filter(([, group]) => group.length >= 3).map(([key]) => key),
+  );
+  if (flappingKeys.size === 0) return events;
+
+  const emitted = new Set<string>();
+  const out: HistoryEvent[] = [];
+  for (const event of events) {
+    const key = flapIdentityKey(event);
+    if (!key || !flappingKeys.has(key)) {
+      out.push(event);
+      continue;
+    }
+    if (emitted.has(key)) continue;
+    emitted.add(key);
+    const group = groups.get(key)!;
+    out.push({ ...event, flap_count: group.length, flap_events: group });
+  }
+  return out;
+}
+
 export type PosturePoint = { t: string; posture: number };
 
 // Chronological posture series for the sparkline (oldest → newest).

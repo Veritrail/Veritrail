@@ -55,7 +55,8 @@ const ABSENCE_GAP_ACTIONS: Record<string, AbsenceGapActions> = {
   "aws.access_analyzer.not_enabled": {
     externalOption:
       "Attest that the organization analyzer lives in your management account — unverified until that account is connected — or provide evidence of equivalent external-access review coverage.",
-    awsOption: "Connect the management or delegated administrator account and re-scan.",
+    awsOption:
+      "Connect the IAM Access Analyzer — if using an AWS Organization, connect the delegated admin or management account.",
   },
   "cloudtrail.trail.not_enabled": {
     externalOption:

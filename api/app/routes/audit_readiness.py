@@ -78,6 +78,7 @@ class AuditReadinessOut(BaseModel):
 def get_audit_readiness(
     framework: str = Query(default="soc2"),
     period_days: int = Query(default=90, ge=7, le=365),
+    account_id: uuid.UUID | None = Query(default=None),
     p=Depends(current_principal),
     db: Session = Depends(get_db),
 ):
@@ -86,9 +87,13 @@ def get_audit_readiness(
             status.HTTP_400_BAD_REQUEST,
             f"framework must be one of {sorted(FRAMEWORKS)}",
         )
-    return build_audit_readiness(
-        db,
-        uuid.UUID(p["org_id"]),
-        framework,
-        period_days=period_days,
-    )
+    try:
+        return build_audit_readiness(
+            db,
+            uuid.UUID(p["org_id"]),
+            framework,
+            period_days=period_days,
+            account_id=account_id,
+        )
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc

@@ -102,5 +102,10 @@ def sync_intune_provider(db: Session, provider: IdentityProvider) -> IntuneSyncS
     set_provider_config(provider, cfg)
     provider.status = "connected"
     provider.last_synced_at = now
+    db.flush()
+
+    from app.services.integration_sync_scan import run_integration_checks
+
+    run_integration_checks(db, provider.org_id, INTUNE_TYPE)
     db.commit()
     return stats

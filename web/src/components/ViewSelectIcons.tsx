@@ -2,6 +2,26 @@ import type { ReactNode } from "react";
 
 const TRIGGER_GLYPH_CLASS = "selector-card__glyph selector-card__glyph--view";
 
+export function EyeViewIcon({ className = TRIGGER_GLYPH_CLASS }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.75}
+      aria-hidden
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M2.75 12s3.4-6 9.25-6 9.25 6 9.25 6-3.4 6-9.25 6-9.25-6-9.25-6Z"
+      />
+      <circle cx="12" cy="12" r="2.75" />
+    </svg>
+  );
+}
+
 export function ControlsViewIcon({ className = TRIGGER_GLYPH_CLASS }: { className?: string }) {
   return (
     <svg

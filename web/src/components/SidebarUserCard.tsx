@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { logout } from "../api";
+import {
+  formatSidebarAccountsLabel,
+  getSidebarAccountsBarFill,
+} from "../hooks/useAccountsPlanUsage";
 import { resolveUserDisplayName } from "../lib/displayNames";
 
 const NULL_AVATAR_ICON = (
@@ -36,6 +40,10 @@ export default function SidebarUserCard({
   displayName,
   avatarUrl,
   orgName,
+  planLabel,
+  used = 0,
+  maxAccounts = null,
+  planLoading = false,
 }: SidebarUserCardProps) {
   const [open, setOpen] = useState(false);
   const [avatarFailed, setAvatarFailed] = useState(false);
@@ -63,6 +71,10 @@ export default function SidebarUserCard({
   }, [open]);
 
   const close = () => setOpen(false);
+  const showAccountsBar = planLoading || planLabel != null;
+  const accountsLabel = planLoading ? "Loading…" : formatSidebarAccountsLabel(used, maxAccounts);
+  const accountsBarFill = getSidebarAccountsBarFill(used, maxAccounts);
+  const accountsUnlimited = !planLoading && maxAccounts == null;
 
   const signOut = () => {
     close();
@@ -73,6 +85,38 @@ export default function SidebarUserCard({
 
   return (
     <div className="app-sidebar__user" ref={ref}>
+      {showAccountsBar ? (
+        <div
+          className={[
+            "app-sidebar__accounts-status",
+            planLoading ? "app-sidebar__accounts-status--loading" : "",
+            accountsUnlimited ? "app-sidebar__accounts-status--unlimited" : "",
+          ]
+            .filter(Boolean)
+            .join(" ")}
+          role="progressbar"
+          aria-busy={planLoading || undefined}
+          aria-labelledby="sidebar-accounts-status-label"
+          aria-valuemin={0}
+          aria-valuemax={maxAccounts ?? undefined}
+          aria-valuenow={planLoading ? undefined : used}
+        >
+          <span id="sidebar-accounts-status-label" className="app-sidebar__accounts-status-label">
+            {accountsLabel}
+          </span>
+          <div className="app-sidebar__accounts-status-track">
+            {planLoading ? (
+              <div className="app-sidebar__accounts-status-fill app-sidebar__accounts-status-fill--indeterminate" />
+            ) : (
+              <div
+                className="app-sidebar__accounts-status-fill"
+                style={{ width: `${accountsBarFill}%` }}
+              />
+            )}
+          </div>
+        </div>
+      ) : null}
+
       {open ? (
         <div className="sidebar-user-panel" role="menu">
           <div className="sidebar-user-panel__menu">

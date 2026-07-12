@@ -371,8 +371,8 @@ function formatResourceDate(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "—";
   const date = d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-  const time = d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
-  return `${date} ${time}`;
+  const time = d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+  return `${date} · ${time}`;
 }
 
 function ResourceProviderTile({ finding }: { finding: Finding }) {
@@ -450,7 +450,7 @@ function AffectedResourceRow({
       <div className="findings-affected-resource-row__meta-grid">
         <div className="findings-affected-resource-row__meta findings-affected-resource-row__meta--account">
           <p className="veritrail-kicker">Account</p>
-          <p className="mt-1 flex min-w-0 items-center gap-2 text-[13px] font-semibold text-zinc-800">
+          <p className="findings-affected-resource-row__meta-value mt-1 flex min-w-0 items-center gap-2">
             <span className="truncate">{account}</span>
             <button
               type="button"
@@ -469,7 +469,7 @@ function AffectedResourceRow({
         </div>
         <div className="findings-affected-resource-row__meta findings-affected-resource-row__meta--last-seen">
           <p className="veritrail-kicker">Last seen</p>
-          <p className="mt-1 flex min-w-0 items-center gap-2 text-[13px] font-medium tabular-nums text-zinc-800">
+          <p className="findings-affected-resource-row__meta-value mt-1 flex min-w-0 items-center gap-2 tabular-nums">
             <span className="truncate">{formatResourceDate(finding.last_seen)}</span>
             <svg className="h-4 w-4 shrink-0 text-zinc-300" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
@@ -478,7 +478,7 @@ function AffectedResourceRow({
         </div>
         <div className="findings-affected-resource-row__meta findings-affected-resource-row__meta--first-seen">
           <p className="veritrail-kicker">First seen</p>
-          <p className="mt-1 truncate text-[13px] font-medium tabular-nums text-zinc-800">{formatResourceDate(finding.first_seen)}</p>
+          <p className="findings-affected-resource-row__meta-value mt-1 truncate tabular-nums">{formatResourceDate(finding.first_seen)}</p>
         </div>
       </div>
       {externalUrl ? (
@@ -487,7 +487,7 @@ function AffectedResourceRow({
           target="_blank"
           rel="noreferrer"
           onClick={(event) => event.stopPropagation()}
-          className="findings-affected-resource-row__action inline-flex shrink-0 items-center gap-2 rounded-lg border border-zinc-200 bg-white px-3.5 py-2 text-[13px] font-semibold text-zinc-700 transition hover:border-zinc-300 hover:bg-zinc-50 hover:text-zinc-900"
+          className="findings-affected-resource-row__action"
         >
           {externalLabel}
           <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>

@@ -90,7 +90,7 @@ current, kept as reference docs — not merged here since they're research, not 
 - §11 pure-nav sidebar rail and duplicate org-home account-header cleanup
 - §12 full-width org home with blocker, recommended-action, and timeline cards
 
-## 7. History page — reframe from event log to control-timeline evidence — **open** (spec)
+## 7. History page — reframe from event log to control-timeline evidence — **done**
 
 **Problem:** the History page is a flat event feed (Resolved / Reopened / Regressed rows). It answers
 "what changed" but not "what does this prove," so it competes with — and loses to — Findings

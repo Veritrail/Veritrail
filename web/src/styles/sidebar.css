@@ -470,6 +470,65 @@
   position: relative;
 }
 
+.app-sidebar__accounts-status {
+  margin-bottom: 10px;
+}
+
+.app-sidebar__accounts-status-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  color: var(--sidebar-muted);
+}
+
+.app-sidebar__accounts-status--loading .app-sidebar__accounts-status-label {
+  opacity: 0.78;
+}
+
+.app-sidebar__accounts-status-track {
+  height: 5px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.app-sidebar__accounts-status-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #22c55e, #16a34a);
+  transition: width 0.45s ease;
+}
+
+.app-sidebar__accounts-status-fill--indeterminate {
+  width: 33%;
+  background: rgba(34, 197, 94, 0.55);
+  animation: sidebar-accounts-slide 1.15s ease-in-out infinite;
+}
+
+.app-sidebar__accounts-status--loading .app-sidebar__accounts-status-track {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.app-sidebar__accounts-status--unlimited .app-sidebar__accounts-status-fill {
+  opacity: 0.72;
+}
+
+@keyframes sidebar-accounts-slide {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(320%);
+  }
+}
+
+.app-sidebar.is-collapsed .app-sidebar__accounts-status {
+  display: none;
+}
+
 .app-sidebar__workspace-card:hover,
 .app-sidebar__workspace-card:focus-visible {
   border-color: rgba(255, 255, 255, 0.12);

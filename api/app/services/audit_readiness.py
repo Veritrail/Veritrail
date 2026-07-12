@@ -610,23 +610,30 @@ def build_org_control_results(
     framework: str,
     *,
     as_of: datetime | None = None,
+    account_id: uuid.UUID | None = None,
 ) -> tuple[list[dict[str, Any]], AwsAccount | None, datetime]:
     """Assemble per-control results for narrative building (org readiness home scoping)."""
     generated_at = as_of or datetime.now(timezone.utc)
     if generated_at.tzinfo is None:
         generated_at = generated_at.replace(tzinfo=timezone.utc)
 
-    connected_accounts = db.scalars(
-        select(AwsAccount)
-        .where(AwsAccount.org_id == org_id, AwsAccount.status == "connected")
-        .order_by(AwsAccount.label.asc())
-    ).all()
+    account_query = select(AwsAccount).where(
+        AwsAccount.org_id == org_id,
+        AwsAccount.status == "connected",
+    )
+    if account_id is not None:
+        account_query = account_query.where(AwsAccount.id == account_id)
+    connected_accounts = db.scalars(account_query.order_by(AwsAccount.label.asc())).all()
+    if account_id is not None and not connected_accounts:
+        raise ValueError("Account not found or not connected")
     primary = connected_accounts[0] if connected_accounts else None
 
     org = db.get(Org, org_id)
     hidden = hidden_check_ids(org.settings if org else {})
     mapping_index = load_org_mapping_index(db, org_id)
-    active_provider_prefixes = _active_provider_prefixes(db, org_id)
+    active_provider_prefixes = (
+        {"__aws__"} if account_id is not None else _active_provider_prefixes(db, org_id)
+    )
 
     pack_findings: list[tuple[Any, str]] = []
     if connected_accounts:
@@ -1316,14 +1323,28 @@ def build_audit_readiness(
     framework: str,
     *,
     period_days: int = 90,
+    account_id: uuid.UUID | None = None,
 ) -> dict[str, Any]:
-    """Structured org-wide audit readiness payload."""
-    control_results, account, generated_at = build_org_control_results(db, org_id, framework)
-    scanned_entity_types = _latest_org_scanned_entity_types(db, org_id)
+    """Structured audit readiness payload, optionally scoped to one AWS account."""
+    control_results, account, generated_at = build_org_control_results(
+        db,
+        org_id,
+        framework,
+        account_id=account_id,
+    )
+    scanned_entity_types = (
+        _latest_scanned_entity_types(db, account.id)
+        if account_id is not None and account is not None
+        else _latest_org_scanned_entity_types(db, org_id)
+    )
     applicable_control_results = _without_inapplicable_checks(
         control_results, scanned_entity_types
     )
-    account_label, account_id_str = _org_scope_label(db, org_id, account)
+    account_label, account_id_str = (
+        (account.label or account.account_id, account.account_id)
+        if account_id is not None and account is not None
+        else _org_scope_label(db, org_id, account)
+    )
     since = generated_at - timedelta(days=period_days)
 
     sections = build_domain_sections(

@@ -61,6 +61,10 @@ export interface HistoryEvent {
   snapshot: SnapshotSummary;
   top_change: TopChange;
   diff: ScanDiff;
+  /** Client-side flap collapse: number of state changes merged into this row. */
+  flap_count?: number;
+  /** Client-side flap collapse: the individual merged events (newest first). */
+  flap_events?: HistoryEvent[];
 }
 
 export interface PeriodSummary {

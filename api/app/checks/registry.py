@@ -336,9 +336,9 @@ def source_control_checks_for(provider_type: str) -> list:
     return [mod for mod in SOURCE_CONTROL_CHECKS if mod.CHECK_ID.startswith(prefix)]
 
 
-# Identity integration checks (Entra, Google Workspace) are org-level —
-# driven by integration sync, not cloud-account scan.
-INTEGRATION_SYNC_PREFIXES = ("entra.", "google_workspace.")
+# Identity/MDM integration checks (Entra, Google Workspace, Intune, Jamf) are
+# org-level — driven by integration sync, not cloud-account scan.
+INTEGRATION_SYNC_PREFIXES = ("entra.", "google_workspace.", "intune.", "jamf.")
 
 
 def is_integration_sync_check(check_id: str) -> bool:
