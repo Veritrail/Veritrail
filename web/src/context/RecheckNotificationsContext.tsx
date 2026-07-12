@@ -27,7 +27,9 @@ const HISTORY_LIMIT = 100;
 export const RECHECK_TIMEOUT_MS = 30_000;
 const CLOUDTRAIL_POLL_MS = 30_000;
 const CLOUDTRAIL_MAX_MS = 25 * 60 * 1000;
-const SCAN_FAILURE_MONITOR_POLL_MS = 5_000;
+// Idle failure-monitor cadence. Active scans poll at 2s regardless; 30s here
+// only delays noticing a scan started elsewhere, and keeps idle tabs cheap.
+const SCAN_FAILURE_MONITOR_POLL_MS = 30_000;
 
 export type VerifyNotification = {
   id: string;
