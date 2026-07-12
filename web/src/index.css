@@ -500,6 +500,10 @@
     transform: rotate(180deg);
   }
 
+  .history-filter-dropdown--view .selector-card {
+    min-width: 10rem;
+  }
+
   .history-filter-dropdown--period .selector-card {
     max-width: 11rem;
   }
