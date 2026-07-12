@@ -12,13 +12,13 @@ import {
 import { fetchAllFindings } from "../lib/fetchAllFindings";
 import type { ComplianceHistoryResponse, HistoryEvent } from "../lib/complianceHistory";
 import { historyDetailLine, historyTypeDisplay } from "../lib/historyEvidence";
+import { labelForCheck } from "../data/checkLabels";
 import {
   assertBlockerMath,
   clearedByBlockers,
   formatControlList,
   groupBlockerFindings,
   isHighSeverity,
-  itemsPhrase,
   partitionBlockerFindings,
   unblockedControlIds,
   type BlockerFinding,
@@ -30,17 +30,11 @@ import {
   useConnectedAccountOptions,
 } from "../hooks/useConnectedAccountOptions";
 import { useMe } from "../hooks/useMe";
-import { BlockersList } from "./BlockersList";
-import { CapabilitiesToEnableList } from "./CapabilitiesToEnableList";
-import { absenceGapEnableItems, isAbsenceGapCheck } from "../lib/evidenceGap";
-
-const STEP_LABELS = [
-  "Connected",
-  "Evidence flowing",
-  "High findings",
-  "Controls passing",
-  "Evidence ready",
-] as const;
+import {
+  absenceGapEnableItems,
+  absenceGapPrompt,
+  isAbsenceGapCheck,
+} from "../lib/evidenceGap";
 
 /** Query keys aligned with FindingsWorkspace so findings invalidation keeps N fresh. */
 function orgScopeFindingsQueryKey(provider: FindingsProviderScope) {
@@ -94,7 +88,12 @@ export function OrgReadinessHome() {
   const meQ = useMe();
   const orgName = prettifyOrgName(meQ.data?.org_name?.trim() || "Your company");
 
-  const { options: connectedAccounts, isSuccess: accountsReady } = useConnectedAccountOptions();
+  const {
+    options: connectedAccounts,
+    isSuccess: accountsReady,
+    accountsQ,
+    cloudAccountsQ,
+  } = useConnectedAccountOptions();
 
   const githubQ = useQuery({
     queryKey: ["github-provider"],
@@ -195,11 +194,9 @@ export function OrgReadinessHome() {
     [highFindings],
   );
   const blockerGroups = useMemo(
-    () => groupBlockerFindings(blockerFindings, 3, controlStatusById),
+    () => groupBlockerFindings(blockerFindings, 100, controlStatusById),
     [blockerFindings, controlStatusById],
   );
-  const clearedByBlockersCount = clearedByBlockers(blockerGroups);
-  const unblockedControlIdsList = unblockedControlIds(blockerGroups);
   // Absence gaps are "turn this service on" nudges, not severity-ranked
   // blockers — surface them across all open findings, not just high, so the
   // recommended list reflects every disabled capability (e.g. VPC flow logs).
@@ -219,7 +216,31 @@ export function OrgReadinessHome() {
     const ranked = [...findingCountByCheck.keys()].sort(
       (a, b) => (findingCountByCheck.get(b) ?? 0) - (findingCountByCheck.get(a) ?? 0),
     );
-    return absenceGapEnableItems(ranked, findingCountByCheck);
+    return absenceGapEnableItems(ranked, findingCountByCheck).map((item) => {
+      const matchingFindings = allAbsenceGapFindings.filter(
+        (finding) => finding.check_id === item.checkId,
+      );
+      const accounts = [
+        ...new Set(
+          matchingFindings
+            .map(
+              (finding) =>
+                finding.account_label ?? finding.account_name ?? finding.account_id ?? null,
+            )
+            .filter((value): value is string => !!value),
+        ),
+      ];
+      return {
+        ...item,
+        findingCount: findingCountByCheck.get(item.checkId) ?? 0,
+        scopeLabel:
+          accounts.length === 0
+            ? null
+            : accounts.length <= 2
+              ? accounts.join(", ")
+              : `${accounts.slice(0, 2).join(", ")} +${accounts.length - 2}`,
+      };
+    });
   }, [allAbsenceGapFindings]);
 
   if (import.meta.env.DEV && (blockerGroups.length > 0 || absenceGapFindings.length > 0)) {
@@ -237,21 +258,42 @@ export function OrgReadinessHome() {
   }, [controlsQ.data]);
 
   const anyScanCompleted = connectedAccounts.some((account) => !!account.last_scan_at);
-  const stepDone: boolean[] = [
-    hasAnyConnection,
-    anyScanCompleted || controlsSummary.graded || openFindings.length > 0,
-    highCount === 0,
-    controlsSummary.total > 0 && controlsSummary.passed === controlsSummary.total,
-    controlsSummary.total > 0 && controlsSummary.passed === controlsSummary.total,
-  ];
-  const currentStep = stepDone.findIndex((done) => !done);
+  const latestCloudScan = useMemo(() => {
+    const scans = connectedAccounts
+      .map((account) => account.last_scan_at)
+      .filter((value): value is string => !!value)
+      .sort((left, right) => new Date(right).getTime() - new Date(left).getTime());
+    return scans[0] ?? null;
+  }, [connectedAccounts]);
+  const latestCloudScanAge = latestCloudScan
+    ? Date.now() - new Date(latestCloudScan).getTime()
+    : Number.POSITIVE_INFINITY;
+  const cloudEvidenceState = !latestCloudScan
+    ? "Not scanned"
+    : latestCloudScanAge > 72 * 60 * 60 * 1000
+      ? "Stale"
+      : "Fresh";
 
   const findingsLoading =
     (needsCloudFindings && cloudFindingsQ.isPending) ||
     (needsSourceFindings && sourceControlFindingsQ.isPending) ||
     (needsIdentityFindings && identityFindingsQ.isPending);
+  const connectionsFailed = accountsQ.isError || cloudAccountsQ.isError;
+  const dataIncomplete =
+    connectionsFailed ||
+    githubQ.isError ||
+    gitlabQ.isError ||
+    entraQ.isError ||
+    googleWorkspaceQ.isError ||
+    cloudFindingsQ.isError ||
+    sourceControlFindingsQ.isError ||
+    identityFindingsQ.isError ||
+    controlsQ.isError;
   const loading =
-    !accountsReady || !integrationsReady || findingsLoading || controlsQ.isPending;
+    (!accountsReady && !connectionsFailed) ||
+    !integrationsReady ||
+    findingsLoading ||
+    controlsQ.isPending;
 
   const timelineEvents = useMemo(() => {
     const events: HistoryEvent[] = [];
@@ -262,155 +304,269 @@ export function OrgReadinessHome() {
       }
     }
     events.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-    return events.slice(0, 6);
+    return events.slice(0, 4);
   }, [timelineQs]);
 
   const defaultFindingsHref = defaultOrgFindingsHref({ hasCloudAccounts, hasSourceControl, hasIdentity });
   const findingsHref = (checkId: string) => findingsHrefForCheckIds([checkId]) ?? defaultFindingsHref;
+  const hasEvidenceData = anyScanCompleted || controlsSummary.graded || openFindings.length > 0;
+  const hasActionableWork =
+    highCount > 0 || capabilityItems.length > 0 || controlsSummary.failing > 0;
+  // Clear means graded with nothing actionable; ungraded (`no_data`) controls
+  // must not force a contradictory "Action required" chip over an empty queue.
+  const evidenceClear = hasEvidenceData && controlsSummary.graded && !hasActionableWork;
+  const homeState = dataIncomplete
+    ? "incomplete"
+    : !hasEvidenceData || !controlsSummary.graded
+      ? "not-assessed"
+      : evidenceClear
+        ? "clear"
+        : "action";
+  const homeStateLabel = {
+    incomplete: "Data incomplete",
+    "not-assessed": "Not assessed",
+    clear: "Evidence clear",
+    action: "Action required",
+  }[homeState];
+  const nextActionCount = blockerGroups.length + capabilityItems.length;
+  const actionReasons = [
+    highCount > 0
+      ? `${highCount} critical or high finding${highCount === 1 ? "" : "s"}`
+      : null,
+    capabilityItems.length > 0
+      ? `${capabilityItems.length} missing capabilit${capabilityItems.length === 1 ? "y" : "ies"}`
+      : null,
+    controlsSummary.failing > 0
+      ? `${controlsSummary.failing} failing control${controlsSummary.failing === 1 ? "" : "s"}`
+      : null,
+  ].filter((reason): reason is string => !!reason);
+  const rankedNextActions = [
+    ...blockerGroups.map((group) => {
+      const controls =
+        group.failingControlIds.length > 0 ? group.failingControlIds : group.soc2ControlIds;
+      return {
+        key: `finding:${group.checkId}`,
+        type: "review" as const,
+        priority: group.severity === "critical" ? 0 : 1,
+        tone: group.severity,
+        title: labelForCheck(group.checkId),
+        detail: [
+          group.location,
+          controls.length > 0 ? controls.slice(0, 3).join(", ") : null,
+          `${group.count} finding${group.count === 1 ? "" : "s"}`,
+        ]
+          .filter(Boolean)
+          .join(" · "),
+        href: findingsHref(group.checkId),
+      };
+    }),
+    ...capabilityItems.map((item) => ({
+      key: `enable:${item.checkId}`,
+      type: "enable" as const,
+      priority: 2,
+      tone: "enable" as const,
+      title: item.capability,
+      detail: `${absenceGapPrompt(item.checkId).awsOption}${item.scopeLabel ? ` · ${item.scopeLabel}` : ""} · ${item.findingCount} affected`,
+      href: item.consoleUrl,
+    })),
+  ]
+    .sort((left, right) => left.priority - right.priority);
+  let nextActions = rankedNextActions.slice(0, 5);
+  const firstEnableAction = rankedNextActions.find((action) => action.type === "enable");
+  if (firstEnableAction && !nextActions.some((action) => action.type === "enable")) {
+    nextActions = [...nextActions.slice(0, 4), firstEnableAction];
+  }
+
+  if (nextActions.length === 0 && controlsSummary.failing > 0) {
+    nextActions.push({
+      key: "controls:failing",
+      type: "review",
+      priority: 3,
+      tone: "high",
+      title: "Review failing controls",
+      detail: `${controlsSummary.failing} control${controlsSummary.failing === 1 ? "" : "s"} need attention`,
+      href: "/controls?framework=soc2",
+    });
+  }
+
+  // Narrative subline for the action state: what fixing the queue actually buys.
+  const shownGroups = blockerGroups.filter((group) =>
+    nextActions.some((action) => action.key === `finding:${group.checkId}`),
+  );
+  const shownCleared = clearedByBlockers(shownGroups);
+  const shownControls = formatControlList(unblockedControlIds(shownGroups));
+  const actionSubline =
+    shownGroups.length > 0
+      ? `Fixing the ${shownGroups.length === 1 ? "item" : `${shownGroups.length} items`} below clears ${shownCleared} of ${highCount} critical or high finding${highCount === 1 ? "" : "s"}${shownControls ? ` and unblocks ${shownControls}` : ""}.`
+      : `${actionReasons.join(" · ")} require attention.`;
 
   if (loading) {
     return (
       <div className="org-home" aria-busy="true">
-        <div className="org-home__skeleton org-home__skeleton--headline" />
-        <div className="org-home__skeleton org-home__skeleton--subline" />
-        <div className="org-home__skeleton org-home__skeleton--stepper" />
+        <div className="org-home__skeleton org-home__skeleton--top" />
+        <div className="org-home__skeleton org-home__skeleton--metrics" />
         <div className="org-home__skeleton org-home__skeleton--card" />
       </div>
     );
   }
 
-  if (!hasAnyConnection) {
+  if (!hasAnyConnection && !dataIncomplete) {
     return (
       <div className="org-home">
-        <header className="org-home__headline-block">
-          <p className="org-home__verdict">
-            {orgName} technical evidence is{" "}
-            <span className="org-home__verdict-state is-not-ready">not ready</span>{" "}
-            for SOC 2.
-          </p>
-          <h1 className="org-home__headline">Connect your first integration to get started.</h1>
-          <p className="org-home__subline org-home__subline--scope">
-            Veritrail collects the technical evidence for SOC 2 — cloud, identity, and source control.
-          </p>
+        <header className="org-home__top">
+          <div>
+            <p className="org-home__eyebrow">Home</p>
+            <h1 className="org-home__title">{orgName}</h1>
+            <p className="org-home__description">
+              Connect a cloud, identity, or source-control integration to establish your technical
+              evidence baseline.
+            </p>
+          </div>
         </header>
-        <p className="org-home__timeline-empty">
-          <Link to="/integrations" className="org-home__section-link">
+        <section className="org-home__empty-card">
+          <div>
+            <h2>Connect your first evidence source</h2>
+            <p>Veritrail will begin collecting findings, control status, and evidence activity.</p>
+          </div>
+          <Link to="/integrations" className="org-home__primary-action">
             Go to Integrations <span aria-hidden>→</span>
           </Link>
-        </p>
+        </section>
       </div>
     );
   }
 
-  const zeroHigh = highCount === 0;
-  const evidenceReady =
-    controlsSummary.total > 0 && controlsSummary.passed === controlsSummary.total && zeroHigh;
-  const verdictClass = evidenceReady ? "ready" : "not-ready";
-
   return (
     <div className="org-home">
-      <header className="org-home__headline-block">
-        <p className="org-home__verdict">
-          {orgName} technical evidence is{" "}
-          <span className={`org-home__verdict-state is-${verdictClass}`}>
-            {evidenceReady ? "ready" : "not ready"}
-          </span>{" "}
-          for SOC 2.
-        </p>
-        {zeroHigh ? (
-          <h1 className="org-home__headline">No high findings stand between you and SOC 2.</h1>
-        ) : (
-          <h1 className="org-home__headline">
-            <span className="org-home__headline-em">{highCount} high</span>{" "}
-            finding{highCount === 1 ? "" : "s"}{" "}
-            stand{highCount === 1 ? "s" : ""} between you and SOC 2.
-          </h1>
-        )}
-        {zeroHigh && controlsSummary.total > 0 ? (
-          <p className="org-home__subline">
-            {controlsSummary.passed} of {controlsSummary.total} controls passing — keep evidence flowing.
+      <header className="org-home__top">
+        <div>
+          <p className="org-home__eyebrow">Home</p>
+          <h1 className="org-home__title">{orgName}</h1>
+          <p className="org-home__description">
+            {homeState === "incomplete"
+              ? "Some evidence sources could not be loaded. The figures below may be incomplete."
+              : homeState === "not-assessed"
+                ? "Complete a scan or integration sync to establish your technical evidence baseline."
+                : homeState === "clear"
+                  ? "No critical or high blockers and no missing technical capabilities were found."
+                  : actionSubline}
           </p>
-        ) : null}
-        {!zeroHigh && blockerGroups.length > 0 ? (
-          <p className="org-home__subline">
-            Fixing {itemsPhrase(blockerGroups.length)} clears {clearedByBlockersCount} of {highCount} high finding
-            {highCount === 1 ? "" : "s"}
-            {unblockedControlIdsList.length > 0
-              ? ` and unblocks ${formatControlList(unblockedControlIdsList)}`
-              : ""}
-            .
-          </p>
-        ) : null}
+        </div>
       </header>
 
-      <ol className="org-home__stepper" aria-label="Evidence readiness progress">
-        {STEP_LABELS.map((label, idx) => {
-          const displayLabel =
-            idx === 2 ? `${highCount} high finding${highCount === 1 ? "" : "s"}` : label;
-          const done = currentStep === -1 || idx < currentStep;
-          const current = idx === currentStep;
-          const prevDone = currentStep === -1 || idx <= currentStep;
-          const state = done ? "is-done" : current ? "is-current" : "is-future";
-          return (
-            <li key={label} className={`org-home__step ${state}`} aria-current={current ? "step" : undefined}>
-              {idx > 0 ? (
-                <span className={`org-home__step-line${prevDone ? " is-reached" : ""}`} aria-hidden />
-              ) : null}
-              <span className="org-home__step-dot" aria-hidden />
-              <span className="org-home__step-label">{displayLabel}</span>
-            </li>
-          );
-        })}
-      </ol>
-
-      {!zeroHigh && (blockerGroups.length > 0 || capabilityItems.length > 0) ? (
-        <div
-          className={`org-home__action-grid${capabilityItems.length === 0 ? " has-blockers-only" : ""}${
-            blockerGroups.length === 0 ? " has-recommendation-only" : ""
-          }`}
-        >
-          {blockerGroups.length > 0 ? (
-            <section className="org-home__blockers-section" aria-label="What's blocking you">
-              <h2 className="org-home__section-title">What&apos;s blocking you</h2>
-              <BlockersList
-                groups={blockerGroups}
-                totalHighCount={highCount}
-                findingsHref={findingsHref}
-                defaultFindingsHref={defaultFindingsHref}
-              />
-            </section>
-          ) : null}
-
-          {capabilityItems.length > 0 ? (
-            <section className="org-home__capabilities-section" aria-label="Recommended next steps">
-              <h2 className="org-home__section-title">
-                {capabilityItems.length === 1 ? "Recommended next step" : "Recommended next steps"}
-              </h2>
-              <CapabilitiesToEnableList items={capabilityItems.slice(0, 3)} />
-            </section>
-          ) : null}
+      <section className="org-home__metrics" aria-label="Technical evidence summary">
+        <div className="org-home__metric">
+          <span className={`org-home__metric-value${highCount > 0 ? " is-risk" : ""}`}>
+            {dataIncomplete ? "—" : highCount}
+          </span>
+          <span className="org-home__metric-label">Critical &amp; high findings</span>
+          <span className="org-home__metric-note">
+            {dataIncomplete ? "Partial findings data" : highCount === 0 ? "No priority blockers" : "Open across connected sources"}
+          </span>
         </div>
-      ) : null}
+        <div className="org-home__metric">
+          <span className="org-home__metric-value">
+            {controlsQ.isError || controlsSummary.total === 0
+              ? "—"
+              : `${controlsSummary.passed} / ${controlsSummary.total}`}
+          </span>
+          <span className="org-home__metric-label">SOC 2 controls passing</span>
+          <span className="org-home__metric-note">
+            {controlsSummary.failing > 0
+              ? `${controlsSummary.failing} failing`
+              : controlsSummary.total > 0
+                ? "Mapped automated controls"
+                : "Not graded yet"}
+          </span>
+        </div>
+        <div className="org-home__metric">
+          <span className={`org-home__metric-value org-home__metric-value--${cloudEvidenceState.toLowerCase().replace(" ", "-")}`}>
+            {cloudEvidenceState}
+          </span>
+          <span className="org-home__metric-label">Latest cloud evidence</span>
+          <span className="org-home__metric-note">
+            {latestCloudScan ? `${formatTimelineAgo(latestCloudScan)} · ${connectedAccounts.length} connected` : "Complete the first cloud scan"}
+          </span>
+        </div>
+      </section>
 
-      <section className="org-home__timeline-section" aria-label="Timeline">
-        <SectionHead title="Timeline" linkTo="/history" linkLabel="History" />
-        {timelineEvents.length === 0 ? (
-          <p className="org-home__timeline-empty">Activity appears after your first scan.</p>
-        ) : (
-          <ul className="org-home__timeline">
-            {timelineEvents.map((event, idx) => (
-              <li key={`${event.scan_run_id}-${event.timestamp}-${idx}`} className="org-home__timeline-row">
-                <span className="org-home__timeline-time">{formatTimelineAgo(event.timestamp)}</span>
-                <span
-                  className={`org-home__timeline-dot${timelineDotIsGreen(event) ? " is-green" : ""}`}
-                  aria-hidden
-                />
-                <span className="org-home__timeline-text">{timelineEventText(event)}</span>
-              </li>
+      <section className="org-home__actions" aria-label="Next actions">
+        <div className="org-home__actions-head">
+          <div>
+            <p className="org-home__section-kicker">Priority queue</p>
+            <h2 className="org-home__section-title">Next actions</h2>
+          </div>
+          <Link to={defaultFindingsHref} className="org-home__section-link">
+            All findings <span aria-hidden>→</span>
+          </Link>
+        </div>
+        {nextActions.length > 0 ? (
+          <div className="org-home__next-list">
+            {nextActions.map((action) => (
+              <div key={action.key} className="org-home__next-row">
+                <span className={`org-home__next-type org-home__next-type--${action.tone}`}>
+                  {action.type === "enable" ? "Enable" : action.tone}
+                </span>
+                <div className="org-home__next-copy">
+                  <strong>{action.title}</strong>
+                  <span>{action.detail}</span>
+                </div>
+                {action.href ? (
+                  action.type === "enable" ? (
+                    <a href={action.href} target="_blank" rel="noopener noreferrer" className="org-home__next-action">
+                      Enable <span aria-hidden>→</span>
+                    </a>
+                  ) : (
+                    <Link to={action.href} className="org-home__next-action">
+                      Review <span aria-hidden>→</span>
+                    </Link>
+                  )
+                ) : null}
+              </div>
             ))}
-          </ul>
+            {nextActionCount > nextActions.length ? (
+              <div className="org-home__next-footer">
+                {nextActionCount - nextActions.length} additional action{nextActionCount - nextActions.length === 1 ? "" : "s"} ·{" "}
+                <Link to={defaultFindingsHref}>Findings <span aria-hidden>→</span></Link>{" "}
+                <Link to="/audit">Audit <span aria-hidden>→</span></Link>
+              </div>
+            ) : null}
+          </div>
+        ) : dataIncomplete ? (
+          <div className="org-home__actions-empty">
+            <span>Some data could not be loaded, so no complete action list is available.</span>
+            <button type="button" onClick={() => window.location.reload()}>Retry</button>
+          </div>
+        ) : homeState === "not-assessed" ? (
+          <div className="org-home__actions-empty">
+            Next actions appear after the first completed scan or integration sync.
+          </div>
+        ) : (
+          <div className="org-home__actions-empty is-clear">
+            <span aria-hidden>✓</span>
+            No priority findings or missing technical capabilities require action.
+          </div>
         )}
       </section>
+
+      {awsAccounts.length > 0 ? (
+        <section className="org-home__timeline-section org-home__timeline-section--compact" aria-label="Recent AWS activity">
+          <SectionHead title="Recent AWS activity" linkTo="/history" linkLabel="History" />
+          {timelineEvents.length === 0 ? (
+            <p className="org-home__timeline-empty">AWS activity appears after the first completed scan.</p>
+          ) : (
+            <ul className="org-home__timeline">
+              {timelineEvents.map((event, idx) => (
+                <li key={`${event.scan_run_id}-${event.timestamp}-${idx}`} className="org-home__timeline-row">
+                  <span className="org-home__timeline-time">{formatTimelineAgo(event.timestamp)}</span>
+                  <span className={`org-home__timeline-dot${timelineDotIsGreen(event) ? " is-green" : ""}`} aria-hidden />
+                  <span className="org-home__timeline-text">{timelineEventText(event)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      ) : null}
     </div>
   );
 }
