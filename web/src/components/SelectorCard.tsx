@@ -1,5 +1,25 @@
 import { forwardRef, type ReactNode } from "react";
 
+/** Static selector-card shell for header segmented toggles (View, etc.). */
+export function HeaderSegmentCard({
+  label,
+  children,
+  className = "",
+}: {
+  label: string;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={["selector-card selector-card--segment shrink-0", className].filter(Boolean).join(" ")}>
+      <span className="selector-card__body">
+        <span className="selector-card__label">{label}</span>
+        <span className="selector-card__segment">{children}</span>
+      </span>
+    </div>
+  );
+}
+
 export type SelectorCardIconTone = "account" | "period" | "framework" | "group" | "neutral";
 
 function FilterChevron({ open }: { open: boolean }) {

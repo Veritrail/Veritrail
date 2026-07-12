@@ -43,23 +43,6 @@
   flex: 0 0 auto;
 }
 
-/* Controls/Criteria toggle in the app header — matches selector-card shell. */
-.header-filter-bar .compliance-header-view-toggle {
-  display: inline-flex;
-  align-items: center;
-  box-sizing: border-box;
-  min-height: 58px;
-  padding: 10px 12px;
-  border-radius: 14px;
-  border: 1px solid #e6ebf2;
-  background: #fff;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
-}
-
-.header-filter-bar .compliance-header-view-toggle .compliance-page-view-toggle {
-  margin-right: 0;
-}
-
 /* Generate Audit Package — teal primary CTA in toolbar. */
 .compliance-page .findings-v2-toolbar-btn--scan {
   border-color: var(--vt-teal);

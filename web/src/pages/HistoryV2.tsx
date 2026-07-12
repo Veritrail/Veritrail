@@ -7,6 +7,7 @@ import { complianceTimelineSchema, compositeControlListSchema } from "../lib/api
 import { AccountFilterDropdown } from "../components/AccountFilterDropdown";
 import { CloudFeatureComingSoon } from "../components/CloudFeatureComingSoon";
 import { HeaderFilterBar } from "../components/HeaderFilterBar";
+import { HeaderSegmentCard } from "../components/SelectorCard";
 import { HeaderSlot } from "../context/HeaderSlot";
 import { useConnectedAccountOptions } from "../hooks/useConnectedAccountOptions";
 import { useSelectedAccountId } from "../hooks/useSelectedAccountId";
@@ -109,7 +110,7 @@ function HistoryPageViewToggle({
   className?: string;
 }) {
   return (
-    <div className={["history-header-view-toggle shrink-0", className].filter(Boolean).join(" ")}>
+    <HeaderSegmentCard label="View" className={className}>
       <div
         className="vt-toolbar-segmented history-page-view-toggle"
         role="tablist"
@@ -131,7 +132,7 @@ function HistoryPageViewToggle({
           </button>
         ))}
       </div>
-    </div>
+    </HeaderSegmentCard>
   );
 }
 

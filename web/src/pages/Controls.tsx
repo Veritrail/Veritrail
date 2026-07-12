@@ -33,6 +33,7 @@ import { AccountFilterDropdown } from "../components/AccountFilterDropdown";
 import { CloudFeatureComingSoon } from "../components/CloudFeatureComingSoon";
 import { isCloudFeatureComingSoon } from "../lib/cloudProviderFeatures";
 import { HeaderFilterBar } from "../components/HeaderFilterBar";
+import { HeaderSegmentCard } from "../components/SelectorCard";
 import { ExternalEvidencePanel } from "../components/ExternalEvidencePanel";
 import { CoverageOverridePanel } from "../components/CoverageOverridePanel";
 import {
@@ -1386,7 +1387,7 @@ function CompliancePageViewToggle({
   className?: string;
 }) {
   return (
-    <div className={["compliance-header-view-toggle shrink-0", className].filter(Boolean).join(" ")}>
+    <HeaderSegmentCard label="View" className={className}>
       <div
         className="vt-toolbar-segmented compliance-page-view-toggle"
         role="tablist"
@@ -1405,7 +1406,7 @@ function CompliancePageViewToggle({
           </button>
         ))}
       </div>
-    </div>
+    </HeaderSegmentCard>
   );
 }
 
