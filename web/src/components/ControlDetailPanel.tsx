@@ -9,34 +9,70 @@ import { createPortal } from "react-dom";
 import type { ReadinessMetric } from "../lib/controlReadiness";
 import { DrawerShell } from "./DrawerShell";
 
-/** Concrete N-of-M readiness rows — semantic color as a thin rail only. */
-export function ControlReadinessBar({ metrics }: { metrics: ReadinessMetric[] }) {
+/**
+ * Concrete N-of-M readiness counts as a single compact stat strip —
+ * green dot when the axis is complete, amber while work remains.
+ */
+export function ControlReadinessStrip({ metrics }: { metrics: ReadinessMetric[] }) {
   if (metrics.length === 0) return null;
   return (
-    <div className="control-readiness">
+    <dl className="control-readiness-strip" aria-label="Readiness counts">
       {metrics.map((m) => {
-        const pct = m.total > 0 ? Math.round((m.complete / m.total) * 100) : 0;
-        const fillClass =
-          m.total === 0
-            ? "control-readiness__fill--empty"
-            : `control-readiness__fill--${m.variant}`;
+        const done = m.total > 0 && m.complete >= m.total;
         return (
-          <div className="control-readiness__row" key={m.label}>
-            <div className="control-readiness__row-head">
-              <span className="control-readiness__label">{m.label}</span>
-              <span className="control-readiness__count">
-                {m.complete} of {m.total}
-              </span>
-            </div>
-            <div className="control-readiness__track">
-              <div
-                className={`control-readiness__fill ${fillClass}`}
-                style={{ width: `${pct}%` }}
+          <div className="control-readiness-strip__item" key={m.label}>
+            <dt className="control-readiness-strip__label">
+              <span
+                className={`control-readiness-strip__dot${done ? " control-readiness-strip__dot--done" : ""}`}
+                aria-hidden
               />
-            </div>
+              {m.label}
+            </dt>
+            <dd className="control-readiness-strip__value">
+              {m.complete}
+              <span className="control-readiness-strip__sep">/</span>
+              {m.total}
+            </dd>
           </div>
         );
       })}
+    </dl>
+  );
+}
+
+/**
+ * Header description clamped to two lines with a More/Less toggle, so a long
+ * criterion paragraph never pushes the useful drawer content below the fold.
+ */
+function CollapsibleHeaderDescription({ children }: { children: ReactNode }) {
+  const [expanded, setExpanded] = useState(false);
+  const [overflows, setOverflows] = useState(false);
+  const textRef = useRef<HTMLParagraphElement>(null);
+
+  useEffect(() => {
+    if (expanded) return;
+    const el = textRef.current;
+    if (el) setOverflows(el.scrollHeight - el.clientHeight > 1);
+  }, [children, expanded]);
+
+  return (
+    <div className="control-detail-panel__description-wrap">
+      <p
+        ref={textRef}
+        className={`control-detail-panel__description${expanded ? "" : " is-clamped"}`}
+      >
+        {children}
+      </p>
+      {overflows || expanded ? (
+        <button
+          type="button"
+          className="control-detail-panel__description-toggle"
+          aria-expanded={expanded}
+          onClick={() => setExpanded((v) => !v)}
+        >
+          {expanded ? "Less" : "More"}
+        </button>
+      ) : null}
     </div>
   );
 }
@@ -84,6 +120,7 @@ export function ControlDetailPanel({
   activeTab,
   onTabChange,
   onClose,
+  headerEyebrow,
   headerTitle,
   headerDescription,
   headerStatus,
@@ -93,6 +130,8 @@ export function ControlDetailPanel({
   activeTab: ControlDetailTabId;
   onTabChange: (tab: ControlDetailTabId) => void;
   onClose: () => void;
+  /** Muted framework/control id line above the title (e.g. "SOC 2 CC6.1"). */
+  headerEyebrow?: ReactNode;
   headerTitle: ReactNode;
   headerDescription?: ReactNode;
   headerStatus?: ReactNode;
@@ -142,6 +181,9 @@ export function ControlDetailPanel({
             <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
           </svg>
         </button>
+        {headerEyebrow ? (
+          <p className="control-detail-panel__eyebrow">{headerEyebrow}</p>
+        ) : null}
         <div className="control-detail-panel__title-row">
           <h2 id="control-detail-panel-title" className="control-detail-panel__title">
             {headerTitle}
@@ -149,7 +191,7 @@ export function ControlDetailPanel({
           {headerStatus}
         </div>
         {headerDescription ? (
-          <p className="control-detail-panel__description">{headerDescription}</p>
+          <CollapsibleHeaderDescription>{headerDescription}</CollapsibleHeaderDescription>
         ) : null}
       </div>
 

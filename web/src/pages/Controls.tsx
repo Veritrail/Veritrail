@@ -69,11 +69,11 @@ import {
 import { evidenceArtifactsForComposite } from "../lib/controlEvidence";
 import {
   ControlDetailPanel,
-  ControlReadinessBar,
+  ControlReadinessStrip,
   type ControlDetailTab,
   type ControlDetailTabId,
 } from "../components/ControlDetailPanel";
-import { controlReadinessMetrics, type ReadinessMetric } from "../lib/controlReadiness";
+import { controlReadinessMetrics } from "../lib/controlReadiness";
 import { HeaderSlot } from "../context/HeaderSlot";
 import { FrameworkMark } from "../components/FrameworkMark";
 import { CHECK_CONTROL_IDS_MAP } from "../data/checkControlIdsMap";
@@ -2483,30 +2483,6 @@ function ControlDetailSection({
   );
 }
 
-/** Readiness bar wrapped in a titled section with an N-of-M summary stat. */
-function ControlReadinessSection({ metrics }: { metrics: ReadinessMetric[] }) {
-  if (metrics.length === 0) return null;
-  const primary = metrics[0];
-  return (
-    <ControlDetailSection
-      panel
-      title="Readiness"
-      action={
-        <span className="control-detail-section__stat">
-          {primary.complete}
-          <span className="control-detail-section__stat-sep">/</span>
-          {primary.total}
-        </span>
-      }
-    >
-      <ControlReadinessBar metrics={metrics} />
-      <p className="control-detail-hint">
-        Concrete N-of-M counts — not a likelihood-to-pass score.
-      </p>
-    </ControlDetailSection>
-  );
-}
-
 /**
  * Declare an external code/dependency/secret scanner (Snyk, Semgrep, etc.).
  * When declared, the scanning-family findings are cleared from Secure SDLC
@@ -3252,23 +3228,25 @@ function buildDetailedTabs({
     findingCountByCheck,
   );
 
+  // Single merged view — the old Overview tab held only the readiness card
+  // (mostly empty space); its N-of-M counts now live as a compact strip above
+  // the gaps, so everything useful is visible at once without tab switching.
   const tabs: ControlDetailTab[] = [
-    {
-      id: "overview",
-      label: "Overview",
-      content: (
-        <div className="control-detail-stack">
-          <ControlReadinessSection metrics={readinessMetrics} />
-        </div>
-      ),
-    },
     {
       id: "gaps",
       label: "Gaps",
       badge: blockingCount > 0 ? blockingCount : undefined,
       content: (
         <div className="control-detail-stack">
-          <ControlDetailSection title="Blocking gaps">
+          <ControlReadinessStrip metrics={readinessMetrics} />
+          <ControlDetailSection
+            title="Blocking gaps"
+            action={
+              blockingCount > 0 ? (
+                <span className="control-detail-section__stat">{blockingCount}</span>
+              ) : undefined
+            }
+          >
             {ctrl.check_ids.length > 0 ? (
               <ControlFindingsBlock
                 control={ctrl}
@@ -4971,6 +4949,7 @@ export default function Controls() {
                 setSelectedControlId(null);
                 setSelectedKind(null);
               }}
+              headerEyebrow={frameworkControlLabel(framework, selectedDetailedControl.control_id)}
               headerTitle={shortControlTitle(selectedDetailedControl.title)}
               headerDescription={selectedDetailedControl.description}
               headerStatus={
