@@ -71,6 +71,7 @@ export const meSchema = z.object({
   id: z.string(),
   email: z.string(),
   display_name: z.string(),
+  avatar_url: z.string().nullable().optional(),
   role: orgRole,
   evidence_role: evidenceRole,
   org_id: z.string(),

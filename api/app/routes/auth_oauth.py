@@ -25,7 +25,12 @@ from app.core.security import (
 )
 from app.models import AwsAccount, Org, User
 from app.services.org_invites import provision_sso_user
-from app.services.user_display_name import apply_display_name_if_empty, oauth_display_name_from_profile
+from app.services.user_display_name import (
+    apply_avatar_url_from_profile,
+    apply_display_name_if_empty,
+    oauth_avatar_url_from_profile,
+    oauth_display_name_from_profile,
+)
 from app.services.user_session import record_user_session
 from app.routes.github_integration import (
     handle_github_integration_callback,
@@ -338,7 +343,11 @@ def google_callback(
         # admin flow: hand the session off to the platform-admin origin
         if state == _ADMIN_STATE:
             return _handle_admin_google_callback(
-                db, email=email, google_id=google_id, display_name=display_name
+                db,
+                email=email,
+                google_id=google_id,
+                display_name=display_name,
+                avatar_url=oauth_avatar_url_from_profile(info),
             )
 
         # link flow: attach google_id to existing account
@@ -361,6 +370,7 @@ def google_callback(
                 return _link_error_redirect("google", "not_found")
             user.google_id = google_id
             apply_display_name_if_empty(user, display_name)
+            apply_avatar_url_from_profile(user, info)
             db.commit()
             return _oauth_link_redirect(user, "google")
 
@@ -372,6 +382,9 @@ def google_callback(
             identity_fields: dict[str, str] = {"google_id": google_id}
             if display_name:
                 identity_fields["display_name"] = display_name
+            avatar_url = oauth_avatar_url_from_profile(info)
+            if avatar_url:
+                identity_fields["avatar_url"] = avatar_url
             provisioned = _provision_sso_user_or_redirect(
                 "google", db, email=email, state=state, **identity_fields
             )
@@ -397,6 +410,7 @@ def google_callback(
                 google_id=google_id,
             )
         apply_display_name_if_empty(user, display_name)
+        apply_avatar_url_from_profile(user, info)
         db.commit()
 
         try:
@@ -436,6 +450,7 @@ def _handle_admin_google_callback(
     email: str,
     google_id: str,
     display_name: str | None,
+    avatar_url: str | None = None,
 ) -> RedirectResponse:
     from app.routes.platform_admin import is_platform_admin
 
@@ -464,6 +479,8 @@ def _handle_admin_google_callback(
             google_id=google_id,
         )
     apply_display_name_if_empty(user, display_name)
+    if avatar_url:
+        user.avatar_url = avatar_url
     db.commit()
 
     code = create_admin_sso_code(str(user.id))
@@ -610,6 +627,7 @@ def github_callback(
 
             user.github_id = github_id
             apply_display_name_if_empty(user, display_name)
+            apply_avatar_url_from_profile(user, gh_user)
             db.commit()
             return _oauth_link_redirect(user, "github")
 
@@ -624,6 +642,9 @@ def github_callback(
             identity_fields: dict[str, str] = {"github_id": github_id}
             if display_name:
                 identity_fields["display_name"] = display_name
+            avatar_url = oauth_avatar_url_from_profile(gh_user)
+            if avatar_url:
+                identity_fields["avatar_url"] = avatar_url
             provisioned = _provision_sso_user_or_redirect(
                 "github", db, email=email, state=state, **identity_fields
             )
@@ -650,6 +671,7 @@ def github_callback(
             )
 
         apply_display_name_if_empty(user, display_name)
+        apply_avatar_url_from_profile(user, gh_user)
         db.commit()
 
         try:
@@ -774,6 +796,7 @@ def gitlab_callback(
 
             user.gitlab_id = gitlab_id
             apply_display_name_if_empty(user, display_name)
+            apply_avatar_url_from_profile(user, gl_user)
             db.commit()
             return _oauth_link_redirect(user, "gitlab")
 
@@ -787,6 +810,9 @@ def gitlab_callback(
             identity_fields: dict[str, str] = {"gitlab_id": gitlab_id}
             if display_name:
                 identity_fields["display_name"] = display_name
+            avatar_url = oauth_avatar_url_from_profile(gl_user)
+            if avatar_url:
+                identity_fields["avatar_url"] = avatar_url
             provisioned = _provision_sso_user_or_redirect(
                 "gitlab", db, email=email, state=state, **identity_fields
             )
@@ -813,6 +839,7 @@ def gitlab_callback(
             )
 
         apply_display_name_if_empty(user, display_name)
+        apply_avatar_url_from_profile(user, gl_user)
         db.commit()
 
         try:

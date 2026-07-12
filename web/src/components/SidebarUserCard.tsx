@@ -13,6 +13,7 @@ function userInitials(name: string): string {
 type SidebarUserCardProps = {
   email: string;
   displayName?: string | null;
+  avatarUrl?: string | null;
   orgName: string;
   /** Workspace role from GET /v1/auth/me (`role`). */
   role?: string;
@@ -30,11 +31,19 @@ type SidebarUserCardProps = {
 export default function SidebarUserCard({
   email,
   displayName,
+  avatarUrl,
   orgName,
 }: SidebarUserCardProps) {
   const [open, setOpen] = useState(false);
+  const [avatarFailed, setAvatarFailed] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const name = resolveUserDisplayName(email, displayName);
+  const trimmedAvatarUrl = avatarUrl?.trim() ?? "";
+  const showAvatar = Boolean(trimmedAvatarUrl) && !avatarFailed;
+
+  useEffect(() => {
+    setAvatarFailed(false);
+  }, [trimmedAvatarUrl]);
 
   useEffect(() => {
     if (!open) return;
@@ -98,8 +107,15 @@ export default function SidebarUserCard({
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
       >
-        <span className="app-sidebar__workspace-avatar" aria-hidden>
-          {userInitials(name)}
+        <span
+          className={`app-sidebar__workspace-avatar${showAvatar ? " app-sidebar__workspace-avatar--photo" : ""}`}
+          aria-hidden
+        >
+          {showAvatar ? (
+            <img src={trimmedAvatarUrl} alt="" onError={() => setAvatarFailed(true)} />
+          ) : (
+            userInitials(name)
+          )}
         </span>
         <span className="app-sidebar__workspace-copy">
           <span className="app-sidebar__workspace-name">{name}</span>

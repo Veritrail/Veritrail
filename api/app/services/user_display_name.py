@@ -28,6 +28,22 @@ def oauth_display_name_from_profile(profile: dict) -> str | None:
     return combined or None
 
 
+def oauth_avatar_url_from_profile(profile: dict) -> str | None:
+    """Extract a profile photo URL from an OAuth userinfo/profile payload."""
+    for key in ("picture", "avatar_url"):
+        value = (profile.get(key) or "").strip()
+        if value.startswith("http"):
+            return value
+    return None
+
+
+def apply_avatar_url_from_profile(user: User, profile: dict) -> None:
+    """Persist provider-supplied avatar URL when available."""
+    avatar_url = oauth_avatar_url_from_profile(profile)
+    if avatar_url:
+        user.avatar_url = avatar_url
+
+
 def resolve_user_display_name(user: User) -> str:
     """display_name > formatted email local part > full email."""
     stored = (user.display_name or "").strip()

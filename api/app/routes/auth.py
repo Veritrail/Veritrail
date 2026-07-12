@@ -251,7 +251,7 @@ def complete_signup(request: Request, body: CompleteSignupIn, db: Session = Depe
         raise HTTPException(status.HTTP_409_CONFLICT, "email already registered")
 
     identity_fields: dict[str, str] = {}
-    for field in ("google_id", "github_id", "gitlab_id", "display_name"):
+    for field in ("google_id", "github_id", "gitlab_id", "display_name", "avatar_url"):
         if payload.get(field):
             identity_fields[field] = payload[field]
     if "display_name" not in identity_fields:
@@ -538,6 +538,7 @@ class MeOut(BaseModel):
     id: str
     email: str
     display_name: str
+    avatar_url: str | None = None
     role: str
     evidence_role: str
     org_id: str
@@ -613,6 +614,7 @@ def get_me(principal: dict = Depends(current_principal), db: Session = Depends(g
         id=str(user.id),
         email=user.email,
         display_name=resolve_user_display_name(user),
+        avatar_url=user.avatar_url,
         role=normalize_role(user.role),
         evidence_role=membership_evidence_role(
             db, user.id, user.org_id, fallback_org_role=user.role

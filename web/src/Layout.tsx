@@ -264,6 +264,7 @@ export default function Layout() {
             <SidebarUserCard
               email={meQ.data.email}
               displayName={meQ.data.display_name}
+              avatarUrl={meQ.data.avatar_url}
               orgName={meQ.data.org_name ?? "Workspace"}
               role={meQ.data.role}
               planLabel={planUsageQ.data?.plan_label}
