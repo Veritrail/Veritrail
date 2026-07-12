@@ -250,29 +250,12 @@ export function OrgReadinessHome() {
   const controlsSummary = useMemo(() => {
     const rows = controlsQ.data ?? [];
     return {
-      total: rows.length,
-      passed: rows.filter((row) => row.status === "pass").length,
       failing: rows.filter((row) => row.status === "fail").length,
       graded: rows.some((row) => row.status !== "no_data"),
     };
   }, [controlsQ.data]);
 
   const anyScanCompleted = connectedAccounts.some((account) => !!account.last_scan_at);
-  const latestCloudScan = useMemo(() => {
-    const scans = connectedAccounts
-      .map((account) => account.last_scan_at)
-      .filter((value): value is string => !!value)
-      .sort((left, right) => new Date(right).getTime() - new Date(left).getTime());
-    return scans[0] ?? null;
-  }, [connectedAccounts]);
-  const latestCloudScanAge = latestCloudScan
-    ? Date.now() - new Date(latestCloudScan).getTime()
-    : Number.POSITIVE_INFINITY;
-  const cloudEvidenceState = !latestCloudScan
-    ? "Not scanned"
-    : latestCloudScanAge > 72 * 60 * 60 * 1000
-      ? "Stale"
-      : "Fresh";
 
   const findingsLoading =
     (needsCloudFindings && cloudFindingsQ.isPending) ||
@@ -398,7 +381,6 @@ export function OrgReadinessHome() {
     return (
       <div className="org-home" aria-busy="true">
         <div className="org-home__skeleton org-home__skeleton--top" />
-        <div className="org-home__skeleton org-home__skeleton--metrics" />
         <div className="org-home__skeleton org-home__skeleton--card" />
       </div>
     );
@@ -438,7 +420,7 @@ export function OrgReadinessHome() {
           <h1 className="org-home__title">{orgName}</h1>
           <p className="org-home__description">
             {homeState === "incomplete"
-              ? "Some evidence sources could not be loaded. The figures below may be incomplete."
+              ? "Some evidence sources could not be loaded. Readiness data may be incomplete."
               : homeState === "not-assessed"
                 ? "Complete a scan or integration sync to establish your technical evidence baseline."
                 : homeState === "clear"
@@ -447,42 +429,6 @@ export function OrgReadinessHome() {
           </p>
         </div>
       </header>
-
-      <section className="org-home__metrics" aria-label="Technical evidence summary">
-        <div className="org-home__metric">
-          <span className={`org-home__metric-value${highCount > 0 ? " is-risk" : ""}`}>
-            {dataIncomplete ? "—" : highCount}
-          </span>
-          <span className="org-home__metric-label">Critical &amp; high findings</span>
-          <span className="org-home__metric-note">
-            {dataIncomplete ? "Partial findings data" : highCount === 0 ? "No priority blockers" : "Open across connected sources"}
-          </span>
-        </div>
-        <div className="org-home__metric">
-          <span className="org-home__metric-value">
-            {controlsQ.isError || controlsSummary.total === 0
-              ? "—"
-              : `${controlsSummary.passed} / ${controlsSummary.total}`}
-          </span>
-          <span className="org-home__metric-label">SOC 2 controls passing</span>
-          <span className="org-home__metric-note">
-            {controlsSummary.failing > 0
-              ? `${controlsSummary.failing} failing`
-              : controlsSummary.total > 0
-                ? "Mapped automated controls"
-                : "Not graded yet"}
-          </span>
-        </div>
-        <div className="org-home__metric">
-          <span className={`org-home__metric-value org-home__metric-value--${cloudEvidenceState.toLowerCase().replace(" ", "-")}`}>
-            {cloudEvidenceState}
-          </span>
-          <span className="org-home__metric-label">Latest cloud evidence</span>
-          <span className="org-home__metric-note">
-            {latestCloudScan ? `${formatTimelineAgo(latestCloudScan)} · ${connectedAccounts.length} connected` : "Complete the first cloud scan"}
-          </span>
-        </div>
-      </section>
 
       <section className="org-home__actions" aria-label="Next actions">
         <div className="org-home__actions-head">

@@ -8505,53 +8505,28 @@ button.accounts-flow-step:hover {
   line-height: 1.5;
 }
 
-.org-home__metrics {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  overflow: hidden;
-  margin-bottom: 1rem;
-  border: 1px solid var(--vt-border, #e2e8f0);
-  border-radius: 0.875rem;
-  background: #fff;
-  box-shadow: 0 1px 2px rgb(15 23 42 / 3%);
-}
-
-.org-home__metric {
-  display: flex;
-  min-width: 0;
-  min-height: 7rem;
-  flex-direction: column;
-  justify-content: center;
-  padding: 1.15rem 1.35rem;
-}
-
-.org-home__metric + .org-home__metric { border-left: 1px solid #eef2f6; }
-
-.org-home__metric-value {
-  margin-bottom: 0.3rem;
-  color: #0f172a;
-  font-size: 1.65rem;
-  font-weight: 680;
-  letter-spacing: -0.04em;
-  line-height: 1;
-}
-
-.org-home__metric-value.is-risk { color: #be123c; }
-.org-home__metric-value--fresh { color: #047857; }
-.org-home__metric-value--stale { color: #b45309; }
-.org-home__metric-value--not-scanned { color: #64748b; }
-
-.org-home__metric-label {
-  color: #334155;
-  font-size: 0.76rem;
+/* Plain colored text, no pill — same treatment as the old verdict state. */
+.org-home__state {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.4rem;
+  color: #b45309;
+  font-size: 0.8125rem;
   font-weight: 650;
 }
 
-.org-home__metric-note {
-  margin-top: 0.16rem;
-  color: #94a3b8;
-  font-size: 0.69rem;
+.org-home__state::before {
+  width: 0.38rem;
+  height: 0.38rem;
+  border-radius: 999px;
+  background: currentColor;
+  content: "";
 }
+
+.org-home__state--clear { color: #047857; }
+.org-home__state--not-assessed { color: #64748b; }
+.org-home__state--incomplete { color: #b45309; }
 
 .org-home__empty-card {
   display: flex;
@@ -8737,17 +8712,8 @@ button.accounts-flow-step:hover {
   margin-bottom: 1.25rem;
 }
 
-.org-home__skeleton--metrics {
-  width: 100%;
-  height: 7rem;
-  margin-bottom: 1rem;
-}
-
 @media (max-width: 800px) {
   .org-home__top { align-items: flex-start; flex-direction: column; gap: 0.8rem; }
-  .org-home__metrics { grid-template-columns: 1fr; }
-  .org-home__metric { min-height: 5.8rem; }
-  .org-home__metric + .org-home__metric { border-top: 1px solid #eef2f6; border-left: 0; }
 }
 
 @media (max-width: 600px) {
