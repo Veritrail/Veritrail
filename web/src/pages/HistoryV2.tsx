@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Navigate, useSearchParams } from "react-router-dom";
 
@@ -27,11 +27,13 @@ import {
   historyResourceLabel,
   historyTypeDisplay,
   buildCompositeGroupScope,
+  collapseFlappingFindings,
   collapseRedundantFindingEvents,
   matchesCompositeGroup,
   matchesEventFilter,
   postureSeries,
 } from "../lib/historyEvidence";
+import { ControlTimelineBoard } from "../components/ControlTimelineBoard";
 import { ListPagination } from "../components/ListPagination";
 import { ProductShell } from "../components/ProductShell";
 import { isAwsCloudProvider } from "../lib/cloudProviderFeatures";
@@ -95,17 +97,59 @@ function formatDateTime(iso: string): string {
   });
 }
 
+type HistoryView = "controls" | "activity";
+
+function HistoryPageViewToggle({
+  view,
+  onChange,
+  className = "",
+}: {
+  view: HistoryView;
+  onChange: (view: HistoryView) => void;
+  className?: string;
+}) {
+  return (
+    <div className={["history-header-view-toggle shrink-0", className].filter(Boolean).join(" ")}>
+      <div
+        className="vt-toolbar-segmented history-page-view-toggle"
+        role="tablist"
+        aria-label="History view"
+      >
+        {([
+          { id: "controls", label: "Controls" },
+          { id: "activity", label: "Activity" },
+        ] as const).map((option) => (
+          <button
+            key={option.id}
+            type="button"
+            role="tab"
+            aria-selected={view === option.id}
+            className={`vt-toolbar-segment${view === option.id ? " vt-toolbar-segment--active" : ""}`}
+            onClick={() => onChange(option.id)}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function HistoryV2() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [days, setDays] = useState(90);
   const [framework, setFramework] = useState(() => searchParams.get("framework") ?? "soc2");
   const [compositeFilter, setCompositeFilter] = useState(() => searchParams.get("composite") ?? "");
+  const [view, setView] = useState<HistoryView>(() =>
+    searchParams.get("view") === "activity" ? "activity" : "controls",
+  );
   const [eventFilter, setEventFilter] = useState<EventFilter>("all");
   const [search, setSearch] = useState("");
   const [pageSize, setPageSize] = useState(DEFAULT_VISIBLE_EVENTS);
   const [page, setPage] = useState(1);
   const [drawer, setDrawer] = useState<DrawerPayload | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [expandedFlapKeys, setExpandedFlapKeys] = useState<Set<string>>(new Set());
 
   const { options: connectedAccounts, isLoading: accountsLoading, isSuccess: accountsReady } =
     useConnectedAccountOptions();
@@ -193,7 +237,7 @@ export default function HistoryV2() {
       const detail = historyDetailLine(e).toLowerCase();
       return typeLabel.includes(q) || control.includes(q) || resource.includes(q) || detail.includes(q);
     });
-    return collapseRedundantFindingEvents(filtered);
+    return collapseFlappingFindings(collapseRedundantFindingEvents(filtered));
   }, [events, eventFilter, search, compositeGroupScope]);
 
   const totalPages = Math.max(1, Math.ceil(filteredEvents.length / pageSize));
@@ -284,6 +328,14 @@ export default function HistoryV2() {
                   patchSearchParams({ composite: value || null });
                 }}
               />
+
+              <HistoryPageViewToggle
+                view={view}
+                onChange={(nextView) => {
+                  setView(nextView);
+                  patchSearchParams({ view: nextView === "controls" ? null : nextView });
+                }}
+              />
             </>
           ) : null}
         </HeaderFilterBar>
@@ -307,6 +359,7 @@ export default function HistoryV2() {
       {isAwsAccount && !historyQ.isLoading && !historyQ.isError && historyQ.data && (
         <>
           <div className="history-panel history-panel--fill">
+            {view === "activity" ? (
             <div className="history-toolbar">
               <div className="history-tabs" role="tablist" aria-label="Event type">
                 {EVENT_FILTERS.map((f) => (
@@ -361,8 +414,18 @@ export default function HistoryV2() {
                 </div>
               </div>
             </div>
+            ) : null}
 
-            {onlyBaseline ? (
+            {view === "controls" ? (
+              <div className="history-controls-wrap">
+                <ControlTimelineBoard
+                  accountId={effectiveAccountId}
+                  framework={framework}
+                  days={days}
+                  checkIdFilter={compositeGroupScope?.checkIds ?? null}
+                />
+              </div>
+            ) : onlyBaseline ? (
               <div className="history-empty">
                 <p className="font-semibold text-emerald-800">Baseline recorded</p>
                 <p className="mx-auto mt-1 max-w-md text-sm text-zinc-500">
@@ -412,16 +475,39 @@ export default function HistoryV2() {
                         const resource = historyResourceLabel(event);
                         const detail = historyDetailLine(event) || eventPresentation(event).subline;
                         const previous = previousById.get(event.scan_run_id) ?? null;
+                        const rowKey = `${event.scan_run_id}:${event.timestamp}:${event.type}`;
+                        const flapExpanded = expandedFlapKeys.has(rowKey);
 
                         return (
-                          <tr key={`${event.scan_run_id}:${event.timestamp}:${event.type}`}>
+                          <Fragment key={rowKey}>
+                          <tr>
                             <td className="history-table__datetime">{formatDateTime(event.timestamp)}</td>
                             <td>
                               <span className={`history-type ${typeDisplay.className}`}>{typeDisplay.label}</span>
                             </td>
                             <td className="history-table__control">{control?.id ?? "—"}</td>
                             <td className="history-table__resource">{resource}</td>
-                            <td className="history-table__detail">{detail || "—"}</td>
+                            <td className="history-table__detail">
+                              {detail || "—"}
+                              {event.flap_count ? (
+                                <button
+                                  type="button"
+                                  className="history-flap-note"
+                                  aria-expanded={flapExpanded}
+                                  onClick={() =>
+                                    setExpandedFlapKeys((current) => {
+                                      const next = new Set(current);
+                                      if (next.has(rowKey)) next.delete(rowKey);
+                                      else next.add(rowKey);
+                                      return next;
+                                    })
+                                  }
+                                >
+                                  · changed state {event.flap_count}× in period{" "}
+                                  <span aria-hidden>{flapExpanded ? "▴" : "▾"}</span>
+                                </button>
+                              ) : null}
+                            </td>
                             <td className="history-table__actions">
                               <button
                                 type="button"
@@ -448,6 +534,27 @@ export default function HistoryV2() {
                               </button>
                             </td>
                           </tr>
+                          {flapExpanded && event.flap_events
+                            ? event.flap_events.map((flap, flapIndex) => {
+                                const flapDisplay = historyTypeDisplay(flap);
+                                return (
+                                  <tr
+                                    key={`${rowKey}:flap:${flapIndex}`}
+                                    className="history-table__flap-row"
+                                  >
+                                    <td className="history-table__datetime">{formatDateTime(flap.timestamp)}</td>
+                                    <td>
+                                      <span className={`history-type ${flapDisplay.className}`}>{flapDisplay.label}</span>
+                                    </td>
+                                    <td className="history-table__control">{controlOf(flap)?.id ?? "—"}</td>
+                                    <td className="history-table__resource">{historyResourceLabel(flap)}</td>
+                                    <td className="history-table__detail">{historyDetailLine(flap) || "—"}</td>
+                                    <td className="history-table__actions" />
+                                  </tr>
+                                );
+                              })
+                            : null}
+                          </Fragment>
                         );
                       })}
                       </tbody>
