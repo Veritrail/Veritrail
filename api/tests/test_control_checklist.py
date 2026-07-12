@@ -27,15 +27,16 @@ def test_checklist_returns_auto_and_manual(db_session):
     out = control_checklist(framework="soc2", account_id=None, p=_principal(org, user), db=db_session)
     kinds = {c.kind for c in out.controls}
     assert "auto" in kinds and "manual" in kinds
-    # Catalog: 9 automated + 24 manual SOC 2 controls.
+    # Catalog: 10 automated + 23 manual SOC 2 controls.
     assert out.summary.total >= 33
     manual = [c for c in out.controls if c.kind == "manual"]
     assert manual and all(c.status == "pending" for c in manual)
     # No connected account → auto controls are no_data, no manual met → 0%.
     assert out.summary.met == 0
     assert out.summary.percent == 0
-    # Every control carries its SOC 2 family group (CC* or availability A1*).
-    assert all(c.group.startswith(("CC", "A1")) for c in out.controls)
+    # Every control carries its SOC 2 family group (security CC* only —
+    # availability A1 criteria are out of scope).
+    assert all(c.group.startswith("CC") for c in out.controls)
 
 
 def test_attestation_sets_status_and_bumps_readiness(db_session):

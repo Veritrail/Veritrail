@@ -274,7 +274,7 @@ def test_ec2_inspector_is_not_assessed_without_positive_enablement_evidence():
 def test_dr_rows_are_na_without_stateful_resources():
     controls = [
         {
-            "control_id": "A1.2",
+            "control_id": "CC7.5",
             "check_evidence_classes": {
                 "rds.instance.no_automated_backup": "benchmark",
                 "dynamodb.table.no_pitr": "benchmark",
@@ -348,7 +348,7 @@ def test_dr_orders_restore_mechanisms_before_deletion_prevention():
     )
     controls = [
         {
-            "control_id": "A1.2",
+            "control_id": "CC7.5",
             "check_evidence_classes": {
                 check_id: "benchmark" for check_id, _severity in checks
             },
@@ -399,7 +399,7 @@ def test_dynamodb_pitr_action_requires_inventory_and_explicit_disabled_evidence(
     }
     controls = [
         {
-            "control_id": "A1.2",
+            "control_id": "CC7.5",
             "check_evidence_classes": {"dynamodb.table.no_pitr": "benchmark"},
             "findings": [finding],
             "exceptions": [],
@@ -426,7 +426,7 @@ def test_dynamodb_pitr_action_requires_inventory_and_explicit_disabled_evidence(
 def test_dynamodb_inventory_without_disabled_evidence_is_not_an_action():
     controls = [
         {
-            "control_id": "A1.2",
+            "control_id": "CC7.5",
             "check_evidence_classes": {"dynamodb.table.no_pitr": "benchmark"},
             "findings": [],
             "exceptions": [],
@@ -454,7 +454,7 @@ def test_resource_scoped_recovery_actions_require_matching_latest_inventory(
 ):
     controls = [
         {
-            "control_id": "A1.2",
+            "control_id": "CC7.5",
             "check_evidence_classes": {check_id: "benchmark"},
             "findings": [
                 {

@@ -76,6 +76,13 @@ NARRATIVES: dict[str, str] = {
         "Veritrail supports oversight aspects of CC1.2 when training and policy attestation evidence is "
         "uploaded. Board and management oversight itself remains a customer attestation."
     ),
+    "CC7.5": (
+        "Veritrail supports recovery-readiness aspects of CC7.5 by collecting evidence of configured "
+        "AWS Backup plans, RDS automated backup retention, DynamoDB point-in-time recovery, and RDS "
+        "deletion protection as a preventive safeguard. "
+        "Evidence is collected at each scan and retained for the audit period; successful restore "
+        "testing is not inferred from configuration — DR test records are attached as external evidence."
+    ),
     "CC9.1": (
         "Veritrail supports vendor-risk aspects of CC9.1 when vendor risk questionnaires, SOC reports, and "
         "monitoring attestations are collected as external evidence. Automated cloud scans alone do not "
@@ -373,26 +380,6 @@ NARRATIVES: dict[str, str] = {
         "Veritrail verifies RDS Multi-AZ deployment for production databases requiring "
         "high availability and automatic failover."
     ),
-    # ── SOC2 Availability (A-series) ────────────────────────────────────────
-    "A1.1": (
-        "Processing capacity is monitored and managed to meet demand. "
-        "Automated AWS capacity evidence is limited by design; capacity dashboards, scaling "
-        "policies, and utilization reviews are attached as external evidence where the "
-        "Availability criteria are in scope."
-    ),
-    "A1.2": (
-        "Data backup and restoration mechanisms are configured and monitored. Veritrail "
-        "collects evidence of configured AWS Backup plans, RDS automated backup retention, "
-        "DynamoDB point-in-time recovery, and RDS deletion protection as a preventive safeguard. "
-        "Evidence is collected at each scan and retained for the audit period; successful restore "
-        "testing is not inferred from configuration."
-    ),
-    "A1.3": (
-        "Recovery procedures are tested to support system recovery objectives. "
-        "Restore tests and disaster-recovery exercises are performed by the customer team; "
-        "test reports and runbook execution records are attached as external evidence "
-        "alongside the automated backup-configuration evidence Veritrail collects."
-    ),
 }
 
 
@@ -405,6 +392,7 @@ SHORT_ANSWERS: dict[str, str] = {
     "CC6.8": "Veritrail supports threat-detection aspects of CC6.8 with GuardDuty, Security Hub, IMDSv2, and VPC flow log checks.",
     "CC7.1": "Veritrail supports configuration-change detection aspects of CC7.1 via CloudTrail, AWS Config, certificate and runtime hygiene signals.",
     "CC7.2": "Veritrail supports security-monitoring aspects of CC7.2 by verifying CloudTrail, Config rules, GuardDuty findings, and Security Hub status each scan.",
+    "CC7.5": "Veritrail supports recovery-readiness aspects of CC7.5 with AWS Backup, RDS backup, DynamoDB PITR, and deletion-protection configuration evidence collected each scan.",
     "CC8.1": "Veritrail supports change-authorization aspects of CC8.1 with SCM branch protection and review evidence from GitHub/GitLab plus CloudTrail write events.",
     "CIS 1.5": "Root account MFA is verified from the IAM account summary at each scan.",
     "CIS 1.8": "IAM password policy minimum length and complexity are verified each scan.",

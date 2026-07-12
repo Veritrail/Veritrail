@@ -64,7 +64,7 @@ def test_domain_for_check_grouping():
 
 def test_all_passing_assertion_is_supported_and_scoped():
     controls = [
-        _control("A1.2", ["rds.instance.no_automated_backup", "dynamodb.table.no_pitr"]),
+        _control("CC7.5", ["rds.instance.no_automated_backup", "dynamodb.table.no_pitr"]),
     ]
     (sec,) = _sections(controls)
     assert sec.key == "backup_dr"
@@ -214,9 +214,9 @@ def test_gaps_sorted_by_severity():
 
 
 def test_cross_framework_tags_present():
-    controls = [_control("A1.2", ["rds.instance.no_automated_backup"])]
+    controls = [_control("CC7.5", ["rds.instance.no_automated_backup"])]
     (sec,) = _sections(controls, framework="soc2")
-    assert "SOC 2 A1.2" in sec.control_tags
+    assert "SOC 2 CC7.5" in sec.control_tags
     # ISO tags come from the composite mapping when the pack framework is SOC 2.
     assert any(t.startswith("ISO 27001") for t in sec.control_tags)
 

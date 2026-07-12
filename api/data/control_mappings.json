@@ -1203,8 +1203,13 @@
     "control_id": "CC7.5",
     "title": "System Operations \u2014 Recovery",
     "description": "The entity identifies, develops, and implements activities to recover from identified security incidents.",
-    "guidance": "Attest: backup and disaster-recovery procedures exist and are tested (Veritrail backup checks support this). Upload DR test evidence.",
-    "checks": [],
+    "guidance": "Evidence: AWS Backup plans, RDS automated backups, DynamoDB point-in-time recovery, and deletion protection on stateful services. Restore testing is performed by your team; upload DR test evidence.",
+    "checks": [
+      "backup.plan.missing",
+      "rds.instance.no_automated_backup",
+      "rds.instance.no_deletion_protection",
+      "dynamodb.table.no_pitr"
+    ],
     "soc2_scope_category": "security"
   },
   {
@@ -1224,38 +1229,5 @@
     "guidance": "Attest: vendors/subprocessors are inventoried and their security (e.g. SOC 2 reports) is reviewed. Upload vendor list + their reports.",
     "checks": [],
     "soc2_scope_category": "security"
-  },
-  {
-    "framework": "soc2",
-    "control_id": "A1.1",
-    "title": "Availability \u2014 Capacity Management",
-    "description": "The entity maintains, monitors, and evaluates current processing capacity and use of system components to manage capacity demand and to enable the implementation of additional capacity to help meet its objectives.",
-    "guidance": "Evidence: capacity monitoring and scaling configuration. Automated AWS capacity checks are limited; attach monitoring dashboards or scaling policies as external evidence where applicable.",
-    "checks": [],
-    "soc2_scope_category": "availability"
-  },
-  {
-    "framework": "soc2",
-    "control_id": "A1.2",
-    "title": "Availability \u2014 Backup & Recovery Infrastructure",
-    "description": "The entity authorizes, designs, develops or acquires, implements, operates, approves, maintains, and monitors environmental protections, software, data backup processes, and recovery infrastructure to meet its objectives.",
-    "guidance": "Evidence: AWS Backup plans, RDS automated backups and Multi-AZ configuration, DynamoDB point-in-time recovery, and deletion protection on stateful services.",
-    "checks": [
-      "backup.plan.missing",
-      "rds.instance.no_automated_backup",
-      "rds.instance.no_multi_az",
-      "rds.instance.no_deletion_protection",
-      "dynamodb.table.no_pitr"
-    ],
-    "soc2_scope_category": "availability"
-  },
-  {
-    "framework": "soc2",
-    "control_id": "A1.3",
-    "title": "Availability \u2014 Recovery Testing",
-    "description": "The entity tests recovery plan procedures supporting system recovery to meet its objectives.",
-    "guidance": "Evidence: restore-test records and DR exercise results. Recovery testing is performed by your team; upload test reports or runbook execution records as external evidence.",
-    "checks": [],
-    "soc2_scope_category": "availability"
   }
 ]

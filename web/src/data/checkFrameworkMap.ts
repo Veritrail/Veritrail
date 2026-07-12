@@ -130,7 +130,7 @@ export const CHECK_FRAMEWORK_MAP: Record<string, string[]> = {
   "rds.instance.no_automated_backup": ["cis_aws_l1", "iso27001", "soc2"],
   "rds.instance.no_deletion_protection": ["iso27001", "soc2"],
   "rds.instance.no_encryption": ["cis_aws_l1", "iso27001", "soc2"],
-  "rds.instance.no_multi_az": ["iso27001", "soc2"],
+  "rds.instance.no_multi_az": ["iso27001"],
   "rds.instance.publicly_accessible": ["cis_aws_l1", "iso27001", "soc2"],
   "rds.snapshot.public": ["iso27001", "soc2"],
   "s3.account.public_access_not_blocked": ["cis_aws_l1", "iso27001", "soc2"],

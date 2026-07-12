@@ -93,8 +93,8 @@ controls = [
         ["github.repo.no_branch_protection", "github.repo.insufficient_reviews", "github.repo.self_merge_allowed"],
     ),
     control(
-        "A1.2",
-        "A1.2 - Backup and Recovery",
+        "CC7.5",
+        "CC7.5 - System Operations - Recovery",
         ["rds.instance.no_automated_backup", "dynamodb.table.no_pitr", "backup.plan.missing", "rds.instance.no_multi_az"],
         findings=[finding("f6", "rds.instance.no_multi_az", "arn:aws:rds:us-east-1:123456789012:db:reporting-db", "RDS instance reporting-db is not Multi-AZ", "low")],
         status="fail",
