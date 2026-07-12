@@ -4840,7 +4840,8 @@ export default function Controls() {
                         <p className="text-body font-semibold leading-snug text-zinc-900">
                           <span className="font-mono text-meta font-semibold text-zinc-500">
                             {ctrl.control_id}
-                          </span>{" "}
+                          </span>
+                          {" - "}
                           {shortControlTitle(ctrl.title)}
                           {recentlyImprovedControlIds.has(ctrl.control_id) ? (
                             <ComplianceProgressBadge label="Improved" />
