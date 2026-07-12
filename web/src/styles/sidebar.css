@@ -1,7 +1,7 @@
 /* App sidebar — premium dark navigation panel */
 
 .app-sidebar {
-  --sidebar-active: #20d6d2;
+  --sidebar-active: #60a5fa;
   --sidebar-muted: rgba(226, 232, 240, 0.82);
   --sidebar-hover: rgba(24, 63, 88, 0.28);
   --sidebar-border: rgba(148, 163, 184, 0.14);
@@ -186,15 +186,15 @@
 
 .app-sidebar__link:hover {
   background: var(--sidebar-hover);
-  border-color: rgba(32, 214, 210, 0.1);
+  border-color: rgba(96, 165, 250, 0.1);
   color: #e2e8f0;
 }
 
 .app-sidebar__link.is-active,
 .app-sidebar__link.is-active:hover {
   background: rgba(24, 63, 88, 0.36);
-  border-color: rgba(41, 214, 208, 0.18);
-  color: #20d6d2;
+  border-color: rgba(96, 165, 250, 0.18);
+  color: #60a5fa;
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   box-shadow:
@@ -208,14 +208,14 @@
   inset: 10px auto 10px 0;
   width: 2px;
   border-radius: 0 2px 2px 0;
-  background: #20d6d2;
+  background: #60a5fa;
   box-shadow:
-    0 0 6px rgba(32, 214, 210, 0.45),
-    0 0 12px rgba(32, 214, 210, 0.18);
+    0 0 6px rgba(96, 165, 250, 0.45),
+    0 0 12px rgba(96, 165, 250, 0.18);
 }
 
 .app-sidebar__link.is-active svg {
-  color: #20d6d2;
+  color: #60a5fa;
 }
 
 .app-sidebar__link.is-active svg,
@@ -224,7 +224,7 @@
 }
 
 .app-sidebar__link.is-active .app-sidebar__icon {
-  background: #20d6d2;
+  background: #60a5fa;
 }
 
 .app-sidebar__button {
