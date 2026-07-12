@@ -277,7 +277,6 @@ export default function AuditReadiness() {
                     <p className="audit-readiness__section-kicker">Priority queue</p>
                     <h2>What should be addressed next?</h2>
                   </div>
-                  <Link to="/findings" className="audit-readiness__text-link">All findings</Link>
                 </header>
 
                 {dashboard.priorityActions.length > 0 ? (
