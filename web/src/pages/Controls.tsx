@@ -64,17 +64,14 @@ import { VirtualizedCompositeControlsList } from "../components/VirtualizedCompo
 import { DrawerDateField } from "../components/DrawerDateField";
 import {
   ControlDetailPillCard,
-  ControlEvidenceTabContent,
   ExternalEvidenceArtifactList,
 } from "../components/ControlEvidenceSlideOver";
 import { evidenceArtifactsForComposite } from "../lib/controlEvidence";
 import {
   ControlDetailPanel,
-  ControlReadinessStrip,
   type ControlDetailTab,
   type ControlDetailTabId,
 } from "../components/ControlDetailPanel";
-import { controlReadinessMetrics } from "../lib/controlReadiness";
 import { HeaderSlot } from "../context/HeaderSlot";
 import { FrameworkMark } from "../components/FrameworkMark";
 import { CHECK_CONTROL_IDS_MAP } from "../data/checkControlIdsMap";
@@ -3234,10 +3231,6 @@ function buildDetailedTabs({
   canAttest,
   attestPending,
   onAttest,
-  externalEvidence,
-  submittedCount,
-  compositeId,
-  canEditEvidence,
 }: {
   ctrl: ControlRow;
   framework: string;
@@ -3245,27 +3238,16 @@ function buildDetailedTabs({
   canAttest: boolean;
   attestPending: boolean;
   onAttest: (status: string) => void;
-  externalEvidence: ExternalEvidenceArtifact[];
-  submittedCount: number;
-  compositeId: string | null;
-  canEditEvidence: boolean;
 }): ControlDetailTab[] {
-  const displayStatus = controlDisplayStatus(ctrl, findingCountByCheck);
   const blockingCount = ctrl.check_ids.filter(
     (checkId) => (findingCountByCheck.get(checkId) ?? 0) > 0,
   ).length;
   const hasMappingMeta =
     !!ctrl.soc2_scope_category || !!ctrl.cis_profile_level || !!ctrl.iso_applicability;
-  const isVerified = displayStatus === "passing";
-  const readinessMetrics = controlReadinessMetrics(
-    ctrl.check_ids,
-    ctrl.check_tiers,
-    findingCountByCheck,
-  );
 
-  // Single merged view — the old Overview tab held only the readiness card
-  // (mostly empty space); its N-of-M counts now live as a compact strip above
-  // the gaps, so everything useful is visible at once without tab switching.
+  // Deliberately minimal: blocking gaps + findings link are the drawer's core
+  // content. Readiness counters, evidence management, and written guidance live
+  // elsewhere (composite drawer / evidence workflows), not in this criteria view.
   const tabs: ControlDetailTab[] = [
     {
       id: "gaps",
@@ -3273,7 +3255,6 @@ function buildDetailedTabs({
       badge: blockingCount > 0 ? blockingCount : undefined,
       content: (
         <div className="control-detail-stack">
-          <ControlReadinessStrip metrics={readinessMetrics} />
           <ControlDetailSection
             title="Blocking gaps"
             action={
@@ -3304,42 +3285,15 @@ function buildDetailedTabs({
                 />
               </div>
             ) : null}
-
-            {ctrl.check_ids.length > 0 ? (
-              <div className="control-detail-subsection">
-                <p className="control-detail-subsection__label">Evidence</p>
-                <ControlEvidenceTabContent
-                  control={ctrl}
-                  artifacts={externalEvidence}
-                  findingCountByCheck={findingCountByCheck}
-                  displayStatus={displayStatus}
-                  submittedCount={submittedCount}
-                  framework={framework}
-                  compositeId={compositeId}
-                  canEdit={canEditEvidence}
-                />
-              </div>
-            ) : null}
           </ControlDetailSection>
 
-          {!isVerified ? (
-            <ControlDetailSection>
-              <ControlDetailPillCard label="Guidance">
-                {ctrl.guidance ? (
-                  <ControlGuidanceContent text={ctrl.guidance} />
-                ) : !hasMappingMeta ? (
-                  <p className="control-detail-empty">No written guidance yet for this control.</p>
-                ) : null}
-              </ControlDetailPillCard>
-              {hasMappingMeta ? (
-                <p className="control-detail-mapping-line">
-                  {frameworkControlLabel(framework, ctrl.control_id)}
-                  {ctrl.soc2_scope_category ? ` · SOC 2 scope: ${ctrl.soc2_scope_category}` : ""}
-                  {ctrl.cis_profile_level ? ` · CIS profile: ${ctrl.cis_profile_level}` : ""}
-                  {ctrl.iso_applicability ? ` · ISO 27001: ${ctrl.iso_applicability}` : ""}
-                </p>
-              ) : null}
-            </ControlDetailSection>
+          {hasMappingMeta ? (
+            <p className="control-detail-mapping-line">
+              {frameworkControlLabel(framework, ctrl.control_id)}
+              {ctrl.soc2_scope_category ? ` · SOC 2 scope: ${ctrl.soc2_scope_category}` : ""}
+              {ctrl.cis_profile_level ? ` · CIS profile: ${ctrl.cis_profile_level}` : ""}
+              {ctrl.iso_applicability ? ` · ISO 27001: ${ctrl.iso_applicability}` : ""}
+            </p>
           ) : null}
         </div>
       ),
@@ -5006,10 +4960,6 @@ export default function Controls() {
                 canAttest,
                 attestPending: attest.isPending,
                 onAttest: (status) => attest.mutate({ id: selectedDetailedControl.id, status }),
-                externalEvidence: externalEvidence.data ?? [],
-                submittedCount: submittedCountByControl.get(selectedDetailedControl.id) ?? 0,
-                compositeId: compositeIdByControlId.get(selectedDetailedControl.id) ?? null,
-                canEditEvidence,
               })}
               activeTab={selectedTab}
               onTabChange={setSelectedTab}

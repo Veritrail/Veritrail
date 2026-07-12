@@ -6,39 +6,7 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
-import type { ReadinessMetric } from "../lib/controlReadiness";
 import { DrawerShell } from "./DrawerShell";
-
-/**
- * Concrete N-of-M readiness counts as a single compact stat strip —
- * green dot when the axis is complete, amber while work remains.
- */
-export function ControlReadinessStrip({ metrics }: { metrics: ReadinessMetric[] }) {
-  if (metrics.length === 0) return null;
-  return (
-    <dl className="control-readiness-strip" aria-label="Readiness counts">
-      {metrics.map((m) => {
-        const done = m.total > 0 && m.complete >= m.total;
-        return (
-          <div className="control-readiness-strip__item" key={m.label}>
-            <dt className="control-readiness-strip__label">
-              <span
-                className={`control-readiness-strip__dot${done ? " control-readiness-strip__dot--done" : ""}`}
-                aria-hidden
-              />
-              {m.label}
-            </dt>
-            <dd className="control-readiness-strip__value">
-              {m.complete}
-              <span className="control-readiness-strip__sep">/</span>
-              {m.total}
-            </dd>
-          </div>
-        );
-      })}
-    </dl>
-  );
-}
 
 /**
  * Header description clamped to two lines with a More/Less toggle, so a long
