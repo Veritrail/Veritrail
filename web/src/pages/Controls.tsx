@@ -33,7 +33,7 @@ import { AccountFilterDropdown } from "../components/AccountFilterDropdown";
 import { CloudFeatureComingSoon } from "../components/CloudFeatureComingSoon";
 import { isCloudFeatureComingSoon } from "../lib/cloudProviderFeatures";
 import { HeaderFilterBar } from "../components/HeaderFilterBar";
-import { HeaderSegmentCard } from "../components/SelectorCard";
+import { HeaderViewSelect } from "../components/HeaderViewSelect";
 import { ExternalEvidencePanel } from "../components/ExternalEvidencePanel";
 import { CoverageOverridePanel } from "../components/CoverageOverridePanel";
 import {
@@ -230,31 +230,6 @@ const SEV_WEIGHT: Record<string, number> = {
   low: 3,
   info: 4,
 };
-
-function ComplianceExpandChevron({
-  expanded,
-  className = "",
-}: {
-  expanded: boolean;
-  className?: string;
-}) {
-  return (
-    <svg
-      className={`h-3.5 w-3.5 shrink-0 text-zinc-400 transition-transform ${expanded ? "rotate-0" : "-rotate-90"} ${className}`}
-      fill="none"
-      stroke="currentColor"
-      viewBox="0 0 24 24"
-      aria-hidden
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M19 9l-7 7-7-7"
-      />
-    </svg>
-  );
-}
 
 function compositeDisplayStatus(
   ctrl: CompositeControlRow,
@@ -701,18 +676,19 @@ function groupControls(rows: ControlRow[], framework: string): ControlGroup[] {
     });
   }
 
-  // Keep named families in their natural order, but always park manual/catch-all
-  // evidence on the far right (stable sort preserves the rest).
+  // Park catch-all families on the far right (stable sort preserves the rest).
   return Array.from(groups.values()).sort(
-    (a, b) =>
-      (a.key === "manual-evidence" || a.key === "other" ? 1 : 0) -
-      (b.key === "manual-evidence" || b.key === "other" ? 1 : 0),
+    (a, b) => (a.key === "other" ? 1 : 0) - (b.key === "other" ? 1 : 0),
   );
 }
 
 function shortControlTitle(title: string) {
   const parts = title.split("—");
   return parts.length > 1 ? parts.slice(1).join("—").trim() : title;
+}
+
+function frameworkControlRowTitle(controlId: string, title: string) {
+  return `${controlId} - ${shortControlTitle(title)}`;
 }
 
 function findingLabel(count: number) {
@@ -1384,26 +1360,16 @@ function CompliancePageViewToggle({
   className?: string;
 }) {
   return (
-    <HeaderSegmentCard label="View" className={className}>
-      <div
-        className="vt-toolbar-segmented compliance-page-view-toggle"
-        role="tablist"
-        aria-label="Compliance view"
-      >
-        {(["controls", "checks"] as const).map((option) => (
-          <button
-            key={option}
-            type="button"
-            role="tab"
-            aria-selected={pageView === option}
-            className={`vt-toolbar-segment${pageView === option ? " vt-toolbar-segment--active" : ""}`}
-            onClick={() => onChange(option)}
-          >
-            {option === "controls" ? "Controls" : "Criteria"}
-          </button>
-        ))}
-      </div>
-    </HeaderSegmentCard>
+    <HeaderViewSelect
+      value={pageView}
+      options={[
+        { value: "controls", label: "Controls" },
+        { value: "checks", label: "Criteria" },
+      ]}
+      onChange={onChange}
+      ariaLabel="Compliance view"
+      className={className}
+    />
   );
 }
 
@@ -4358,6 +4324,16 @@ export default function Controls() {
     groupedRows[0] ??
     null;
 
+  useEffect(() => {
+    if (!groupedRows.length) return;
+    if (
+      selectedFamilyKey &&
+      !groupedRows.some((group) => group.key === selectedFamilyKey)
+    ) {
+      setSelectedFamilyKey(groupedRows[0]?.key ?? null);
+    }
+  }, [groupedRows, selectedFamilyKey]);
+
   const compositePanelRows = useMemo(() => {
     const all = compositeControls.data ?? [];
     const nestedChildIds = new Set(Object.values(NESTED_COMPOSITE_IDS));
@@ -4842,38 +4818,44 @@ export default function Controls() {
                   ctrl.check_ids,
                   findingCountByCheck,
                 );
+                const compositeIconId = compositeIdByControlId.get(ctrl.id);
 
                 return (
-                  <div key={ctrl.id}>
+                  <div
+                    key={ctrl.id}
+                    className={`compliance-control-card${isSelected ? " is-expanded" : ""}`}
+                  >
                     <button
                       type="button"
                       onMouseDown={(e) => e.preventDefault()}
                       onClick={() => selectDetailedControl(ctrl.id)}
                       aria-expanded={isSelected}
-                      className={`flex w-full items-start gap-3 px-5 py-3.5 text-left transition-colors ${
-                        displayStatus === "passing" && !isSelected
-                          ? "bg-emerald-50/30 hover:bg-emerald-50/50"
-                          : "hover:bg-zinc-50/60"
-                      } ${isSelected ? "is-expanded" : ""}`}
+                      className="compliance-control-card__summary"
                     >
-                      <div className="min-w-0 flex-1 py-0.5">
-                        <p className="text-body font-semibold leading-snug text-zinc-900">
-                          <span className="font-mono text-meta font-semibold text-zinc-500">
-                            {ctrl.control_id}
-                          </span>
-                          {" - "}
-                          {shortControlTitle(ctrl.title)}
-                          {recentlyImprovedControlIds.has(ctrl.control_id) ? (
-                            <ComplianceProgressBadge label="Improved" />
-                          ) : null}
-                        </p>
-                        {ctrl.description ? (
-                          <p className="mt-0.5 text-meta leading-relaxed text-zinc-500 line-clamp-1">
-                            {ctrl.description}
-                          </p>
-                        ) : null}
+                      <div className="compliance-control-card__main">
+                        <span
+                          className={`compliance-control-card__chevron${isSelected ? " is-open" : ""}`}
+                          aria-hidden
+                        >
+                          ›
+                        </span>
+                        <CompositeGroupIcon
+                          id={compositeIconId ?? "framework_control"}
+                        />
+                        <div className="compliance-control-card__title">
+                          <h3>
+                            {frameworkControlRowTitle(
+                              ctrl.control_id,
+                              ctrl.title,
+                            )}
+                            {recentlyImprovedControlIds.has(ctrl.control_id) ? (
+                              <ComplianceProgressBadge label="Improved" />
+                            ) : null}
+                          </h3>
+                          {ctrl.description ? <p>{ctrl.description}</p> : null}
+                        </div>
                       </div>
-                      <div className="flex shrink-0 flex-col items-end gap-2 self-center sm:flex-row sm:items-center">
+                      <div className="compliance-control-card__state">
                         {pageView === "controls" ? (
                           <ControlEvidenceDrawerTrigger
                             control={ctrl}
@@ -4883,7 +4865,9 @@ export default function Controls() {
                             submittedCount={
                               submittedCountByControl.get(ctrl.id) ?? 0
                             }
-                            onOpen={() => selectDetailedControl(ctrl.id, "evidence")}
+                            onOpen={() =>
+                              selectDetailedControl(ctrl.id, "evidence")
+                            }
                           />
                         ) : null}
                         <ComplianceRowSummary
@@ -4891,7 +4875,6 @@ export default function Controls() {
                           href={findingsHref}
                           onNavigate={(href) => navigate(href)}
                         />
-                        <ComplianceExpandChevron expanded={isSelected} />
                       </div>
                     </button>
                   </div>
