@@ -490,8 +490,8 @@ export function OrgReadinessHome() {
       </section>
 
       {awsAccounts.length > 0 ? (
-        <section className="org-home__timeline-section org-home__timeline-section--compact" aria-label="Recent AWS activity">
-          <SectionHead title="Recent AWS activity" linkTo="/history" linkLabel="History" />
+        <section className="org-home__timeline-section org-home__timeline-section--compact" aria-label="Timeline">
+          <SectionHead title="Timeline" linkTo="/history" linkLabel="History" />
           {timelineEvents.length === 0 ? (
             <p className="org-home__timeline-empty">AWS activity appears after the first completed scan.</p>
           ) : (
