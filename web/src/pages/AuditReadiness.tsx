@@ -2,11 +2,12 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { api } from "../api";
+import { AccountFilterDropdown } from "../components/AccountFilterDropdown";
 import { ComplianceFrameworkSelect } from "../components/ComplianceFrameworkSelect";
 import { HeaderFilterBar } from "../components/HeaderFilterBar";
 import { HeaderSlot } from "../context/HeaderSlot";
-import { frameworkLabel } from "../data/frameworks";
-import { findingsHrefForCheckIds } from "../hooks/useConnectedAccountOptions";
+import { useConnectedAccountOptions } from "../hooks/useConnectedAccountOptions";
+import { useSelectedAccountId } from "../hooks/useSelectedAccountId";
 import { auditReadinessSchema } from "../lib/apiSchemas";
 import "../styles/audit-readiness-page.css";
 
@@ -49,21 +50,25 @@ function narrativeText(
 export default function AuditReadiness() {
   const [framework, setFramework] = useState("soc2");
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const { options: connectedAccounts, isSuccess: accountsReady } = useConnectedAccountOptions();
+  const awsAccounts = useMemo(
+    () => connectedAccounts.filter((account) => account.provider === "aws"),
+    [connectedAccounts],
+  );
+  const { accountId, setAccountId } = useSelectedAccountId(awsAccounts, accountsReady);
   const { data, isLoading, error } = useQuery({
-    queryKey: ["audit-readiness", framework],
+    queryKey: ["audit-readiness", framework, accountId],
     queryFn: () =>
-      api(`/v1/audit-readiness?framework=${encodeURIComponent(framework)}`, {
+      api(`/v1/audit-readiness?framework=${encodeURIComponent(framework)}&account_id=${encodeURIComponent(accountId)}`, {
         schema: auditReadinessSchema,
       }),
+    enabled: accountsReady && !!accountId,
   });
 
-  const asOfLabel = useMemo(() => {
-    if (!data?.as_of) return null;
-    const date = new Date(data.as_of);
-    return Number.isFinite(date.getTime())
-      ? date.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })
-      : data.as_of;
-  }, [data?.as_of]);
+  const findingsHref = (checkIds: string[]): string => {
+    const params = new URLSearchParams({ checks: checkIds.join(","), account_id: accountId });
+    return `/findings?${params.toString()}`;
+  };
 
   const dashboard = useMemo(() => {
     if (!data) return null;
@@ -102,19 +107,18 @@ export default function AuditReadiness() {
       }
       return left.playbookOrder - right.playbookOrder || left.itemOrder - right.itemOrder;
     });
-    const highestSeverity = rankedActions.find(({ item }) => item.highest_severity)?.item
-      .highest_severity;
+    const verifiedItems = items.filter(({ item }) => item.status === "verified").length;
 
     return {
       passingChecks,
       totalChecks,
       actionCount: actionItems.length + hiddenActions,
       areasNeedingAction,
-      highestSeverity,
+      verifiedItems,
+      totalItems: items.length,
       priorityActions: rankedActions
         .filter(({ playbookKey }) => playbookKey !== "disaster_recovery")
         .slice(0, 5),
-      recovery: data.playbooks.find((playbook) => playbook.key === "disaster_recovery") ?? null,
     };
   }, [data]);
 
@@ -132,25 +136,16 @@ export default function AuditReadiness() {
     <div className="audit-readiness">
       <HeaderSlot>
         <HeaderFilterBar>
+          {awsAccounts.length > 0 && accountId ? (
+            <AccountFilterDropdown
+              accounts={awsAccounts}
+              value={accountId}
+              onChange={setAccountId}
+            />
+          ) : null}
           <ComplianceFrameworkSelect selectedId={framework} statsById={{}} onSelect={setFramework} />
         </HeaderFilterBar>
       </HeaderSlot>
-
-      <header className="audit-readiness__header">
-        <div>
-          <h1 className="audit-readiness__title">Audit readiness</h1>
-          <p className="audit-readiness__lede">
-            A focused view of what needs attention, what is technically verified, and what remains
-            outside automated scope.
-          </p>
-        </div>
-        {data ? (
-          <p className="audit-readiness__context">
-            {frameworkLabel(framework)} · {data.period_days} days · {data.scope_label}
-            {asOfLabel ? <span>Generated {asOfLabel}</span> : null}
-          </p>
-        ) : null}
-      </header>
 
       {isLoading ? <p className="audit-readiness__loading">Loading audit readiness…</p> : null}
       {error ? <p className="audit-readiness__error">Failed to load audit readiness.</p> : null}
@@ -190,13 +185,13 @@ export default function AuditReadiness() {
                 </span>
               </div>
               <div className="audit-readiness__metric">
-                <span
-                  className={`audit-readiness__metric-value audit-readiness__metric-value--${dashboard.highestSeverity ?? "none"}`}
-                >
-                  {dashboard.highestSeverity ?? "None"}
+                <span className="audit-readiness__metric-value audit-readiness__metric-value--verified">
+                  {dashboard.verifiedItems}
                 </span>
-                <span className="audit-readiness__metric-label">Highest visible severity</span>
-                <span className="audit-readiness__metric-note">Across prioritized actions</span>
+                <span className="audit-readiness__metric-label">Items verified</span>
+                <span className="audit-readiness__metric-note">
+                  of {dashboard.totalItems} checklist items
+                </span>
               </div>
             </section>
 
@@ -207,70 +202,6 @@ export default function AuditReadiness() {
             </p>
 
             <div className="audit-readiness__focus-grid">
-              <section className="audit-readiness__focus-card audit-readiness__focus-card--recovery">
-                <header className="audit-readiness__section-head">
-                  <div>
-                    <p className="audit-readiness__section-kicker">Recovery readiness</p>
-                    <h2>Can your data be restored?</h2>
-                  </div>
-                  {dashboard.recovery ? (
-                    <span
-                      className={`audit-readiness__status audit-readiness__status--${dashboard.recovery.status}`}
-                    >
-                      {STATUS_LABELS[dashboard.recovery.status]}
-                    </span>
-                  ) : null}
-                </header>
-
-                {!dashboard.recovery ? (
-                  <p className="audit-readiness__quiet">
-                    No mapped recovery checks are available for the selected framework.
-                  </p>
-                ) : dashboard.recovery.status === "not_assessed" ? (
-                  <p className="audit-readiness__quiet">
-                    Recovery evidence is not available from the latest completed inventory.
-                  </p>
-                ) : dashboard.recovery.status === "not_applicable" ? (
-                  <p className="audit-readiness__quiet">
-                    No applicable RDS, DynamoDB, or backup-eligible resources were found in scope.
-                  </p>
-                ) : dashboard.recovery.items.some((item) => item.status === "action") ? (
-                  <div className="audit-readiness__action-list">
-                    {dashboard.recovery.items
-                      .filter((item) => item.status === "action")
-                      .map((item) => {
-                        const reviewHref = findingsHrefForCheckIds(item.check_ids) ?? "/integrations";
-                        return (
-                          <div key={item.key} className="audit-readiness__action-row">
-                            <span className="audit-readiness__action-dot" aria-hidden />
-                            <div className="audit-readiness__action-copy">
-                              <strong>{item.label}</strong>
-                              <span>{item.summary}</span>
-                              <small>
-                                {item.finding_count} finding{item.finding_count === 1 ? "" : "s"}
-                                {item.controls.length > 0 ? ` · ${item.controls.slice(0, 2).join(", ")}` : ""}
-                              </small>
-                            </div>
-                            {item.action_kind === "activate" && item.action_url ? (
-                              <a className="audit-readiness__action-link" href={item.action_url} target="_blank" rel="noreferrer">
-                                {item.action_label ?? "Enable"}
-                              </a>
-                            ) : (
-                              <Link className="audit-readiness__action-link" to={reviewHref}>
-                                {item.action_label ?? "Review"}
-                              </Link>
-                            )}
-                          </div>
-                        );
-                      })}
-                  </div>
-                ) : (
-                  <p className="audit-readiness__positive">
-                    <span aria-hidden>✓</span> Collected recovery checks have no open technical gaps.
-                  </p>
-                )}
-              </section>
-
               <section className="audit-readiness__focus-card">
                 <header className="audit-readiness__section-head">
                   <div>
@@ -281,26 +212,24 @@ export default function AuditReadiness() {
 
                 {dashboard.priorityActions.length > 0 ? (
                   <div className="audit-readiness__priority-list">
-                    {dashboard.priorityActions.map(({ item, playbookLabel }) => {
-                      const reviewHref = findingsHrefForCheckIds(item.check_ids) ?? "/integrations";
+                    {dashboard.priorityActions.map(({ item, playbookLabel }, index) => {
+                      const reviewHref = findingsHref(item.check_ids);
                       return (
                         <div key={`${playbookLabel}-${item.key}`} className="audit-readiness__priority-row">
-                          <span
-                            className={`audit-readiness__severity audit-readiness__severity--${item.highest_severity ?? "medium"}`}
-                          >
-                            {item.highest_severity ?? "action"}
+                          <span className="audit-readiness__priority-rank" aria-label={`Priority ${index + 1}`}>
+                            {index + 1}
                           </span>
                           <div>
                             <strong>{item.label}</strong>
                             <span>{playbookLabel} · {item.finding_count} finding{item.finding_count === 1 ? "" : "s"}</span>
                           </div>
                           {item.action_kind === "activate" && item.action_url ? (
-                            <a className="audit-readiness__chevron-link" href={item.action_url} target="_blank" rel="noreferrer" aria-label={`${item.action_label ?? "Enable"} ${item.label}`}>
-                              →
+                            <a className="audit-readiness__action-link" href={item.action_url} target="_blank" rel="noreferrer">
+                              {item.action_label ?? "Enable"}
                             </a>
                           ) : (
-                            <Link className="audit-readiness__chevron-link" to={reviewHref} aria-label={`Review ${item.label}`}>
-                              →
+                            <Link className="audit-readiness__action-link" to={reviewHref}>
+                              {item.action_label ?? "Review"}
                             </Link>
                           )}
                         </div>
@@ -363,7 +292,7 @@ export default function AuditReadiness() {
                         <p className="audit-readiness__area-outcome">{playbook.outcome}</p>
                         <div className="audit-readiness__evidence-list" role="list">
                           {playbook.items.map((item) => {
-                            const reviewHref = findingsHrefForCheckIds(item.check_ids) ?? "/integrations";
+                            const reviewHref = findingsHref(item.check_ids);
                             return (
                               <div key={item.key} className="audit-readiness__evidence-row" role="listitem">
                                 <span

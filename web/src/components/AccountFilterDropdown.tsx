@@ -109,13 +109,11 @@ export function AccountFilterDropdown({
   groups,
   value,
   onChange,
-  variant = "header",
 }: {
   accounts: AccountOption[];
   groups?: AccountFilterGroup[];
   value: string;
   onChange: (id: string) => void;
-  variant?: "header" | "sidebar";
 }) {
   const flatAccounts = useMemo(
     () => (groups ? groups.flatMap((group) => group.accounts) : accounts),
@@ -316,12 +314,7 @@ export function AccountFilterDropdown({
       : null;
 
   return (
-    <div
-      ref={rootRef}
-      className={["account-filter", variant === "sidebar" ? "account-filter--sidebar" : ""]
-        .filter(Boolean)
-        .join(" ")}
-    >
+    <div ref={rootRef} className="account-filter">
       <SelectorCard
         ref={triggerRef}
         icon={

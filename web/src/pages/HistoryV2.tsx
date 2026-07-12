@@ -4,6 +4,7 @@ import { Navigate, useSearchParams } from "react-router-dom";
 
 import { api } from "../api";
 import { complianceTimelineSchema, compositeControlListSchema } from "../lib/apiSchemas";
+import { AccountFilterDropdown } from "../components/AccountFilterDropdown";
 import { CloudFeatureComingSoon } from "../components/CloudFeatureComingSoon";
 import { HeaderFilterBar } from "../components/HeaderFilterBar";
 import { HeaderViewSelect } from "../components/HeaderViewSelect";
@@ -140,7 +141,7 @@ export default function HistoryV2() {
 
   const { options: connectedAccounts, isLoading: accountsLoading, isSuccess: accountsReady } =
     useConnectedAccountOptions();
-  const { accountId: effectiveAccountId, activeAccount } = useSelectedAccountId(
+  const { accountId: effectiveAccountId, activeAccount, setAccountId } = useSelectedAccountId(
     connectedAccounts,
     accountsReady,
   );
@@ -263,6 +264,16 @@ export default function HistoryV2() {
     <div className="history-page history-page--fill px-1 sm:px-0">
       <HeaderSlot>
         <HeaderFilterBar>
+          <AccountFilterDropdown
+            accounts={connectedAccounts}
+            value={effectiveAccountId}
+            onChange={(id) => {
+              setAccountId(id);
+              setPageSize(DEFAULT_VISIBLE_EVENTS);
+              setPage(1);
+            }}
+          />
+
           {isAwsAccount ? (
             <>
               <HistoryFilterDropdown

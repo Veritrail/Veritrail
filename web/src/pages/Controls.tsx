@@ -34,6 +34,7 @@ import {
 import { useSelectedAccountId } from "../hooks/useSelectedAccountId";
 import { fetchAllFindings } from "../lib/fetchAllFindings";
 import { openFindingAffectsControlStatus } from "../lib/evidenceClass";
+import { AccountFilterDropdown } from "../components/AccountFilterDropdown";
 import { CloudFeatureComingSoon } from "../components/CloudFeatureComingSoon";
 import { isCloudFeatureComingSoon } from "../lib/cloudProviderFeatures";
 import { HeaderFilterBar } from "../components/HeaderFilterBar";
@@ -3823,7 +3824,7 @@ export default function Controls() {
     isLoading: accountsLoading,
     isSuccess: accountsReady,
   } = useConnectedAccountOptions();
-  const { activeAccount } = useSelectedAccountId(
+  const { activeAccount, setAccountId: handleAccountChange } = useSelectedAccountId(
     connectedAccounts,
     accountsReady,
   );
@@ -4590,6 +4591,11 @@ export default function Controls() {
       {connectedAccounts.length > 0 && activeAccount && (
         <HeaderSlot>
           <HeaderFilterBar>
+            <AccountFilterDropdown
+              accounts={connectedAccounts}
+              value={activeAccount.id}
+              onChange={handleAccountChange}
+            />
             {isAwsAccount ? (
               <ComplianceFrameworkSelect
                 selectedId={framework}
