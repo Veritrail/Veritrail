@@ -4851,7 +4851,14 @@ export default function Controls() {
                           : "hover:bg-zinc-50/60"
                       } ${isSelected ? "is-expanded" : ""}`}
                     >
-                      <div className="min-w-0 flex-1 py-0.5">
+                      <div className="compliance-control-card__main min-w-0 flex-1">
+                        <span
+                          className={`compliance-control-card__chevron${isSelected ? " is-open" : ""}`}
+                          aria-hidden
+                        >
+                          ›
+                        </span>
+                        <div className="min-w-0 flex-1 py-0.5">
                         <p className="text-body font-semibold leading-snug text-zinc-900">
                           <span className="font-mono text-meta font-semibold text-zinc-500">
                             {ctrl.control_id}
@@ -4866,6 +4873,7 @@ export default function Controls() {
                             {ctrl.description}
                           </p>
                         ) : null}
+                        </div>
                       </div>
                       <div className="flex shrink-0 flex-col items-end gap-2 self-center sm:flex-row sm:items-center">
                         <ControlEvidenceDrawerTrigger
