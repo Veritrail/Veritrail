@@ -1,5 +1,5 @@
 import { HistoryFilterDropdown } from "./HistoryFilterDropdown";
-import { viewOptionIcon, viewValueIcon } from "./ViewSelectIcons";
+import { viewValueIcon } from "./ViewSelectIcons";
 import "../styles/history-page.css";
 
 export type HeaderViewOption<T extends string> = {
@@ -29,7 +29,7 @@ export function HeaderViewSelect<T extends string>({
       ariaLabel={ariaLabel}
       boxClassName={["history-filter-dropdown--view", "shrink-0", className].filter(Boolean).join(" ")}
       valueIcon={viewValueIcon(value)}
-      optionIcon={viewOptionIcon}
+      showOptionIcons={false}
     />
   );
 }

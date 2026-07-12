@@ -44,6 +44,7 @@ export function HistoryFilterDropdown({
   ariaLabel,
   valueIcon,
   optionIcon,
+  showOptionIcons = true,
 }: {
   label: string;
   value: string;
@@ -53,6 +54,7 @@ export function HistoryFilterDropdown({
   ariaLabel: string;
   valueIcon?: ReactNode;
   optionIcon?: (optionValue: string) => ReactNode;
+  showOptionIcons?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [menuPos, setMenuPos] = useState<MenuPosition | null>(null);
@@ -137,7 +139,7 @@ export function HistoryFilterDropdown({
                   className={`history-filter-menu__option${active ? " history-filter-menu__option--active" : ""}`}
                 >
                   <HistoryMenuCheckmark selected={active} className="history-filter-menu__check" />
-                  {optionIcon?.(option.value) ?? defaultOptionIcon(label, option.value)}
+                  {showOptionIcons ? (optionIcon?.(option.value) ?? defaultOptionIcon(label, option.value)) : null}
                   <span className="history-filter-menu__label">{option.label}</span>
                 </button>
               );
