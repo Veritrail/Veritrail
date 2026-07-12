@@ -345,19 +345,22 @@
 }
 
 /* Findings toolbar buttons adopt the History filter-button family: flat (no
-   shadow), 8px radius, lighter border, #374151 text. Scoped to Findings. */
+   shadow), 8px radius, lighter border, #374151 text. Scoped to Findings.
+   Border matches the Search field / standard secondary buttons (--vt-border);
+   #cbd5e1 read as a dark edge next to them. */
 .findings-v2-page .findings-v2-toolbar-btn {
   flex: 0 0 auto;
   min-width: max-content;
   border-radius: 0.5rem;
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--vt-border, #e8edf3);
+  background: #ffffff;
   color: #374151;
   box-shadow: none;
 }
 
 .findings-v2-page .findings-v2-toolbar-btn:hover:not(:disabled) {
-  border-color: #9aa7b8;
-  background: #f9fafb;
+  border-color: var(--vt-border-strong, #d8dee8);
+  background: #f8fafc;
   color: #111827;
 }
 
@@ -817,19 +820,6 @@
 
 .findings-v2-actions-group .findings-v2-toolbar-btn {
   min-width: max-content;
-}
-
-/* Export reads as a text link when its border is too faint, but a fill makes a
-   lone button (All-cloud scope has no Scan beside it) look hover-stuck. Clean
-   outline, no fill: reads as a button, rests flat. */
-.findings-v2-page .findings-v2-actions-group .findings-v2-toolbar-btn:not(.findings-v2-toolbar-btn--scan) {
-  border: 1px solid #b6c0cd;
-  background: transparent;
-}
-
-.findings-v2-page .findings-v2-actions-group .findings-v2-toolbar-btn:not(.findings-v2-toolbar-btn--scan):hover:not(:disabled) {
-  border-color: #9aa7b8;
-  background: #f6f8fa;
 }
 
 @media (max-width: 1120px) {
