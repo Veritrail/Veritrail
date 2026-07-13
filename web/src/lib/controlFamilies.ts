@@ -2,11 +2,22 @@
 
 export type ControlFamily = { key: string; label: string };
 
-/** Families hidden from Compliance page category nav (backend/manual flows unchanged). */
+/** Families hidden from Compliance and History UI (backend/manual flows unchanged). */
 export const HIDDEN_COMPLIANCE_FAMILY_KEYS = new Set(["manual-evidence"]);
 
 export function isHiddenComplianceFamily(key: string): boolean {
   return HIDDEN_COMPLIANCE_FAMILY_KEYS.has(key);
+}
+
+/** SOC 2 families Veritrail collects via cloud automation (Criteria tab only). */
+export const SOC2_COLLECTABLE_CRITERIA_FAMILY_KEYS = new Set(["cc6", "cc7", "cc8"]);
+
+/** Whether a control belongs on the Compliance Criteria tab. */
+export function isCollectableCriteriaControl(framework: string, controlId: string): boolean {
+  const family = controlFamily(framework, controlId);
+  if (isHiddenComplianceFamily(family.key)) return false;
+  if (framework === "soc2") return SOC2_COLLECTABLE_CRITERIA_FAMILY_KEYS.has(family.key);
+  return true;
 }
 
 export function controlFamily(framework: string, controlId: string): ControlFamily {

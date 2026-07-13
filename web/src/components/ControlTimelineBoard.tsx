@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { z } from "zod";
@@ -8,9 +8,8 @@ import {
   controlsHistorySummarySchema,
   type ControlTimelineRow,
 } from "../lib/apiSchemas";
-import { compareControlIds, controlFamily } from "../lib/controlFamilies";
+import { compareControlIds, controlFamily, isHiddenComplianceFamily } from "../lib/controlFamilies";
 import { findingsHrefForCheckIds } from "../hooks/useConnectedAccountOptions";
-import { ControlDetailPanel } from "./ControlDetailPanel";
 
 /** Drill-down payload from GET /v1/controls/{id}/history (loose parse). */
 const controlHistoryDrillSchema = z
@@ -210,6 +209,7 @@ export function ControlTimelineBoard({
     const byFamily = new Map<string, { key: string; label: string; rows: ControlTimelineRow[] }>();
     for (const row of rows) {
       const family = controlFamily(framework, row.control_id);
+      if (isHiddenComplianceFamily(family.key)) continue;
       const group = byFamily.get(family.key) ?? { ...family, rows: [] };
       group.rows.push(row);
       byFamily.set(family.key, group);
@@ -218,15 +218,11 @@ export function ControlTimelineBoard({
       group.rows.sort((a, b) => compareControlIds(a.control_id, b.control_id));
     }
     return Array.from(byFamily.values()).sort(
-      (a, b) =>
-        (a.key === "manual-evidence" || a.key === "other" ? 1 : 0) -
-        (b.key === "manual-evidence" || b.key === "other" ? 1 : 0),
+      (a, b) => (a.key === "other" ? 1 : 0) - (b.key === "other" ? 1 : 0),
     );
   }, [summaryQ.data, framework, checkIdFilter]);
 
   const visibleRows = useMemo(() => groups.flatMap((group) => group.rows), [groups]);
-  const selectedRow = visibleRows.find((row) => row.control_id === selectedControlId) ?? null;
-
   if (summaryQ.isLoading) {
     return <p className="history-loading">Loading control timelines…</p>;
   }
@@ -239,7 +235,7 @@ export function ControlTimelineBoard({
   }
 
   const data = summaryQ.data;
-  if (!data || data.controls.length === 0) {
+  if (!data || data.controls.length === 0 || visibleRows.length === 0) {
     return (
       <div className="history-empty">
         <p className="font-semibold text-zinc-800">No graded controls yet</p>
@@ -284,82 +280,71 @@ export function ControlTimelineBoard({
             </div>
             {group.rows.map((row) => {
               const summary = rowSummary(row);
+              const isExpanded = row.control_id === selectedControlId;
               return (
-                <button
-                  key={row.control_id}
-                  type="button"
-                  className="history-controls__row"
-                  onClick={() => setSelectedControlId(row.control_id)}
-                >
-                  <span className={`history-controls__status-dot is-${summary.tone}`} aria-hidden />
-                  <span className="history-controls__row-copy">
-                    <strong>{row.control_id}</strong>
-                    <span>{row.title}</span>
-                  </span>
-                  <span className="history-controls__bar-wrap">
-                    <span className="history-controls__bar">
-                      {row.segments.flatMap((segment, index) => {
-                        const toMs = new Date(segment.to).getTime();
-                        if (toMs <= windowStartMs) return [];
-                        const fromMs = Math.max(new Date(segment.from).getTime(), windowStartMs);
-                        return [
-                          <span
-                            key={`${segment.from}-${index}`}
-                            className={`history-controls__segment is-${segment.status.replace("_", "-")}`}
-                            style={{ flexGrow: Math.max(toMs - fromMs, 1) }}
-                            title={segmentTitle(
-                              row,
-                              segment.status,
-                              new Date(fromMs).toISOString(),
-                              segment.to,
-                            )}
-                          />,
-                        ];
-                      })}
+                <Fragment key={row.control_id}>
+                  <button
+                    type="button"
+                    className={`history-controls__row${isExpanded ? " is-expanded" : ""}`}
+                    aria-expanded={isExpanded}
+                    onClick={() =>
+                      setSelectedControlId((current) =>
+                        current === row.control_id ? null : row.control_id,
+                      )
+                    }
+                  >
+                    <span className={`history-controls__status-dot is-${summary.tone}`} aria-hidden />
+                    <span className="history-controls__row-copy">
+                      <strong>{row.control_id}</strong>
+                      <span>{row.title}</span>
                     </span>
-                    <span className="history-controls__bar-dates"><span>{formatDay(new Date(windowStartMs).toISOString())}</span><span>Today</span></span>
-                  </span>
-                  <span className={`history-controls__row-state is-${summary.tone}`}>
-                    <strong>{summary.label}</strong>
-                    {summary.meta ? <span className="history-controls__row-meta">{summary.meta}</span> : null}
-                  </span>
-                  <span className="history-controls__row-arrow" aria-hidden>→</span>
-                </button>
+                    <span className="history-controls__bar-wrap">
+                      <span className="history-controls__bar">
+                        {row.segments.flatMap((segment, index) => {
+                          const toMs = new Date(segment.to).getTime();
+                          if (toMs <= windowStartMs) return [];
+                          const fromMs = Math.max(new Date(segment.from).getTime(), windowStartMs);
+                          return [
+                            <span
+                              key={`${segment.from}-${index}`}
+                              className={`history-controls__segment is-${segment.status.replace("_", "-")}`}
+                              style={{ flexGrow: Math.max(toMs - fromMs, 1) }}
+                              title={segmentTitle(
+                                row,
+                                segment.status,
+                                new Date(fromMs).toISOString(),
+                                segment.to,
+                              )}
+                            />,
+                          ];
+                        })}
+                      </span>
+                      <span className="history-controls__bar-dates"><span>{formatDay(new Date(windowStartMs).toISOString())}</span><span>Today</span></span>
+                    </span>
+                    <span className={`history-controls__row-state is-${summary.tone}`}>
+                      <strong>{summary.label}</strong>
+                      {summary.meta ? <span className="history-controls__row-meta">{summary.meta}</span> : null}
+                    </span>
+                    <span className="history-controls__row-arrow" aria-hidden>{isExpanded ? "⌃" : "⌄"}</span>
+                  </button>
+                  {isExpanded ? (
+                    <div className="history-controls__row-drill">
+                      <ControlDrilldown
+                        controlId={row.control_id}
+                        accountId={accountId}
+                        framework={framework}
+                        days={days}
+                        checkIds={row.check_ids}
+                      />
+                    </div>
+                  ) : null}
+                </Fragment>
               );
             })}
           </div>
         </section>
       ))}
 
-      {selectedRow ? (
-        <ControlDetailPanel
-          tabs={[{
-            id: "overview",
-            label: "History",
-            content: (
-              <div className="history-controls__drawer-content">
-                <div className="history-controls__drawer-status">
-                  <span className={`history-controls__status-dot is-${rowSummary(selectedRow).tone}`} />
-                  <div><strong>{rowSummary(selectedRow).label}</strong><span>{rowSummary(selectedRow).meta ?? "Current state"}</span></div>
-                </div>
-                <ControlDrilldown
-                  controlId={selectedRow.control_id}
-                  accountId={accountId}
-                  framework={framework}
-                  days={days}
-                  checkIds={selectedRow.check_ids}
-                />
-              </div>
-            ),
-          }]}
-          activeTab="overview"
-          onTabChange={() => undefined}
-          onClose={() => setSelectedControlId(null)}
-          headerTitle={`${selectedRow.control_id} · ${selectedRow.title}`}
-          headerDescription={`History for this control in the selected framework over the last ${days} days.`}
-          mode="overlay"
-        />
-      ) : null}
     </div>
   );
 }

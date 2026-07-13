@@ -108,6 +108,9 @@ class ControlOut(BaseModel):
     open_finding_ids: list[str]
     kind: str = "auto"   # auto | manual
     attestation_status: str | None = None  # manual controls: met|not_met|not_applicable|pending
+    # Manual controls: accepted control-tagged external evidence exists — the
+    # honest label is "externally covered", never "verified".
+    externally_covered: bool = False
     # Framework-mapping metadata (set only for the matching framework's controls).
     soc2_scope_category: str | None = None
     cis_profile_level: str | None = None
@@ -1174,6 +1177,21 @@ def list_controls(
         ).all()
     }
 
+    # Accepted control-tagged external evidence also satisfies a manual control
+    # (externally covered) — attestation alone must not be the only path.
+    from app.models.evidence_artifact import EvidenceArtifact
+
+    accepted_evidence_control_ids = {
+        row
+        for row in db.scalars(
+            select(EvidenceArtifact.control_id).where(
+                EvidenceArtifact.org_id == org_id,
+                EvidenceArtifact.status == "accepted",
+                EvidenceArtifact.control_id.isnot(None),
+            )
+        ).all()
+    }
+
     result = []
     for ctrl in controls:
         mapped_check_ids = list(
@@ -1188,12 +1206,14 @@ def list_controls(
 
         kind = "auto"
         attestation_status: str | None = None
+        externally_covered = False
         if not mapped_check_ids:
             kind = "manual"
             a = attest_by_control.get(ctrl.id)
             attestation_status = a.status if a else "pending"
+            externally_covered = ctrl.id in accepted_evidence_control_ids
             ctrl_status = (
-                "pass" if attestation_status == "met"
+                "pass" if attestation_status == "met" or externally_covered
                 else "fail" if attestation_status == "not_met"
                 else "no_data"
             )
@@ -1239,6 +1259,7 @@ def list_controls(
                 open_finding_ids=[str(f.id) for f in hits],
                 kind=kind,
                 attestation_status=attestation_status,
+                externally_covered=externally_covered,
                 soc2_scope_category=ctrl.soc2_scope_category,
                 cis_profile_level=ctrl.cis_profile_level,
                 iso_applicability=ctrl.iso_applicability,

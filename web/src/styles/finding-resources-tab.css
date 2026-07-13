@@ -27,14 +27,44 @@
 }
 
 .finding-resources-tab__reason {
+  --resource-reason-severity: #a1a1aa;
+  position: relative;
   display: flex;
   min-width: 0;
   align-items: flex-start;
   gap: 0.625rem;
-  padding: 0.75rem 0.875rem;
-  border: 1px solid #fecdd3;
+  padding: 0.75rem 0.875rem 0.75rem 1rem;
+  overflow: hidden;
+  border: 1px solid #e4e4e7;
   border-radius: 0.5rem;
-  background: #fff1f2;
+  background: #fff;
+}
+
+.finding-resources-tab__reason::before {
+  position: absolute;
+  top: 0.5rem;
+  bottom: 0.5rem;
+  left: 0;
+  width: 2px;
+  border-radius: 0 999px 999px 0;
+  background: var(--resource-reason-severity);
+  content: "";
+}
+
+.finding-resources-tab__reason.is-critical {
+  --resource-reason-severity: #dc2626;
+}
+
+.finding-resources-tab__reason.is-high {
+  --resource-reason-severity: #ef4444;
+}
+
+.finding-resources-tab__reason.is-medium {
+  --resource-reason-severity: #f59e0b;
+}
+
+.finding-resources-tab__reason.is-low {
+  --resource-reason-severity: #3b82f6;
 }
 
 .finding-resources-tab__reason-copy {
@@ -53,7 +83,7 @@
 }
 
 .finding-resources-tab__reason-title {
-  color: #3f3f46;
+  color: #27272a;
   font-weight: 600;
 }
 
@@ -77,7 +107,7 @@
   display: inline-block;
   min-width: 0;
   overflow: hidden;
-  color: #625b5d;
+  color: #52525b;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
   font-size: 0.6875rem;
   font-weight: 500;

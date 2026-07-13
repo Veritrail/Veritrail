@@ -53,11 +53,14 @@ export function FilterChipBar({
   selected,
   onChange,
   ariaLabel,
+  countSeparator = " · ",
 }: {
   chips: readonly FilterChip[];
   selected: string;
   onChange: (id: string) => void;
   ariaLabel: string;
+  /** Separator before count, e.g. ` · ` (Findings) or ` - ` (Compliance Criteria). */
+  countSeparator?: string;
 }) {
   return (
     <div className="vt-toolbar-segmented findings-v2-filter-chip-bar" role="tablist" aria-label={ariaLabel}>
@@ -83,7 +86,8 @@ export function FilterChipBar({
                     : "text-zinc-400"
               }
             >
-              · {chip.count}
+              {countSeparator}
+              {chip.count}
             </span>
           </button>
         );

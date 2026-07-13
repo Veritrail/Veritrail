@@ -8757,26 +8757,26 @@ button.accounts-flow-step:hover {
 }
 
 .org-home__timeline-section--compact {
-  margin-top: 1.25rem;
-  padding: 0.85rem 0.2rem 0;
+  margin-top: 1.35rem;
+  padding: 1rem 0.25rem 0;
 }
 
-.org-home__timeline-section--compact .org-home__section-head { margin-bottom: 0.4rem; }
-.org-home__timeline-section--compact .org-home__section-title { font-size: 0.9rem; }
+.org-home__timeline-section--compact .org-home__section-head { margin-bottom: 0.5rem; }
+.org-home__timeline-section--compact .org-home__section-title { font-size: 1rem; }
 .org-home__timeline-section--compact .org-home__timeline-row {
-  gap: 0.35rem;
-  padding: 0.5rem 0;
+  gap: 0.4rem;
+  padding: 0.625rem 0;
 }
 .org-home__timeline-section--compact .org-home__timeline-time {
-  flex-basis: 2.75rem;
-  font-size: 0.72rem;
+  flex-basis: 3rem;
+  font-size: 0.78rem;
 }
 .org-home__timeline-section--compact .org-home__timeline-dot {
-  width: 0.4375rem;
-  height: 0.4375rem;
-  margin-inline: 0.05rem;
+  width: 0.5rem;
+  height: 0.5rem;
+  margin-inline: 0.075rem;
 }
-.org-home__timeline-section--compact .org-home__timeline-text { font-size: 0.78rem; }
+.org-home__timeline-section--compact .org-home__timeline-text { font-size: 0.84rem; }
 
 .org-home__skeleton--top {
   width: 55%;

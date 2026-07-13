@@ -180,6 +180,7 @@ _AUDITOR_TECHNICAL_PLAYBOOKS: tuple[dict[str, Any], ...] = (
                 "label": "Amazon GuardDuty",
                 "verified_text": "GuardDuty is enabled and its collected findings report no open gaps.",
                 "action_text": "Enable GuardDuty or review its unresolved detector findings.",
+                "activation_text": "Enable Amazon GuardDuty for continuous threat detection.",
                 "checks": (
                     "guardduty.detector.not_enabled",
                     "guardduty.open_findings",
@@ -248,6 +249,7 @@ _AUDITOR_TECHNICAL_PLAYBOOKS: tuple[dict[str, Any], ...] = (
                 "label": "CloudTrail configuration",
                 "verified_text": "CloudTrail coverage, integrity, encryption, and log delivery checks report no open gaps.",
                 "action_text": "Enable CloudTrail or review trail integrity and delivery settings.",
+                "activation_text": "Enable CloudTrail audit logging for the account.",
                 "prefixes": ("cloudtrail.trail.",),
                 "activation_checks": ("cloudtrail.trail.not_enabled",),
                 "action_label": "Enable",
@@ -260,6 +262,7 @@ _AUDITOR_TECHNICAL_PLAYBOOKS: tuple[dict[str, Any], ...] = (
                 "label": "AWS Config recording",
                 "verified_text": "AWS Config recording and collected rule results report no open gaps.",
                 "action_text": "Enable AWS Config or review non-compliant managed rules.",
+                "activation_text": "Turn on AWS Config recording for the account.",
                 "checks": ("aws.config.not_enabled", "aws.config.rules_non_compliant"),
                 "activation_checks": ("aws.config.not_enabled",),
                 "action_label": "Enable",
@@ -367,6 +370,7 @@ _AUDITOR_TECHNICAL_PLAYBOOKS: tuple[dict[str, Any], ...] = (
                 ),
                 "activation_checks": ("aws.access_analyzer.not_enabled",),
                 "action_text": "Enable Access Analyzer or review external trust relationships.",
+                "activation_text": "Enable IAM Access Analyzer for external-access visibility.",
                 "action_label": "Enable",
                 "action_url": "https://console.aws.amazon.com/access-analyzer/home",
                 "activation_label": "Enable IAM Access Analyzer",
@@ -955,8 +959,12 @@ def _technical_playbook_items(
             action_label = None
             action_url = None
         else:
-            summary = definition["action_text"]
             action_kind = "activate" if activate else "review"
+            summary = (
+                definition.get("activation_text") or definition["action_text"]
+                if activate
+                else definition["action_text"]
+            )
             action_label = (
                 definition.get("action_label") if activate else "Review"
             )
@@ -965,11 +973,11 @@ def _technical_playbook_items(
             {
                 "key": definition["key"],
                 "check_ids": check_ids,
+                # An actionable enablement row should read like a checklist task.
+                # Review-only rows retain their neutral auditor-facing label.
                 "label": (
-                    definition.get("activation_label", definition["label"])
-                    if state == "action" and activate
-                    else definition.get("review_label", definition["label"])
-                    if state == "action"
+                    definition.get("activation_label") or definition["label"]
+                    if activate
                     else definition["label"]
                 ),
                 "status": state,
@@ -989,6 +997,8 @@ def _technical_playbook_items(
                 "action_kind": action_kind,
                 "action_label": action_label,
                 "action_url": action_url,
+                "is_enablement": bool(activation_checks),
+                "activation_label": definition.get("activation_label"),
                 "recovery_priority": definition.get("recovery_priority", 99),
             }
         )

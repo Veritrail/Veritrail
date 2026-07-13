@@ -3681,7 +3681,7 @@ function compliancePageHref(ctrl: MappedControl, accountId?: string | null) {
 function compositeComplianceHref(compositeId: string, accountId?: string | null) {
   const params = new URLSearchParams({ framework: "soc2", composite: compositeId });
   if (accountId) params.set("account_id", accountId);
-  return `/controls?${params}`;
+  return `/checklist?${params}`;
 }
 
 function mappedControlLabel(ctrl: MappedControl) {

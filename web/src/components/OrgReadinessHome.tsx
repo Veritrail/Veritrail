@@ -333,7 +333,7 @@ export function OrgReadinessHome() {
       key: "controls:failing",
       title: "Review failing controls",
       detail: `${controlsSummary.failing} control${controlsSummary.failing === 1 ? "" : "s"} need attention`,
-      href: "/controls?framework=soc2",
+      href: "/checklist?framework=soc2",
     });
   }
 
@@ -487,7 +487,7 @@ export function OrgReadinessHome() {
                 {capabilityItems.length > enableActions.length ? (
                   <div className="org-home__next-footer">
                     {capabilityItems.length - enableActions.length} additional enablement priorit{capabilityItems.length - enableActions.length === 1 ? "y" : "ies"} ·{" "}
-                    <Link to="/audit">Audit <span aria-hidden>→</span></Link>
+                    <Link to="/checklist">Checklist <span aria-hidden>→</span></Link>
                   </div>
                 ) : null}
               </div>
@@ -497,9 +497,9 @@ export function OrgReadinessHome() {
       </div>
 
       {awsAccounts.length > 0 ? (
-        <section className="org-home__timeline-section org-home__timeline-section--compact" aria-label="Recent AWS activity">
+        <section className="org-home__timeline-section org-home__timeline-section--compact" aria-label="Timeline">
           <div className="org-home__section-head">
-            <h2 className="org-home__section-title">Recent AWS activity</h2>
+            <h2 className="org-home__section-title">Timeline</h2>
           </div>
           {timelineEvents.length === 0 ? (
             <p className="org-home__timeline-empty">AWS activity appears after the first completed scan.</p>

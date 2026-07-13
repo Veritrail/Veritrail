@@ -271,6 +271,40 @@ def test_ec2_inspector_is_not_assessed_without_positive_enablement_evidence():
     assert "cannot distinguish" in items[0]["summary"]
 
 
+def test_enablement_capabilities_are_distinct_from_review_only_requirements():
+    controls = [
+        {
+            "control_id": "CC6.2",
+            "check_evidence_classes": {
+                "iam.root.no_mfa": "benchmark",
+                "iam.user.credentials_unused_45d": "benchmark",
+                "aws.access_analyzer.not_enabled": "benchmark",
+            },
+            "findings": [],
+            "exceptions": [],
+        }
+    ]
+    playbook = next(
+        definition
+        for definition in _AUDITOR_TECHNICAL_PLAYBOOKS
+        if definition["key"] == "identity_access"
+    )
+
+    items = _technical_playbook_items(
+        playbook,
+        controls,
+        framework="soc2",
+        named_sources=[],
+        scanned_entity_types=set(),
+    )
+    by_key = {item["key"]: item for item in items}
+
+    assert by_key["root_and_admin"]["is_enablement"] is False
+    assert by_key["credential_hygiene"]["is_enablement"] is False
+    assert by_key["external_access"]["is_enablement"] is True
+    assert by_key["external_access"]["activation_label"] == "Enable IAM Access Analyzer"
+
+
 def test_dr_rows_are_na_without_stateful_resources():
     controls = [
         {

@@ -58,28 +58,6 @@ function HomeNavIcon() {
   );
 }
 
-/** Shield-check for Audit readiness — no PNG in the sidebar set; drawn inline
- *  and dimmed to sit flush with the masked-PNG icons. */
-function AuditNavIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.5}
-      opacity={0.9}
-      aria-hidden
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M12 3l7 3v5c0 4.5-3 8.4-7 9.5C8 19.4 5 15.5 5 11V6l7-3Z"
-      />
-      <path strokeLinecap="round" strokeLinejoin="round" d="m9.25 11.75 2 2 3.5-4" />
-    </svg>
-  );
-}
-
 type AccountRow = { status: string; account_id: string | null };
 
 const DEFAULT_HISTORY_FRAMEWORK = "soc2";
@@ -274,14 +252,14 @@ export default function Layout() {
             <span className="app-sidebar__label">Findings</span>
           </SidebarNavLink>
 
-          <SidebarNavLink to="/controls" title="Compliance">
+          <SidebarNavLink to="/checklist" title="Checklist">
             <SidebarIcon name="compliance" />
-            <span className="app-sidebar__label">Compliance</span>
+            <span className="app-sidebar__label">Checklist</span>
           </SidebarNavLink>
 
-          <SidebarNavLink to="/audit" title="Audit readiness">
-            <AuditNavIcon />
-            <span className="app-sidebar__label">Audit readiness</span>
+          <SidebarNavLink to="/controls" title="Criteria">
+            <SidebarIcon name="compliance" />
+            <span className="app-sidebar__label">Criteria</span>
           </SidebarNavLink>
 
           <SidebarNavLink to="/history" title="History">

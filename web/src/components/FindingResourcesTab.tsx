@@ -194,8 +194,16 @@ function ResourceWhyAffectedCompact({ finding }: { finding: ResourcesTabFinding 
   const reason = resourceAffectedReasonParts(finding);
   const accessibleReason = reason.detail ? `${reason.title}. ${reason.detail}` : reason.title;
   const detailParts = reason.detail.split(" · ").filter(Boolean);
+  const severity = finding.severity.trim().toLowerCase();
+  const severityClass = ["critical", "high", "medium", "low"].includes(severity)
+    ? `is-${severity}`
+    : "is-neutral";
   return (
-    <div className="finding-resources-tab__reason" title={accessibleReason}>
+    <div
+      className={`finding-resources-tab__reason ${severityClass}`}
+      title={accessibleReason}
+      data-severity={severity || "unknown"}
+    >
       <div className="finding-resources-tab__reason-copy">
         <p className="finding-resources-tab__reason-title">{reason.title}</p>
         {detailParts.length ? (

@@ -1754,7 +1754,8 @@
   border-top: 1px solid #f1f5f9;
 }
 
-.history-controls__row:hover { background: #f8fafc; }
+.history-controls__row:hover,
+.history-controls__row.is-expanded { background: #f8fafc; }
 .history-controls__status-dot { width: .48rem; height: .48rem; border-radius: 999px; background: #cbd5e1; }
 .history-controls__status-dot.is-pass { background: #22b996; box-shadow: 0 0 0 3px #e6f8f3; }
 .history-controls__status-dot.is-fail { background: #eb7774; box-shadow: 0 0 0 3px #fff0ef; }
@@ -1797,6 +1798,13 @@
 .history-controls__row-meta { overflow: hidden; color: #94a3b8; font-size: .66rem; font-weight: 500; text-overflow: ellipsis; }
 .history-controls__row-arrow { color: #a7b1bf; transition: transform .15s, color .15s; }
 .history-controls__row:hover .history-controls__row-arrow { color: #0f766e; transform: translateX(2px); }
+
+.history-controls__row-drill {
+  padding: 0.8rem 3.45rem 1rem;
+  border-top: 1px solid #edf0f4;
+  border-bottom: 1px solid #edf0f4;
+  background: #fbfcfd;
+}
 
 .history-controls__drill {
   padding: 0;

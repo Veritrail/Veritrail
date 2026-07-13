@@ -8,17 +8,17 @@ const FIXTURES = [
   {
     check_id: "iam.role.least_privilege_policy",
     evidence: { sources: ["customer managed full admin: AdminAccessPolicy"] },
-    expected: "Full admin access — Customer-managed · AdminAccessPolicy",
+    expected: "Role has full administrator access — Customer-managed · AdminAccessPolicy",
   },
   {
     check_id: "iam.role.least_privilege_policy",
     evidence: { scope: "full_admin" },
-    expected: "Full admin access — Action:* · Resource:*",
+    expected: "Role has full administrator access — Action:* · Resource:*",
   },
   {
     check_id: "iam.user.admin_policy_attached",
     evidence: { admin_policies: ["AdministratorAccess"] },
-    expected: "Full admin via managed policy — Attached · AdministratorAccess",
+    expected: "User has full administrator access — Managed policy · AdministratorAccess",
   },
   {
     check_id: "ec2.security_group.unrestricted_ssh",
@@ -39,22 +39,22 @@ const FIXTURES = [
   {
     check_id: "kms.key.policy_wildcard_principal",
     evidence: { alias: "alias/prod-secrets", key_id: "abc-123" },
-    expected: "Any principal can use KMS key — Principal:* · alias/prod-secrets",
+    expected: "KMS key permits any principal — Principal:* · alias/prod-secrets",
   },
   {
     check_id: "iam.role.external_account_trust",
     evidence: { external_account_ids: ["111122223333", "444455556666"] },
-    expected: "External account can assume role — Trusted · 111122223333, 444455556666",
+    expected: "External AWS account can assume this role — Trusted · 111122223333, 444455556666",
   },
   {
     check_id: "iam.access_key.unused_90d",
     evidence: { days_unused: 120 },
-    expected: "Stale access key — No use · 120+ days",
+    expected: "Unused access key remains active — No use · 120+ days",
   },
   {
     check_id: "s3.bucket.no_kms",
     evidence: {},
-    expected: "No KMS encryption — No customer-controlled key protection",
+    expected: "Bucket lacks KMS-backed encryption — No customer-controlled key protection",
   },
 ] as const;
 

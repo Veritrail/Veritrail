@@ -621,6 +621,8 @@ export const auditReadinessSchema = z.object({
       action_kind: z.enum(["activate", "review"]).nullable(),
       action_label: z.string().nullable(),
       action_url: z.string().nullable(),
+      is_enablement: z.boolean(),
+      activation_label: z.string().nullable(),
     })),
     additional_action_count: z.number(),
     controls: z.array(z.string()),

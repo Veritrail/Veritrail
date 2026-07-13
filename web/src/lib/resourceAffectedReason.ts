@@ -12,12 +12,24 @@ export type ResourceAffectedReason = {
 
 /** Static copy where evidence adds no per-resource detail beyond the check category. */
 const STATIC_RESOURCE_AFFECTED_DETAIL: Record<string, ResourceAffectedReason> = {
-  "s3.bucket.public_access_not_blocked": { title: "Public access allowed", detail: "Bucket data can be exposed" },
+  "s3.bucket.public_access_not_blocked": {
+    title: "Public-access protection is incomplete",
+    detail: "Bucket policy or ACL can expose data",
+  },
   "s3.account.public_access_not_blocked":
-    { title: "Account public access guardrails off", detail: "One bucket change can expose data" },
-  "s3.bucket.no_https_policy": { title: "Unencrypted HTTP allowed", detail: "Data can be intercepted in transit" },
-  "s3.bucket.no_kms": { title: "No KMS encryption", detail: "No customer-controlled key protection" },
-  "s3.bucket.no_logging": { title: "Data access not logged", detail: "Reads and writes can go undetected" },
+    { title: "Account-wide public-access guardrails are off", detail: "One bucket change can expose data" },
+  "s3.bucket.no_https_policy": {
+    title: "Bucket accepts unencrypted HTTP",
+    detail: "Data can be intercepted in transit",
+  },
+  "s3.bucket.no_kms": {
+    title: "Bucket lacks KMS-backed encryption",
+    detail: "No customer-controlled key protection",
+  },
+  "s3.bucket.no_logging": {
+    title: "Bucket access is not logged",
+    detail: "Reads and writes leave no access trail",
+  },
 };
 
 type EvidenceReasonBuilder = (evidence: Record<string, unknown>) => ResourceAffectedReason | null;
@@ -82,34 +94,34 @@ const EVIDENCE_REASON_BUILDERS: Record<string, EvidenceReasonBuilder> = {
     if (sources.length) {
       return {
         title: scope === "full_admin" || sources.some((source) => source.includes("full admin"))
-          ? "Full admin access"
-          : "Wildcard actions granted",
+          ? "Role has full administrator access"
+          : "Role grants wildcard actions",
         detail: sources.map(policySourceDetail).join(" · "),
       };
     }
-    if (scope === "full_admin") return { title: "Full admin access", detail: "Action:* · Resource:*" };
-    if (scope === "wildcard_action") return { title: "Wildcard actions granted", detail: "Action:* · Scoped resources" };
+    if (scope === "full_admin") return { title: "Role has full administrator access", detail: "Action:* · Resource:*" };
+    if (scope === "wildcard_action") return { title: "Role grants wildcard actions", detail: "Action:* · Scoped resources" };
     return null;
   },
 
   "iam.user.admin_policy_attached": (evidence) => {
     const policies = asStringArray(evidence.admin_policies);
     if (!policies.length) return null;
-    return { title: "Full admin via managed policy", detail: `Attached · ${policies.join(", ")}` };
+    return { title: "User has full administrator access", detail: `Managed policy · ${policies.join(", ")}` };
   },
 
   "iam.role.external_account_trust": (evidence) => {
     const accounts = asStringArray(evidence.external_account_ids);
     if (!accounts.length) return null;
-    return { title: "External account can assume role", detail: `Trusted · ${accounts.join(", ")}` };
+    return { title: "External AWS account can assume this role", detail: `Trusted · ${accounts.join(", ")}` };
   },
 
-  "iam.role.trust_wildcard": () => ({ title: "Any principal can assume role", detail: "Principal:*" }),
+  "iam.role.trust_wildcard": () => ({ title: "Any AWS principal can assume this role", detail: "Principal:*" }),
 
   "iam.policy.wildcard_resource": (evidence) => {
     const names = asStringArray(evidence.policy_names);
     if (!names.length) return null;
-    return { title: "Wildcard resources on write access", detail: `Resource:* · ${names.join(", ")}` };
+    return { title: "Write access spans every resource", detail: `Resource:* · ${names.join(", ")}` };
   },
 
   "iam.perm.granted_vs_used": (evidence) => {
@@ -117,7 +129,7 @@ const EVIDENCE_REASON_BUILDERS: Record<string, EvidenceReasonBuilder> = {
     const pct = asNumber(evidence.unused_pct);
     if (!unused.length && pct == null) return null;
     const amount = pct != null ? `${pct}% unused` : `${unused.length} unused`;
-    return { title: "Unused write permissions", detail: `${amount} · 90 days` };
+    return { title: "Role retains unused write access", detail: `${amount} · 90 days` };
   },
 
   "iam.role.unused_services_90d": (evidence) => {
@@ -125,32 +137,38 @@ const EVIDENCE_REASON_BUILDERS: Record<string, EvidenceReasonBuilder> = {
     if (!unused.length) return null;
     const preview = unused.slice(0, 4).join(", ");
     const suffix = unused.length > 4 ? ` (+${unused.length - 4} more)` : "";
-    return { title: "Unused service permissions", detail: `${preview}${suffix} · 90 days` };
+    return { title: "Role retains unused service access", detail: `${preview}${suffix} · 90 days` };
+  },
+
+  "iam.user.credentials_unused_45d": (evidence) => {
+    const days = asNumber(evidence.days_inactive);
+    if (days == null) return null;
+    return { title: "Inactive console user still has access", detail: `No sign-in · ${days}+ days` };
   },
 
   "iam.access_key.unused_90d": (evidence) => {
     const days = asNumber(evidence.days_unused);
     if (days == null) return null;
-    return { title: "Stale access key", detail: `No use · ${days}+ days` };
+    return { title: "Unused access key remains active", detail: `No use · ${days}+ days` };
   },
 
   "iam.access_key.unused_45d": (evidence) => {
     const days = asNumber(evidence.days_unused);
     if (days == null) return null;
-    return { title: "Stale access key", detail: `No use · ${days}+ days` };
+    return { title: "Unused access key remains active", detail: `No use · ${days}+ days` };
   },
 
   "iam.access_key.no_rotation_90d": (evidence) => {
     const age = asNumber(evidence.age_days);
     if (age == null) return null;
     const threshold = asNumber(evidence.threshold_days) ?? 90;
-    return { title: "Key rotation overdue", detail: `${age} days old · ${threshold}-day limit` };
+    return { title: "Access key rotation is overdue", detail: `${age} days old · ${threshold}-day limit` };
   },
 
   "iam.role.unassumed_90d": (evidence) => {
     const days = asNumber(evidence.days_since_used);
     if (days == null) return null;
-    return { title: "Stale IAM role", detail: `Not assumed · ${days}+ days` };
+    return { title: "Stale IAM role still grants access", detail: `Not assumed · ${days}+ days` };
   },
 
   "ec2.security_group.unrestricted_ssh": (evidence) =>
@@ -166,25 +184,25 @@ const EVIDENCE_REASON_BUILDERS: Record<string, EvidenceReasonBuilder> = {
     if (evidence.has_inbound_rules === true) parts.push("non-default inbound rules");
     if (evidence.has_outbound_rules === true) parts.push("non-default outbound rules");
     if (!parts.length) return null;
-    return { title: "Unsafe default security group", detail: parts.join(" and ") };
+    return { title: "Default security group permits traffic", detail: parts.join(" and ") };
   },
 
   "kms.key.policy_wildcard_principal": (evidence) =>
-    ({ title: "Any principal can use KMS key", detail: `Principal:* · ${kmsKeyLabel(evidence)}` }),
+    ({ title: "KMS key permits any principal", detail: `Principal:* · ${kmsKeyLabel(evidence)}` }),
 
   "kms.key.no_rotation": (evidence) =>
-    ({ title: "KMS key rotation disabled", detail: kmsKeyLabel(evidence) }),
+    ({ title: "KMS key is not rotating", detail: kmsKeyLabel(evidence) }),
 
   "elb.load_balancer.weak_tls_policy": (evidence) => {
     const policy = evidence.ssl_policy;
     if (typeof policy !== "string" || !policy.trim()) return null;
-    return { title: "Weak TLS policy", detail: policy };
+    return { title: "Load balancer uses weak TLS", detail: policy };
   },
 
   "lambda.function.deprecated_runtime": (evidence) => {
     const runtime = evidence.runtime;
     if (typeof runtime !== "string" || !runtime.trim()) return null;
-    return { title: "Unsupported runtime", detail: `${runtime} · No security fixes` };
+    return { title: "Lambda runs an unsupported runtime", detail: `${runtime} · No security fixes` };
   },
 
   "acm.certificate.expiring": (evidence) => {

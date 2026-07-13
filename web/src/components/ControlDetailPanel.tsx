@@ -45,7 +45,7 @@ function CollapsibleHeaderDescription({ children }: { children: ReactNode }) {
   );
 }
 
-export type ControlDetailTabId = "overview" | "gaps" | "evidence" | "mappings" | "guidance";
+export type ControlDetailTabId = "overview" | "gaps" | "evidence" | "checks" | "mappings" | "guidance";
 
 export type ControlDetailTab = {
   id: ControlDetailTabId;
