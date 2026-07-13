@@ -57,7 +57,8 @@ def oauth_avatar_fallback_url(user: User) -> str | None:
 
 def resolve_user_avatar_url(user: User, *, persist_fallback: bool = False) -> str | None:
     """Stored avatar_url, else a provider-ID fallback when available."""
-    stored = (user.avatar_url or "").strip()
+    raw = user.avatar_url
+    stored = raw.strip() if isinstance(raw, str) else ""
     if stored.startswith("http"):
         return stored
     fallback = oauth_avatar_fallback_url(user)

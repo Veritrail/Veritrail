@@ -610,7 +610,8 @@ def get_me(principal: dict = Depends(current_principal), db: Session = Depends(g
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "user not found")
     from app.services.user_display_name import resolve_user_avatar_url
 
-    had_avatar = bool((user.avatar_url or "").strip())
+    raw_avatar = user.avatar_url
+    had_avatar = bool(isinstance(raw_avatar, str) and raw_avatar.strip())
     avatar_url = resolve_user_avatar_url(user, persist_fallback=True)
     if not had_avatar and avatar_url:
         db.commit()
