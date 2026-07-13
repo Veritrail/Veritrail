@@ -8,7 +8,11 @@ import { howToForCheck } from "../lib/activationRunbooks";
 import { auditReadinessSchema } from "../lib/apiSchemas";
 import { controlFamily } from "../lib/controlFamilies";
 import { openAbsenceGapChecks } from "../lib/evidenceGap";
-import { resourceRegionForFinding, resourceShortName } from "../lib/findingDisplay";
+import {
+  resourceRegionForFinding,
+  resourceShortName,
+  type FindingLike,
+} from "../lib/findingDisplay";
 import { manualEvidenceHint } from "../lib/manualEvidenceHints";
 import type { ExternalEvidenceArtifact } from "../lib/externalEvidence";
 import {
@@ -45,6 +49,7 @@ type ReadinessPlaybookItem = {
   action_kind: "activate" | "review" | null;
   action_url: string | null;
   activation_label: string | null;
+  is_enablement: boolean;
 };
 
 type SelectedTechnicalStep = {
@@ -178,6 +183,17 @@ function primaryCheckForHowTo(
   return checkIds[0];
 }
 
+function findingForDisplay(f: ChecklistOpenFinding): FindingLike {
+  return {
+    check_id: f.check_id,
+    resource_arn: f.resource_arn,
+    evidence: f.evidence ?? {},
+    first_seen: "",
+    risk_score: 0,
+    severity: "",
+  };
+}
+
 function affectedResourcesForStep(
   checkIds: string[],
   openFindingsByCheck: Map<string, ChecklistOpenFinding[]>,
@@ -186,8 +202,9 @@ function affectedResourcesForStep(
   const out: { name: string; region: string }[] = [];
   for (const checkId of checkIds) {
     for (const finding of openFindingsByCheck.get(checkId) ?? []) {
-      const name = resourceShortName(finding);
-      const region = resourceRegionForFinding(finding);
+      const displayFinding = findingForDisplay(finding);
+      const name = resourceShortName(displayFinding);
+      const region = resourceRegionForFinding(displayFinding);
       const key = `${name}\0${region}`;
       if (seen.has(key)) continue;
       seen.add(key);
