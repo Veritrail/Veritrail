@@ -1,4 +1,4 @@
-"""CFN launch URLs reflect account connection options (parent stack + nested children)."""
+"""CFN launch URLs reflect account connection options (single flat read-only stack)."""
 
 from unittest.mock import MagicMock
 
@@ -29,11 +29,11 @@ def test_launch_url_new_stack_name():
     url = _launch_url(
         "ext-abc",
         stack_name=settings.CFN_STACK_NAME,
-        enable_advanced_policy_generation=False,
         remediation_modules=_MODULES_OFF,
     )
     assert f"stackName={settings.CFN_STACK_NAME}" in url
-    assert "param_EnableAdvancedPolicyGeneration=No" in url
+    assert "EnableAdvancedPolicyGeneration" not in url
+    assert "CoreScannerTemplateURL" not in url
     assert "RemediationTemplateURL" not in url
     assert "EnableSecurityGroupRemediation" not in url
 
@@ -42,7 +42,6 @@ def test_update_launch_url_opens_filtered_stack_list():
     url = _update_launch_url(
         "ext-abc",
         stack_name=settings.CFN_STACK_NAME_LEGACY,
-        enable_advanced_policy_generation=True,
         remediation_modules=_MODULES_OFF,
     )
     assert "#/stacks?filteringText=" in url
@@ -57,7 +56,6 @@ def test_update_launch_url_defaults_empty_stack_name():
     url = _update_launch_url(
         "ext-abc",
         stack_name="",
-        enable_advanced_policy_generation=False,
         remediation_modules=_MODULES_OFF,
     )
     assert f"filteringText={settings.CFN_STACK_NAME}" in url
@@ -67,11 +65,11 @@ def test_cli_uses_stack_name():
     cli = _cli_command(
         "ext-abc",
         stack_name=settings.CFN_STACK_NAME,
-        enable_advanced_policy_generation=False,
         remediation_modules=_MODULES_OFF,
     )
     assert f"--stack-name {settings.CFN_STACK_NAME}" in cli
     assert "--region" in cli
+    assert "CoreScannerTemplateURL" not in cli
     assert "RemediationTemplateURL" not in cli
 
 
@@ -79,11 +77,11 @@ def test_update_cli_uses_update_stack():
     cli = _update_cli_command(
         "ext-abc",
         stack_name=settings.CFN_STACK_NAME_LEGACY,
-        enable_advanced_policy_generation=True,
         remediation_modules=_MODULES_OFF,
     )
     assert "aws cloudformation update-stack" in cli
     assert f"--stack-name {settings.CFN_STACK_NAME_LEGACY}" in cli
+    assert "CoreScannerTemplateURL" not in cli
     assert "RemediationTemplateURL" not in cli
 
 
@@ -96,8 +94,6 @@ def _mock_account(*, status: str, cfn_stack_name: str) -> MagicMock:
     acc.external_id = "ext-abc"
     acc.role_arn = None
     acc.last_error = None
-    acc.enable_advanced_policy_generation = False
-    acc.advanced_policy_generation_deployed = False
     acc.cfn_stack_name = cfn_stack_name
     acc.last_scan_at = None
     acc.cloudtrail_onboarding_mode = None
@@ -120,8 +116,8 @@ def test_account_out_launch_uses_current_even_when_db_legacy():
     assert out.cfn_stack_name == settings.CFN_STACK_NAME
     assert f"stackName={settings.CFN_STACK_NAME}" in out.cfn_launch_url
     assert f"--stack-name {settings.CFN_STACK_NAME}" in out.cfn_cli_command
-    assert "param_CoreScannerTemplateURL=" in out.cfn_launch_url
-    assert "ParameterKey=CoreScannerTemplateURL,ParameterValue=" in out.cfn_cli_command
+    assert "CoreScannerTemplateURL" not in out.cfn_launch_url
+    assert "CoreScannerTemplateURL" not in out.cfn_cli_command
     assert out.remediation_cfn_template_url is None
 
 

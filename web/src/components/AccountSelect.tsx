@@ -108,7 +108,7 @@ export function providerDisplayName(provider?: ScopeProvider): string {
 
 /** Primary line for account pickers (label, or formatted external id). */
 export function accountDisplayName(account: AccountOption & { scopeMeta?: string | null }): string {
-  if (account.provider === "all_cloud") return "All accounts";
+  if (account.provider === "all_cloud") return account.label?.trim() || "All accounts";
   if (account.provider === "source_control") return "Source control";
   if (account.provider === "identity") return "Identity & devices";
   if (account.label?.trim()) return account.label.trim();

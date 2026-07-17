@@ -101,7 +101,6 @@ def get_connector_update_artifacts(
             external_id=acc.external_id,
             stack_name=stack_name,
             version_tag=tag,
-            enable_advanced_policy_generation=acc.enable_advanced_policy_generation,
         ),
         current_version_tag=get_settings().CFN_TEMPLATE_VERSION,
         recommended_version_tag=RECOMMENDED_CONNECTOR_VERSION,

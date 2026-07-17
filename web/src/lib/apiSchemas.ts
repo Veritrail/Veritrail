@@ -100,7 +100,6 @@ export const accountSchema = z
     status: z.string(),
     external_id: z.string().optional(),
     role_arn: z.string().nullable().optional(),
-    enable_advanced_policy_generation: z.boolean().optional(),
     last_scan_at: z.string().nullable().optional(),
   })
   .passthrough();
@@ -917,45 +916,16 @@ export const clientIpSchema = z
   })
   .passthrough();
 
-/** GET /v1/accounts/{id}/roles/policy-generation/status — CloudTrail policy-gen job. */
-export const policyGenerationStatusSchema = z
-  .object({
-    status: z.string().optional(),
-    job_id: z.string().optional(),
-    started_on: z.string().optional(),
-    completed_on: z.string().optional(),
-    region: z.string().optional(),
-    detail: z.string().optional(),
-  })
-  .passthrough();
-
-export type PolicyGenerationStatus = z.infer<typeof policyGenerationStatusSchema>;
 
 /** GET /v1/accounts/{id}/roles/generated-policy — least-privilege proposal. */
 export const generatedPolicySchema = z
   .object({
     has_inline_policies: z.boolean().optional(),
     confidence: z.enum(["high", "medium", "low"]).optional(),
-    improve_via_cloudtrail: z.boolean().optional(),
     observed_action_count: z.number().optional(),
     source_label: z.string().nullable().optional(),
     cleaned_policies: z.record(z.string(), z.unknown()).nullable().optional(),
     original_policies: z.record(z.string(), z.unknown()).nullable().optional(),
-    cloudtrail_analysis: z
-      .object({
-        ready: z.boolean(),
-        status: z.string(),
-        message: z.string().nullable().optional(),
-      })
-      .passthrough()
-      .optional(),
-    access_analyzer: z
-      .object({
-        available: z.boolean().optional(),
-        reason: z.string().nullable().optional(),
-      })
-      .passthrough()
-      .optional(),
   })
   .passthrough();
 

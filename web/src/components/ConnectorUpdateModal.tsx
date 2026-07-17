@@ -11,7 +11,6 @@ type ConnectorUpdateAccount = {
   cfn_template_version: string | null;
   cfn_launch_url: string;
   external_id: string;
-  enable_advanced_policy_generation: boolean;
   remediation_modules: RemediationModules;
 };
 
@@ -63,10 +62,6 @@ function truncateToken(value: string, head = 20, tail = 8): string {
 function buildWhatChangedRows(
   acc: ConnectorUpdateAccount,
   selectedTag: string,
-  opts: {
-    enable_advanced_policy_generation: boolean;
-    remediation_modules: RemediationModules;
-  },
 ): WhatChangedRow[] {
   const deployed = normalizeVersionTag(acc.cfn_template_version);
   const selected = normalizeVersionTag(selectedTag);
@@ -92,10 +87,8 @@ function buildWhatChangedRows(
   }
 
   rows.push({
-    label: "Advanced policy generation",
-    detail: opts.enable_advanced_policy_generation
-      ? "Enabled for this connector version."
-      : "Not enabled for this account in this update.",
+    label: "Access",
+    detail: "Read-only connector — no write access to your resources.",
   });
 
   rows.push({
@@ -128,11 +121,6 @@ export function ConnectorUpdateModal({
   open: boolean;
   onClose: () => void;
 }) {
-  const opts = {
-    enable_advanced_policy_generation: acc.enable_advanced_policy_generation,
-    remediation_modules: acc.remediation_modules,
-  };
-
   const versionsQuery = useQuery({
     queryKey: ["connector-versions"],
     queryFn: () => api<ConnectorVersionsResponse>("/v1/accounts/connector-versions"),
@@ -140,14 +128,14 @@ export function ConnectorUpdateModal({
     staleTime: 60_000,
   });
 
-  const recommended = versionsQuery.data?.recommended_version_tag ?? "2026.06";
+  const recommended = versionsQuery.data?.recommended_version_tag ?? "2026.07";
   const [selectedTag, setSelectedTag] = useState(recommended);
   const [cmdExpanded, setCmdExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (!open) return;
-    setSelectedTag(versionsQuery.data?.recommended_version_tag ?? "2026.06");
+    setSelectedTag(versionsQuery.data?.recommended_version_tag ?? "2026.07");
     setCmdExpanded(false);
     setCopied(false);
   }, [open, versionsQuery.data?.recommended_version_tag]);
@@ -157,8 +145,7 @@ export function ConnectorUpdateModal({
       "connector-update",
       acc.id,
       selectedTag,
-      opts.enable_advanced_policy_generation,
-      opts.remediation_modules,
+      acc.remediation_modules,
     ],
     queryFn: () =>
       api<ConnectorUpdateArtifacts>(
@@ -182,8 +169,8 @@ export function ConnectorUpdateModal({
     normalizeVersionTag(deployedVersionTag) === normalizeVersionTag(selectedTag);
 
   const whatChanged = useMemo(
-    () => buildWhatChangedRows(acc, selectedTag, opts),
-    [acc, selectedTag, acc.enable_advanced_policy_generation, acc.remediation_modules],
+    () => buildWhatChangedRows(acc, selectedTag),
+    [acc, selectedTag, acc.remediation_modules],
   );
 
   const launchMeta = useMemo(() => parseCfnLaunchMeta(acc.cfn_launch_url), [acc.cfn_launch_url]);

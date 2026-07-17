@@ -31,7 +31,7 @@ import {
   type FindingsProviderScope,
   type FindingsScopeParams,
 } from "../hooks/useConnectedAccountOptions";
-import { readStoredSelectedAccountId, writeStoredSelectedAccountId } from "../lib/selectedAccountStorage";
+import { readStoredFindingsScopeId, writeStoredFindingsScopeId } from "../lib/selectedAccountStorage";
 import { useSelectedAccountId } from "../hooks/useSelectedAccountId";
 import { useTriggeredScan } from "../hooks/useTriggeredScan";
 import { prefetchJiraIntegration, useJiraIntegration } from "../hooks/useJiraIntegration";
@@ -792,7 +792,6 @@ export function FindingsWorkspace({ lockedAccountId, embedded = false }: Finding
   const [selectedFrameworks, setSelectedFrameworks] = useState<FrameworkId[]>(() =>
     syncFiltersToUrl ? parseFrameworkParam(searchParams.get("framework")) : [],
   );
-  const providerScope = isLocked ? null : parseProviderScope(searchParams.get("provider"));
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [expandedCheckIds, setExpandedCheckIds] = useState<Set<string>>(() => new Set());
   const [selectedGroupKeys, setSelectedGroupKeys] = useState<Set<string>>(() => new Set());
@@ -859,11 +858,37 @@ export function FindingsWorkspace({ lockedAccountId, embedded = false }: Finding
   const hasGitlab = !!gitlabProviderQ.data;
   const hasIdentity =
     !!entraProviderQ.data || !!googleWorkspaceProviderQ.data;
-  const scopeGroups = useMemo(
-    () => buildFindingsScopeGroups(cloudAccounts, { hasGithub, hasGitlab, hasIdentity }),
-    [cloudAccounts, hasGithub, hasGitlab, hasIdentity],
-  );
+  const scopeGroups = useMemo(() => {
+    const groups = buildFindingsScopeGroups(cloudAccounts, { hasGithub, hasGitlab, hasIdentity });
+    return groups.map((group) => ({
+      ...group,
+      options: group.options.map((option) =>
+        option.provider === "all_cloud" ? { ...option, label: "Workspace" } : option,
+      ),
+    }));
+  }, [cloudAccounts, hasGithub, hasGitlab, hasIdentity]);
   const connectedScopeOptions = useMemo(() => flattenScopeGroups(scopeGroups), [scopeGroups]);
+  const providerScope = useMemo((): FindingsProviderScope | null => {
+    if (isLocked) return null;
+    const fromUrl = parseProviderScope(searchParams.get("provider"));
+    if (fromUrl) return fromUrl;
+    if (searchParams.has("account_id") || searchParams.has("account")) return null;
+    if (!accountsReady) return null;
+
+    const stored = readStoredFindingsScopeId();
+    if (stored === ALL_CLOUD_SCOPE_ID && cloudAccounts.length >= 1) return "all_cloud";
+    if (stored === SOURCE_CONTROL_SCOPE_ID && (hasGithub || hasGitlab)) return "source_control";
+    if (stored === IDENTITY_SCOPE_ID && hasIdentity) return "identity";
+    return null;
+  }, [
+    accountsReady,
+    cloudAccounts.length,
+    hasGithub,
+    hasGitlab,
+    hasIdentity,
+    isLocked,
+    searchParams,
+  ]);
   const {
     accountId: selectedAccountId,
     activeAccount: selectedActiveAccount,
@@ -874,6 +899,11 @@ export function FindingsWorkspace({ lockedAccountId, embedded = false }: Finding
       cloudAccountCount: cloudAccounts.length,
       hasSourceControl: hasGithub || hasGitlab,
       hasIdentity,
+      scopeIds: [ALL_CLOUD_SCOPE_ID, SOURCE_CONTROL_SCOPE_ID, IDENTITY_SCOPE_ID],
+    },
+    storage: {
+      read: readStoredFindingsScopeId,
+      write: writeStoredFindingsScopeId,
     },
   });
   const effectiveAccountId = isLocked ? lockedAccountId! : providerScope ? "" : selectedAccountId;
@@ -895,11 +925,29 @@ export function FindingsWorkspace({ lockedAccountId, embedded = false }: Finding
       (!!providerScope || !!effectiveAccountId || connectedScopeOptions.length > 0);
 
   useEffect(() => {
+    if (isLocked || embedded || !accountsReady) return;
+
+    const fromUrl = parseProviderScope(searchParams.get("provider"));
+    if (fromUrl) {
+      const scopeId = findingsScopeDropdownValue(fromUrl, "");
+      if (scopeId.startsWith(SCOPE_SENTINEL_PREFIX)) {
+        writeStoredFindingsScopeId(scopeId);
+      }
+      return;
+    }
+
+    const urlAccountId = searchParams.get("account_id") || searchParams.get("account");
+    if (urlAccountId && cloudAccounts.some((account) => account.id === urlAccountId)) {
+      writeStoredFindingsScopeId(urlAccountId);
+    }
+  }, [accountsReady, cloudAccounts, embedded, isLocked, searchParams]);
+
+  useEffect(() => {
     if (isLocked || embedded) return;
     if (!accountsReady || accountsLoading) return;
     if (searchParams.has("provider") || searchParams.has("account_id")) return;
 
-    const stored = readStoredSelectedAccountId();
+    const stored = readStoredFindingsScopeId();
     if (stored === ALL_CLOUD_SCOPE_ID && cloudAccounts.length >= 1) {
       setSearchParams(
         (prev) => {
@@ -939,7 +987,7 @@ export function FindingsWorkspace({ lockedAccountId, embedded = false }: Finding
     if (stored && cloudAccounts.some((account) => account.id === stored)) return;
 
     if (cloudAccounts.length >= 1) {
-      writeStoredSelectedAccountId(ALL_CLOUD_SCOPE_ID);
+      writeStoredFindingsScopeId(ALL_CLOUD_SCOPE_ID);
       setSearchParams(
         (prev) => {
           const next = new URLSearchParams(prev);
@@ -952,7 +1000,7 @@ export function FindingsWorkspace({ lockedAccountId, embedded = false }: Finding
       return;
     }
     if (hasGithub || hasGitlab) {
-      writeStoredSelectedAccountId(SOURCE_CONTROL_SCOPE_ID);
+      writeStoredFindingsScopeId(SOURCE_CONTROL_SCOPE_ID);
       setSearchParams(
         (prev) => {
           const next = new URLSearchParams(prev);
@@ -965,7 +1013,7 @@ export function FindingsWorkspace({ lockedAccountId, embedded = false }: Finding
       return;
     }
     if (hasIdentity) {
-      writeStoredSelectedAccountId(IDENTITY_SCOPE_ID);
+      writeStoredFindingsScopeId(IDENTITY_SCOPE_ID);
       setSearchParams(
         (prev) => {
           const next = new URLSearchParams(prev);
@@ -1364,7 +1412,7 @@ export function FindingsWorkspace({ lockedAccountId, embedded = false }: Finding
       const scope = id.slice(SCOPE_SENTINEL_PREFIX.length);
       const provider = scopeSentinelToProvider(scope);
       if (!provider) return;
-      writeStoredSelectedAccountId(id);
+      writeStoredFindingsScopeId(id);
       setSearchParams(
         (prev) => {
           const next = new URLSearchParams(prev);
@@ -1376,7 +1424,7 @@ export function FindingsWorkspace({ lockedAccountId, embedded = false }: Finding
       );
       return;
     }
-    writeStoredSelectedAccountId(id);
+    writeStoredFindingsScopeId(id);
     setSelectedAccountId(id, { removeParams: ["provider"] });
   }
 

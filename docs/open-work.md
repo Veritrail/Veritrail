@@ -106,6 +106,35 @@ period-proof is the auditor portal.
 
 ---
 
+## 1b. Advanced IAM policy generation (Access Analyzer) — full rip — **done** (July 14, 2026)
+
+Removed the entire advanced Access Analyzer / CloudTrail policy-generation feature. The
+connector is now a single flat **read-only** template (`veritrail-stack.yaml`); deleted the
+nested `veritrail-core-scanner.yaml` / `veritrail-policy-generation.yaml` /
+`veritrail-readonly-role.yaml`. Backend: dropped the `roles/policy-generation/start|status`
+endpoints, `access_analyzer_policy.py` + `policy_generation_messages.py`, the
+`enable_advanced_policy_generation` / `advanced_policy_generation_deployed` columns
+(migration `0099`), and the advanced branches in `accounts_analysis.py` /
+`account_capabilities.py`. The read-only least-privilege **suggestion** (IAM last-accessed →
+`roles/generated-policy` → `PolicyProposalReview`) is kept. Frontend: removed the connector
+"Advanced IAM policy generation" toggle, the finding-drawer CloudTrail start/rebuild UI, the
+`useCloudTrailPolicyGen` hook, and the dormant CloudTrail notification subsystem
+(`RecheckNotificationsContext` + `NotificationsBell`). Backend 1001 tests pass; `tsc` + `npm
+run build` green.
+
+**Follow-ups (minor):** `verify-capabilities` endpoint is now a no-op and its 3 frontend
+`verifyCapabilities` mutations + `onVerifyCapabilities` props are dead (no UI trigger) — safe
+to prune later. CFN is **not** re-published to S3 — run `./scripts/upload-cfn.sh --dry-run`
+before deploying.
+
+## 1c. Checklist redesign (light/teal + ring + 4-tint phases) — **open** (spec ready)
+
+Locked design comp reskins `/checklist`. Full implementation spec:
+[checklist-redesign-spec.md](./checklist-redesign-spec.md). Tier 1 (CSS reskin) + tier 2
+(hero ring + category split-bar) are low-risk, frontend-only. Tier 3 (split Connect vs Attach
+into two phases) is a product decision — recommended frontend-only via a `collectionMode` field
+on `manualEvidenceHints`. App is already teal (`--vt-teal #0d9488`), so no blue→teal work.
+
 ## 2. Workspace page — old design, never restyled — **open**
 
 `/workspace` still uses the pre-redesign **structure**: 4-cell KPI strip
@@ -139,7 +168,27 @@ export-only (GRC-ready ZIP + upload instructions). Do not build the adapter befo
 Reference: `docs/grc-feed-validation.md`, `docs/grc-feed-api-runbook.md` (API details, still
 current, kept as reference docs — not merged here since they're research, not a build spec).
 
-## 9. Gap — check-less human criteria (CC7.4, A1.3, CC7.5, A1.1) can't receive external evidence — **open** (spec)
+## 7b. Deferred integrations (phase 8) — **open** (migrated from implementation-pipeline.md)
+
+The implementation-pipeline backlog shipped 170/174 items; these are the residual deferred
+integrations, kept here after that doc was pruned:
+- **Orca / Snyk / Aikido** — additional vulnerability scanners (Phase 8).
+- **Datadog / Splunk / SIEM** — log/monitoring evidence connectors (Phase 8).
+- **Kandji MDM** — device-management evidence (alongside existing Intune/Jamf).
+- **Azure management-group support** — org-level Azure onboarding (stretch).
+
+## 9. Gap — check-less human criteria (CC7.4 et al.) can't receive external evidence — **done**
+
+**Closed by the checklist consolidation.** CC6.4/CC6.5/CC7.3/CC7.4 render in the checklist
+"Policies and human processes" phase with evidence hints + "Attach evidence" → opens the control
+drawer's Evidence tab (gap-a made it render for `check_ids.length === 0`) → upload tagged to the
+exact `control_id`; accepted evidence flips the criterion to `externally_covered` (gap-d backend
+join + label). A1.1/A1.3 are moot — the A-series was removed from the SOC 2 seed; CC7.5 gained
+automated checks. Verified live July 2026. Original spec below (historical).
+
+### Original spec
+
+## 9-orig. Gap — check-less human criteria (spec)
 
 **Correction to an earlier verbal claim:** the runbook cannot currently be attached from CC7.4 /
 A1.3. Backend + model + upload modal support control-level tagging, and these criteria now appear in

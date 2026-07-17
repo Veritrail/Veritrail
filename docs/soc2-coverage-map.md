@@ -2,8 +2,7 @@
 
 _Created 2026-06-22. Control-level view of where Veritrail stands against the SOC 2
 Common Criteria, what each evidence source unlocks, and the order to close the
-gap. Complements [compliance-expansion-checklist.md](./compliance-expansion-checklist.md)
-(which is the check-level backlog); this doc is the **control-level** strategy._
+gap. This doc is the **control-level** strategy._
 
 ## TL;DR
 

@@ -429,6 +429,14 @@
   padding: 1.1rem 1.25rem 1.4rem;
 }
 
+/* Checklist step drawer: one continuous white surface flush to the drawer
+   edges — sections carry their own padding so hairline dividers span the full
+   width, aligned with the header border (no inset box). */
+.control-detail-panel__body:has(.checklist-step-drawer) {
+  background: var(--vt-surface);
+  padding: 0;
+}
+
 .control-detail-panel__body:has(.control-detail-stack--composite) {
   padding: 1.2rem 1.35rem 1.55rem;
 }
@@ -4091,29 +4099,57 @@
 
 .compliance-checklist-shell {
   width: 100%;
-  background: transparent;
+  min-height: 100%;
+  background: #f4f6f8;
 }
 
 .compliance-checklist {
+  --checklist-amber: #e0932a;
+  --checklist-amber-soft: #fbeacb;
+  --checklist-amber-ink: #8a5a0f;
+  --checklist-amber-line: rgba(224, 147, 42, 0.42);
+  --checklist-indigo: #5568c8;
+  --checklist-indigo-soft: #e3e7fa;
+  --checklist-indigo-ink: #3a4890;
+  --checklist-indigo-line: rgba(85, 104, 200, 0.4);
+  --checklist-violet: #8b6fd0;
+  --checklist-violet-soft: #ebe1fa;
+  --checklist-violet-ink: #5b419e;
+  --checklist-violet-line: rgba(139, 111, 208, 0.42);
+  --checklist-teal: #0d9488;
+  --checklist-teal-soft: #d3efeb;
+  --checklist-teal-ink: #0a6f66;
+  --checklist-teal-line: rgba(13, 148, 136, 0.36);
+  --checklist-border: #e7ebf0;
+  --checklist-muted: #5c697d;
+  --checklist-muted-light: #7b8798;
+  --checklist-track: #eceff3;
   display: flex;
   width: 100%;
+  max-width: 96rem;
   min-width: 0;
   flex-direction: column;
-  padding: 2.25rem 2.5rem 5rem;
+  margin-inline: auto;
+  padding: 2rem 2.5rem 5rem;
   background: transparent;
 }
 
 .compliance-checklist__intro {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: start;
-  gap: 1.25rem 2.5rem;
-  margin-bottom: 1.75rem;
+  grid-template-columns: minmax(0, 1fr) minmax(25rem, auto);
+  align-items: center;
+  gap: 2rem 3rem;
+  margin-bottom: 1.5rem;
+  padding: 2rem 2.25rem;
+  border: 1px solid var(--checklist-border);
+  border-radius: 1.25rem;
+  background: #fff;
+  box-shadow: 0 18px 40px -24px rgba(16, 24, 40, 0.16);
 }
 
 .compliance-checklist__eyebrow {
   margin: 0 0 0.35rem;
-  color: #64748b;
+  color: var(--checklist-teal-ink);
   font-size: 0.6875rem;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -4133,52 +4169,183 @@
 .compliance-checklist__intro-copy > p:not(.compliance-checklist__honesty) {
   max-width: 58rem;
   margin: 0.55rem 0 0;
-  color: #64748b;
+  color: var(--checklist-muted);
   font-size: 0.90625rem;
   line-height: 1.55;
 }
 
 .compliance-checklist__intro-side {
+  display: grid;
+  grid-template-columns: 10.75rem minmax(14rem, 18rem);
+  align-items: center;
+  justify-content: end;
+  gap: 1.75rem;
+}
+
+.compliance-checklist__readiness-ring {
+  position: relative;
+  width: 10.75rem;
+  height: 10.75rem;
+}
+
+.compliance-checklist__readiness-ring svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.compliance-checklist__readiness-ring circle {
+  fill: none;
+  stroke-width: 14;
+}
+
+.compliance-checklist__readiness-ring-track {
+  stroke: var(--checklist-track);
+}
+
+.compliance-checklist__readiness-ring-value {
+  stroke: var(--checklist-teal);
+  stroke-linecap: round;
+  transition: stroke-dasharray 0.24s ease;
+}
+
+.compliance-checklist__readiness-ring-value.is-empty {
+  opacity: 0;
+}
+
+.compliance-checklist__readiness-ring-copy {
+  position: absolute;
+  inset: 0;
   display: flex;
   align-items: center;
-  gap: 1.25rem;
-  padding-top: 0.1rem;
-}
-
-.compliance-checklist__progress {
-  display: flex;
-  min-width: 9.5rem;
+  justify-content: center;
   flex-direction: column;
-  gap: 0.45rem;
 }
 
-.compliance-checklist__progress-label {
-  color: #64748b;
-  font-size: 0.8125rem;
-  font-weight: 500;
-  line-height: 1.2;
-  white-space: nowrap;
+.compliance-checklist__readiness-ring-copy > span {
+  display: flex;
+  align-items: baseline;
 }
 
-.compliance-checklist__progress-label strong {
+.compliance-checklist__readiness-ring-copy strong {
   color: #0f172a;
-  font-weight: 700;
+  font-size: 2.95rem;
+  font-weight: 720;
+  letter-spacing: -0.055em;
+  line-height: 1;
 }
 
-.compliance-checklist__progress-bar {
+.compliance-checklist__readiness-ring-copy em {
+  margin-left: 0.12rem;
+  color: var(--checklist-muted-light);
+  font-size: 1.1rem;
+  font-style: normal;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.compliance-checklist__readiness-ring-copy small {
+  margin-top: 0.45rem;
+  color: var(--checklist-muted-light);
+  font-size: 0.61rem;
+  font-weight: 750;
+  letter-spacing: 0.1em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.compliance-checklist__readiness-summary {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.compliance-checklist__breakdown-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.55rem;
+}
+
+.compliance-checklist__breakdown p {
+  margin: 0;
+  color: var(--checklist-muted);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.compliance-checklist__breakdown-pct {
+  flex: 0 0 auto;
+  color: var(--checklist-teal-ink);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.compliance-checklist__breakdown-bar {
+  display: flex;
+  gap: 3px;
   overflow: hidden;
   width: 100%;
-  height: 0.25rem;
-  border-radius: 999px;
-  background: #e2e8f0;
+  height: 1.15rem;
+  border-radius: 0.5rem;
+  background: var(--checklist-track);
+  box-shadow: inset 0 0 0 1px rgba(16, 24, 40, 0.05);
 }
 
-.compliance-checklist__progress-bar > span {
+.compliance-checklist__breakdown-bar > span {
+  min-width: 0.25rem;
+  border-radius: 0.32rem;
+}
+
+.compliance-checklist__breakdown-bar > span.is-amber { background: #d9a441; }
+.compliance-checklist__breakdown-bar > span.is-violet { background: #9d8ad0; }
+.compliance-checklist__breakdown-bar > span.is-teal { background: var(--checklist-teal); }
+
+.compliance-checklist__breakdown-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem 0.8rem;
+  margin-top: 0.55rem;
+}
+
+.compliance-checklist__breakdown-legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--checklist-muted-light);
+  font-size: 0.8125rem;
+  line-height: 1.2;
+}
+.compliance-checklist__breakdown-legend > span strong {
+  color: #1f2937;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.compliance-checklist__breakdown-legend i {
   display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: #3b82f6;
-  transition: width 0.2s ease;
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 0.22rem;
+}
+
+.compliance-checklist__breakdown-legend strong {
+  color: #334155;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+}
+
+.compliance-checklist__breakdown-legend .is-amber i { background: #d9a441; }
+.compliance-checklist__breakdown-legend .is-violet i { background: #9d8ad0; }
+.compliance-checklist__breakdown-legend .is-teal i { background: var(--checklist-teal); }
+
+.compliance-checklist__export {
+  display: flex;
 }
 
 .compliance-checklist__honesty {
@@ -4186,7 +4353,7 @@
   align-items: flex-start;
   gap: 0.4rem;
   margin: 0.55rem 0 0;
-  color: #7c8798;
+  color: var(--checklist-muted-light);
   font-size: 0.72rem;
   line-height: 1.45;
 }
@@ -4194,19 +4361,19 @@
 .compliance-page .compliance-checklist__export .findings-v2-toolbar-btn--scan {
   min-height: 2.25rem;
   padding-inline: 0.9rem;
-  border-color: #dbe2ea;
+  border-color: var(--checklist-teal);
   border-radius: 0.625rem;
-  background: #fff;
-  color: #334155;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  background: var(--checklist-teal);
+  color: #fff;
+  box-shadow: 0 8px 18px -12px rgba(13, 148, 136, 0.8);
   font-size: 0.75rem;
   font-weight: 600;
 }
 
 .compliance-page .compliance-checklist__export .findings-v2-toolbar-btn--scan:hover:not(:disabled) {
-  border-color: #93c5fd;
-  background: #f8fafc;
-  color: #1d4ed8;
+  border-color: #0f766e;
+  background: #0f766e;
+  color: #fff;
 }
 
 .compliance-page .compliance-checklist__export .findings-v2-toolbar-btn--scan svg {
@@ -4273,59 +4440,153 @@
 .compliance-checklist__phases {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 1.85rem;
 }
 
-.compliance-checklist__phase.compliance-control-card {
-  overflow: hidden;
-  border-radius: 1rem;
-  border: 1px solid #e2e8f0;
-  background: #fff;
+/* Phase = header + floating group cards, not a wrapping card. */
+.compliance-checklist__phase.compliance-control-card,
+.compliance-checklist__phase.compliance-control-card.is-expanded {
+  overflow: visible;
+  border-radius: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .compliance-checklist__phase-summary {
   width: 100%;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 1rem 1.125rem 0.75rem;
+}
+
+.compliance-checklist__phase.compliance-control-card.is-expanded > .compliance-checklist__phase-summary {
+  background: transparent;
+  box-shadow: none;
+}
+
+.compliance-checklist__phase-marker {
+  display: inline-flex;
+  width: 1.875rem;
+  height: 1.875rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid #dce2ea;
+  background: #fff;
+  box-shadow: 0 1px 1px rgba(16, 24, 40, 0.03);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.875rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.compliance-checklist__phase-marker.is-amber,
+.compliance-checklist__phase-marker.is-indigo,
+.compliance-checklist__phase-marker.is-violet {
+  color: #667085;
+}
+
+.compliance-checklist__phase-marker.is-teal {
+  border-color: rgba(13, 148, 136, 0.5);
+  color: var(--checklist-teal);
 }
 
 .compliance-checklist__phase .compliance-control-card__title h2 {
   margin: 0;
   color: #0f172a;
-  font-size: 1.0625rem;
-  font-weight: 650;
+  font-size: 1.1rem;
+  font-weight: 700;
   letter-spacing: -0.015em;
   line-height: 1.25;
 }
 
+.compliance-checklist__phase .compliance-control-card__state {
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.compliance-checklist__phase .compliance-control-card__chevron,
+.compliance-checklist__group .compliance-control-card__chevron {
+  display: inline-flex;
+  width: 1.75rem;
+  height: 1.75rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  border-radius: 0.5rem;
+  color: var(--checklist-muted-light);
+  font-size: 1rem;
+  font-weight: 650;
+}
+
+.compliance-checklist__phase-progress {
+  display: none;
+  overflow: hidden;
+  height: 0.4375rem;
+  margin: 0 1.125rem 0.9rem 4rem;
+  border-radius: 999px;
+  background: var(--checklist-track);
+}
+
+.compliance-checklist__phase-progress > span {
+  display: block;
+  height: 100%;
+  min-width: 0;
+  border-radius: inherit;
+  transition: width 0.2s ease;
+}
+
+.compliance-checklist__phase.is-amber .compliance-checklist__phase-progress > span,
+.compliance-checklist__phase.is-violet .compliance-checklist__phase-progress > span {
+  background: var(--checklist-teal);
+}
+
+.compliance-checklist__phase.is-teal .compliance-checklist__phase-progress > span {
+  background: var(--checklist-teal);
+}
+
 .compliance-checklist__phase-body {
-  border-top: 1px solid #eef2f7;
-  padding: 0.75rem 0 0.25rem;
+  border-top: 0;
+  padding: 0.85rem 0 0.4rem;
+  background: transparent;
 }
 
 .compliance-checklist__phase-body .compliance-checklist__groups {
-  gap: 0.5rem;
+  gap: 0.85rem;
 }
 
 .compliance-checklist__groups {
   display: flex;
   min-width: 0;
   flex-direction: column;
-  overflow: hidden;
-  border: 1px solid #e2e8f0;
-  border-radius: 0.875rem;
-  background: #fff;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.035);
+  border: 0;
+  background: transparent;
 }
 
 .compliance-checklist__group.compliance-control-card {
-  border-bottom: 1px solid #eef2f6;
+  overflow: hidden;
+  border: 1px solid var(--checklist-border);
+  border-radius: 1rem;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 14px 30px -22px rgba(16, 24, 40, 0.2);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.compliance-checklist__group.compliance-control-card:last-child {
-  border-bottom: 0;
+.compliance-checklist__group.compliance-control-card.is-expanded {
+  background: #fff;
+  box-shadow: 0 18px 42px -28px rgba(16, 24, 40, 0.22);
 }
 
 .compliance-checklist__group .compliance-control-card__summary {
+  grid-template-columns: minmax(0, 1fr) auto;
   padding: 1rem 1.25rem;
+}
+
+.compliance-checklist__group.compliance-control-card.is-expanded > .compliance-control-card__summary {
+  background: #fff;
+  box-shadow: none;
 }
 
 .compliance-checklist__group .compliance-control-card__main {
@@ -4333,11 +4594,9 @@
   gap: 0.75rem;
 }
 
-.compliance-checklist__group .compliance-control-card__chevron {
-  margin-top: 0.125rem;
-  color: #64748b;
-  font-size: 1rem;
-  font-weight: 600;
+.compliance-checklist__group .compliance-control-card__state {
+  align-items: center;
+  gap: 0.55rem;
 }
 
 .compliance-checklist__group .compliance-control-card__title h3 {
@@ -4358,36 +4617,46 @@
 
 .compliance-checklist__group-chip {
   display: inline-flex;
-  align-items: center;
-  padding: 0.3rem 0.65rem;
-  border-radius: 999px;
-  font-size: 0.6875rem;
-  font-weight: 600;
+  align-items: baseline;
+  gap: 0.3rem;
+  padding: 0;
+  font-size: 0.75rem;
+  font-weight: 500;
   line-height: 1.2;
   white-space: nowrap;
+  color: #7b8798;
 }
 
-.compliance-checklist__group-chip.is-amber {
-  background: #fffbeb;
-  color: #b45309;
-  box-shadow: inset 0 0 0 1px rgba(251, 191, 36, 0.45);
+.compliance-checklist__group-chip::before { display: none; }
+
+.compliance-checklist__group-chip strong {
+  color: #1f2937;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
 }
 
-.compliance-checklist__group-chip.is-violet {
-  background: #f5f3ff;
-  color: #6d28d9;
-  box-shadow: inset 0 0 0 1px rgba(167, 139, 250, 0.45);
+/* Counts read as clean text (bold number + muted label), no filled pill. */
+.compliance-checklist__group-chip.is-amber,
+.compliance-checklist__group-chip.is-indigo,
+.compliance-checklist__group-chip.is-violet,
+.compliance-checklist__group-chip.is-neutral {
+  background: transparent;
+  color: #7b8798;
+  box-shadow: none;
 }
 
-.compliance-checklist__group-chip.is-green {
-  background: #ecfdf5;
-  color: #047857;
-  box-shadow: inset 0 0 0 1px rgba(52, 211, 153, 0.45);
+.compliance-checklist__group-chip.is-teal {
+  background: transparent;
+  color: var(--checklist-teal-ink);
+  box-shadow: none;
 }
+.compliance-checklist__group-chip.is-teal strong { color: var(--checklist-teal-ink); }
 
 .compliance-checklist__group-rows {
-  border-top: 1px solid #eef2f6;
-  background: #fbfcfe;
+  border-top: 1px solid var(--checklist-border);
+  background: #fff;
 }
 
 .compliance-checklist__item-wrap {
@@ -4409,6 +4678,7 @@
   gap: 0.65rem;
   padding: 0.55rem 1.25rem 0.55rem 1.5rem;
   background: #fff;
+  border-bottom: 1px solid #f0f2f5;
   transition: background 0.15s ease;
 }
 
@@ -4512,41 +4782,58 @@
 .compliance-checklist__cli-block {
   margin-top: 0.45rem;
   overflow: hidden;
-  border: 1px solid #1e293b;
+  border: 1px solid #334155;
   border-radius: 0.6rem;
-  background: #0f172a;
+  background: #1a2332;
 }
 
 .compliance-checklist__cli-toolbar {
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
   border-bottom: 1px solid #334155;
-  background: #1e293b;
-  padding: 0.25rem 0.45rem;
+  background: #243044;
+  padding: 0.35rem 0.55rem;
+}
+
+.compliance-checklist__cli-filename {
+  color: #94a3b8;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
 }
 
 .compliance-checklist__cli-copy {
-  border: 0;
-  background: transparent;
-  color: #94a3b8;
+  border: 1px solid rgb(255 255 255 / 0.14);
+  border-radius: 0.4rem;
+  background: rgb(255 255 255 / 0.06);
+  padding: 0.25rem 0.6rem;
+  color: #cbd5e1;
   cursor: pointer;
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   font-weight: 600;
 }
 
 .compliance-checklist__cli-copy:hover {
-  color: #e2e8f0;
+  border-color: rgb(255 255 255 / 0.24);
+  background: rgb(255 255 255 / 0.12);
+  color: #fff;
 }
 
 .compliance-checklist__cli-code {
   margin: 0;
   overflow-x: auto;
-  padding: 0.55rem 0.65rem;
+  padding: 0.8rem 0.9rem;
   color: #e2e8f0;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 0.6875rem;
-  line-height: 1.55;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  /* Command is collapsed to one logical line (see CopyCliButton); pre-wrap lets
+     it flow and wrap at flag boundaries, filling the block width. */
   white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .compliance-checklist__item-row[role="button"] {
@@ -4555,7 +4842,7 @@
 
 .compliance-checklist__item-row:hover,
 .compliance-checklist__item-row.is-selected {
-  background: #f8fafc;
+  background: #fafbfc;
 }
 
 .compliance-checklist__item-row--manual {
@@ -4564,18 +4851,33 @@
   padding: 0.65rem 1.25rem 0.65rem 2.35rem;
 }
 
+/* Two-line rows top-align, so nudge the dot + action to sit on the title line. */
+.compliance-checklist__item-row--manual .compliance-checklist__state {
+  margin-top: 0.36rem;
+}
+
+.compliance-checklist__item-row--manual .compliance-checklist__item-action {
+  margin-top: 0.05rem;
+}
+
 .compliance-checklist__state {
   display: block;
   width: 0.42rem;
   height: 0.42rem;
+  flex: 0 0 auto;
   border-radius: 999px;
   color: transparent !important;
   font-size: 0;
 }
 
-.compliance-checklist__state.is-verified { background: #10b981; }
-.compliance-checklist__state.is-action { background: #f43f5e; }
-.compliance-checklist__state.is-manual { background: #8b5cf6; }
+.compliance-checklist__phase.is-amber .compliance-checklist__state.is-action,
+.compliance-checklist__phase.is-violet .compliance-checklist__state.is-manual {
+  background: #aab4c1;
+}
+
+.compliance-checklist__phase.is-teal .compliance-checklist__state.is-verified {
+  background: var(--checklist-teal);
+}
 
 .compliance-checklist__item-main {
   display: flex;
@@ -4655,6 +4957,14 @@
   transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
 }
 
+/* All row actions are plain white buttons for now (color palette comes later). */
+.compliance-checklist__phase .compliance-checklist__item-action {
+  border-color: #dbe1e9;
+  background: #fff;
+  color: #334155;
+  box-shadow: 0 1px 1px rgba(15, 23, 42, 0.03);
+}
+
 .compliance-checklist__item-action:hover {
   border-color: #aeb8c6;
   background: #f8fafc;
@@ -4663,7 +4973,7 @@
 }
 
 .compliance-checklist__item-action:focus-visible {
-  outline: 2px solid rgba(59, 130, 246, 0.35);
+  outline: 2px solid rgba(13, 148, 136, 0.3);
   outline-offset: 2px;
 }
 
@@ -4676,7 +4986,7 @@
 
 .compliance-checklist__externally-covered-label {
   flex: 0 0 auto;
-  color: #4338ca;
+  color: var(--checklist-teal-ink);
   font-size: 0.6875rem;
   font-weight: 600;
   line-height: 1.2;
@@ -4685,7 +4995,7 @@
 
 .compliance-checklist__externally-covered {
   display: block;
-  color: #6366f1;
+  color: var(--checklist-teal-ink);
   font-size: 0.6875rem;
   line-height: 1.45;
 }
@@ -4705,12 +5015,12 @@
 }
 
 .compliance-checklist__evidence-hint-link {
-  color: #2563eb;
+  color: var(--checklist-violet-ink);
   font-weight: 650;
   text-decoration: none;
 }
 
-.compliance-checklist__evidence-hint-link:hover { color: #1d4ed8; }
+.compliance-checklist__evidence-hint-link:hover { color: #514087; }
 
 .compliance-checklist__scope-note {
   margin: 0;
@@ -4741,19 +5051,70 @@
   text-align: center;
 }
 
+@media (max-width: 1280px) {
+  .compliance-checklist__intro {
+    grid-template-columns: 1fr;
+  }
+
+  .compliance-checklist__intro-side {
+    grid-template-columns: 10.75rem minmax(15rem, 26rem);
+    justify-content: start;
+  }
+
+  .compliance-checklist__phase-summary,
+  .compliance-checklist__group .compliance-control-card__summary {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .compliance-checklist__phase .compliance-control-card__state,
+  .compliance-checklist__group .compliance-control-card__state {
+    justify-content: flex-end;
+  }
+}
+
 @media (max-width: 700px) {
-  .compliance-checklist { padding: 1.5rem 1rem 3rem; }
-  .compliance-checklist__intro { grid-template-columns: 1fr; margin-bottom: 1.5rem; }
+  .compliance-checklist { padding: 1.25rem 1rem 3rem; }
+  .compliance-checklist__intro {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+    margin-bottom: 1.25rem;
+    padding: 1.5rem;
+  }
   .compliance-checklist__intro h1 { font-size: 1.5rem; }
-  .compliance-checklist__intro-side { justify-content: space-between; }
-  .compliance-checklist__progress { min-width: 0; width: 100%; }
+  .compliance-checklist__intro-side {
+    grid-template-columns: 7.5rem minmax(0, 1fr);
+    justify-content: stretch;
+    gap: 1.15rem;
+  }
+  .compliance-checklist__readiness-ring {
+    width: 7.5rem;
+    height: 7.5rem;
+  }
+  .compliance-checklist__readiness-ring-copy strong { font-size: 2rem; }
+  .compliance-checklist__readiness-ring-copy em { font-size: 0.9rem; }
   .compliance-checklist__tabs { gap: 1.25rem; overflow-x: auto; }
   .compliance-checklist__group .compliance-control-card__summary {
-    grid-template-columns: 1fr;
-    gap: 0.75rem;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.65rem;
+    padding-inline: 1rem;
   }
   .compliance-checklist__group .compliance-control-card__state {
-    justify-content: flex-start;
+    justify-content: flex-end;
+  }
+  .compliance-checklist__phase-summary {
+    gap: 0.65rem;
+    padding-inline: 1rem;
+  }
+  .compliance-checklist__phase .compliance-control-card__title p,
+  .compliance-checklist__group .compliance-control-card__title p {
+    white-space: normal;
+  }
+  .compliance-checklist__phase .compliance-control-card__state,
+  .compliance-checklist__group .compliance-control-card__state {
+    gap: 0.25rem;
+  }
+  .compliance-checklist__phase-progress {
+    margin-inline: 3.85rem 1rem;
   }
   .compliance-checklist__item-row {
     flex-wrap: wrap;
@@ -4764,6 +5125,27 @@
     margin-left: 1.15rem;
   }
   .compliance-checklist__scope-note { padding-left: 1.75rem; }
+}
+
+@media (max-width: 480px) {
+  .compliance-checklist__intro-side {
+    grid-template-columns: 1fr;
+  }
+
+  .compliance-checklist__readiness-ring {
+    margin-inline: auto;
+  }
+
+  .compliance-checklist__phase-summary,
+  .compliance-checklist__group .compliance-control-card__summary {
+    grid-template-columns: 1fr;
+  }
+
+  .compliance-checklist__phase .compliance-control-card__state,
+  .compliance-checklist__group .compliance-control-card__state {
+    justify-content: space-between;
+    padding-left: 2.55rem;
+  }
 }
 
 .control-history-strip {
@@ -4869,14 +5251,14 @@
 .checklist-step-drawer__rescan-note {
   margin: 0;
   color: #475569;
-  font-size: 0.8125rem;
-  line-height: 1.45;
+  font-size: 0.875rem;
+  line-height: 1.5;
 }
 
 .checklist-step-drawer__rescan-note {
   margin-top: 0.45rem;
   color: #64748b;
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
 }
 
 .checklist-step-drawer__actions {
@@ -4886,9 +5268,13 @@
 }
 
 .checklist-step-drawer__primary-action {
+  height: 2.25rem;
+  padding: 0 1rem;
+  gap: 0.35rem;
   border-color: #0f766e !important;
   background: #0f766e !important;
   color: #fff !important;
+  font-size: 0.8rem;
   box-shadow: 0 1px 2px rgb(15 118 110 / 0.25) !important;
 }
 
@@ -4898,36 +5284,272 @@
   color: #fff !important;
 }
 
-.checklist-step-drawer__resource-list {
+/* The drawer body is a full-height scroll surface; the resource section flex-fills
+   so short lists still reach the bottom and long lists scroll internally. */
+.checklist-step-drawer {
+  min-height: 100%;
+  gap: 0;
+}
+
+/* Flat sections on one white surface — no outer box. Full-width hairline
+   dividers between sections align with the header border. */
+.checklist-step-drawer__card {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  background: var(--vt-surface);
+}
+
+.checklist-step-drawer__section {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  gap: 0.7rem;
+  padding: 1.15rem 1.35rem;
+}
+
+.checklist-step-drawer__section + .checklist-step-drawer__section {
+  border-top: 1px solid var(--vt-border);
+}
+
+.checklist-step-drawer__section--resources {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.checklist-step-drawer__section-head {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.5rem;
+}
+
+/* Uppercase eyebrow labels — HOW TO / ACTIONS / AFFECTED RESOURCES. */
+.checklist-step-drawer__section-title {
   margin: 0;
-  max-height: 11rem;
-  padding: 0;
+  color: #94a3b8;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
+}
+
+/* Count next to a label — a soft bordered pill, not parens. */
+.checklist-step-drawer__count-pill {
+  display: inline-flex;
+  min-width: 1.15rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #d6f0ec;
+  border-radius: 999px;
+  background: #f0fdfa;
+  padding: 0.05rem 0.4rem;
+  color: #0f766e;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.checklist-step-drawer__resource-table-wrap {
+  flex: 1 1 auto;
+  min-height: 6rem;
   overflow-y: auto;
+}
+
+/* Each resource is its own bordered row-card. Reads calmly at 3 or 100+. */
+.checklist-step-drawer__resource-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0;
   list-style: none;
 }
 
-.checklist-step-drawer__resource-list li {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: baseline;
-  gap: 0.75rem;
-  padding: 0.2rem 0;
-  font-size: 0.8125rem;
-  line-height: 1.4;
+.checklist-step-drawer__resource-card {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  border: 1px solid #e6eaf0;
+  border-radius: 0.6rem;
+  background: var(--vt-surface);
+  padding: 0.6rem 0.8rem;
+}
+
+.checklist-step-drawer__resource-dot {
+  width: 0.4rem;
+  height: 0.4rem;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: #0f766e;
 }
 
 .checklist-step-drawer__resource-name {
   min-width: 0;
+  flex: 1 1 auto;
   overflow: hidden;
   color: #1f2937;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .checklist-step-drawer__resource-region {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  border-radius: 0.3rem;
+  background: #f1f5f9;
+  padding: 0.15rem 0.5rem;
   color: #64748b;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 0.75rem;
   white-space: nowrap;
+}
+
+.checklist-step-drawer__resource-grouped {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.checklist-step-drawer__resource-filter {
+  display: block;
+}
+
+.checklist-step-drawer__resource-filter-input {
+  width: 100%;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  background: #fff;
+  padding: 0.45rem 0.65rem;
+  color: #1f2937;
+  font-size: 0.8125rem;
+  line-height: 1.35;
+}
+
+.checklist-step-drawer__resource-filter-input::placeholder {
+  color: #94a3b8;
+}
+
+.checklist-step-drawer__resource-filter-input:focus {
+  border-color: #0d9488;
+  outline: 2px solid rgb(13 148 136 / 0.15);
+  outline-offset: 0;
+}
+
+.checklist-step-drawer__resource-groups {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 0.35rem;
+  overflow-y: auto;
+}
+
+.checklist-step-drawer__resource-group {
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  background: #fff;
+}
+
+.checklist-step-drawer__resource-group-summary {
+  display: grid;
+  width: 100%;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.55rem;
+  border: 0;
+  background: #f8fafc;
+  padding: 0.5rem 0.65rem;
+  color: #1f2937;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.checklist-step-drawer__resource-group-summary:hover {
+  background: #f1f5f9;
+}
+
+.checklist-step-drawer__resource-group-title {
+  min-width: 0;
+  overflow: hidden;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.checklist-step-drawer__resource-group-count {
+  color: #64748b;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.checklist-step-drawer__resource-group-body {
+  border-top: 1px solid #e2e8f0;
+  padding: 0.45rem;
+}
+
+.checklist-step-drawer__resource-footer {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+
+/* Account-wide capability gap: dashed box, big teal count left, text right. */
+.checklist-step-drawer__absence-tile {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+  border: 1px dashed #cbd5e1;
+  border-radius: 0.625rem;
+  background: var(--vt-surface);
+  padding: 0.95rem 1rem;
+}
+
+.checklist-step-drawer__absence-count {
+  flex: 0 0 auto;
+  color: #0f766e;
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.checklist-step-drawer__absence-body {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.checklist-step-drawer__absence-context {
+  margin: 0;
+  color: #1f2937;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+
+.checklist-step-drawer__absence-context strong {
+  font-weight: 700;
+}
+
+.checklist-step-drawer__absence-alternative {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.8125rem;
+  line-height: 1.45;
 }

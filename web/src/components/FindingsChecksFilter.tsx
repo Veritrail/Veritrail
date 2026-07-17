@@ -33,7 +33,7 @@ export function FindingsChecksFilter({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const count = tags.length;
-  const label = count === 1 ? "Checks 1" : `Checks ${count}`;
+  const label = "Checks";
 
   const updateMenuPosition = useCallback(() => {
     const btn = triggerRef.current;

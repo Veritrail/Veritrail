@@ -7,8 +7,18 @@ import { frameworkLabel } from "../data/frameworks";
 import { howToForCheck } from "../lib/activationRunbooks";
 import { auditReadinessSchema } from "../lib/apiSchemas";
 import { controlFamily } from "../lib/controlFamilies";
-import { openAbsenceGapChecks } from "../lib/evidenceGap";
+import { AbsenceGapSummaryTile } from "./AbsenceGapSummaryTile";
 import {
+  ChecklistStepResourceDisplay,
+  type NamedResourceRow,
+} from "./ChecklistStepResourceDisplay";
+import {
+  capabilityForAbsenceCheck,
+  isAbsenceGapCheck,
+  openAbsenceGapChecks,
+} from "../lib/evidenceGap";
+import {
+  regionsFromFindingEvidence,
   resourceRegionForFinding,
   resourceShortName,
   type FindingLike,
@@ -91,21 +101,29 @@ const CHECKLIST_PHASES: {
   id: ChecklistPhaseId;
   title: string;
   description: string;
+  marker: string;
+  tone: "amber" | "violet" | "teal";
 }[] = [
   {
     id: "technical-gaps",
-    title: "Technical gaps",
-    description: "Capabilities and checks that still need to be enabled or reviewed.",
+    title: "Enable capabilities",
+    description: "Cloud capabilities that still need to be turned on.",
+    marker: "1",
+    tone: "amber",
   },
   {
     id: "evidence-required",
     title: "Evidence required",
     description: "Policies, runbooks, and human processes that need accepted evidence.",
+    marker: "2",
+    tone: "violet",
   },
   {
     id: "completed",
     title: "Completed",
     description: "Verified technical controls and externally covered manual criteria.",
+    marker: "✓",
+    tone: "teal",
   },
 ];
 
@@ -194,12 +212,53 @@ function findingForDisplay(f: ChecklistOpenFinding): FindingLike {
   };
 }
 
+type AbsenceGapResourceSummary = {
+  kind: "absence";
+  regionCount: number;
+  regions: string[];
+  capability: string;
+  checkId: string;
+};
+
+type NamedResourceSummary = {
+  kind: "named";
+  resources: NamedResourceRow[];
+};
+
+type StepResourceData = AbsenceGapResourceSummary | NamedResourceSummary;
+
 function affectedResourcesForStep(
   checkIds: string[],
   openFindingsByCheck: Map<string, ChecklistOpenFinding[]>,
-): { name: string; region: string }[] {
+  findingCountByCheck: Map<string, number>,
+): StepResourceData {
+  const primaryCheck = primaryCheckForHowTo(checkIds, findingCountByCheck);
+  if (primaryCheck && isAbsenceGapCheck(primaryCheck)) {
+    const regions = new Set<string>();
+    for (const checkId of checkIds) {
+      if (!isAbsenceGapCheck(checkId)) continue;
+      for (const finding of openFindingsByCheck.get(checkId) ?? []) {
+        const evidence = finding.evidence ?? {};
+        const evidenceRegions = regionsFromFindingEvidence(evidence);
+        if (evidenceRegions.length > 0) {
+          for (const region of evidenceRegions) regions.add(region);
+          continue;
+        }
+        regions.add(resourceRegionForFinding(findingForDisplay(finding)));
+      }
+    }
+    const sortedRegions = [...regions].sort();
+    return {
+      kind: "absence",
+      regionCount: sortedRegions.length,
+      regions: sortedRegions,
+      capability: capabilityForAbsenceCheck(primaryCheck),
+      checkId: primaryCheck,
+    };
+  }
+
   const seen = new Set<string>();
-  const out: { name: string; region: string }[] = [];
+  const out: NamedResourceRow[] = [];
   for (const checkId of checkIds) {
     for (const finding of openFindingsByCheck.get(checkId) ?? []) {
       const displayFinding = findingForDisplay(finding);
@@ -211,7 +270,13 @@ function affectedResourcesForStep(
       out.push({ name, region });
     }
   }
-  return out;
+  return { kind: "named", resources: out };
+}
+
+function cliFilenameTag(cli: string): string {
+  const first = cli.trim().split(/\s+/)[0]?.toLowerCase() ?? "cli";
+  if (first === "aws") return "aws-cli";
+  return first;
 }
 
 function stopRowAction(event: MouseEvent<HTMLElement>) {
@@ -228,12 +293,19 @@ function ChecklistGroupChip({
   tone,
   label,
 }: {
-  tone: "amber" | "violet" | "green";
+  tone: "amber" | "indigo" | "violet" | "teal" | "neutral";
   label: string;
 }) {
+  const m = label.match(/^(\d+)\s+(.*)$/);
   return (
     <span className={`compliance-checklist__group-chip is-${tone}`}>
-      {label}
+      {m ? (
+        <>
+          <strong>{m[1]}</strong> {m[2]}
+        </>
+      ) : (
+        label
+      )}
     </span>
   );
 }
@@ -254,8 +326,14 @@ function ChecklistCcChips({ ids }: { ids: string[] }) {
 function CopyCliButton({ code }: { code: string }) {
   const [copied, setCopied] = useState(false);
 
+  // Runbook CLI is authored with `\` line-continuations (one flag per line),
+  // which leaves most of the wide code block empty. Collapse to one logical
+  // command so it flows and wraps at the block's edge, filling the width —
+  // and pastes as a single runnable line.
+  const displayCode = code.replace(/\\\s*\n\s*/g, " ").replace(/\s+/g, " ").trim();
+
   const copy = () => {
-    void navigator.clipboard.writeText(code).then(() => {
+    void navigator.clipboard.writeText(displayCode).then(() => {
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1800);
     });
@@ -264,12 +342,13 @@ function CopyCliButton({ code }: { code: string }) {
   return (
     <div className="compliance-checklist__cli-block">
       <div className="compliance-checklist__cli-toolbar">
+        <span className="compliance-checklist__cli-filename">{cliFilenameTag(code)}</span>
         <button type="button" className="compliance-checklist__cli-copy" onClick={copy}>
           {copied ? "Copied" : "Copy"}
         </button>
       </div>
       <pre className="compliance-checklist__cli-code">
-        <code>{code}</code>
+        <code>{displayCode}</code>
       </pre>
     </div>
   );
@@ -308,71 +387,89 @@ function ChecklistStepDrawerContent({
   openFindingsByCheck: Map<string, ChecklistOpenFinding[]>;
   findingCountByCheck: Map<string, number>;
 }) {
-  const resources = affectedResourcesForStep(item.check_ids, openFindingsByCheck);
+  const resourceData = affectedResourcesForStep(
+    item.check_ids,
+    openFindingsByCheck,
+    findingCountByCheck,
+  );
   const primaryCheck = primaryCheckForHowTo(item.check_ids, findingCountByCheck);
   const howTo = primaryCheck ? howToForCheck(primaryCheck) : null;
+  const affectedCount =
+    resourceData.kind === "absence"
+      ? resourceData.regionCount
+      : resourceData.resources.length;
 
   return (
     <div className="control-detail-stack checklist-step-drawer">
-      {howTo ? (
-        <section className="control-detail-section">
-          <div className="control-detail-section__head">
-            <h3 className="control-detail-section__title">How to</h3>
-          </div>
-          <p className="checklist-step-drawer__console-path">{howTo.consolePath}</p>
-          {howTo.cli ? <CopyCliButton code={howTo.cli} /> : null}
-        </section>
-      ) : null}
+      <div className="checklist-step-drawer__card">
+        {howTo ? (
+          <section className="checklist-step-drawer__section">
+            <div className="checklist-step-drawer__section-head">
+              <h3 className="checklist-step-drawer__section-title">How to</h3>
+            </div>
+            <p className="checklist-step-drawer__console-path">{howTo.consolePath}</p>
+            {howTo.cli ? <CopyCliButton code={howTo.cli} /> : null}
+          </section>
+        ) : null}
 
-      {state === "action" ? (
-        <section className="control-detail-section">
-          <div className="control-detail-section__head">
-            <h3 className="control-detail-section__title">Actions</h3>
-          </div>
-          <div className="checklist-step-drawer__actions">
-            {item.action_kind === "activate" && item.action_url ? (
-              <a
-                className="compliance-checklist__item-action checklist-step-drawer__primary-action"
-                href={item.action_url}
-                target="_blank"
-                rel="noreferrer"
-              >
-                Open in AWS <span aria-hidden>↗</span>
-              </a>
-            ) : item.action_kind === "review" ? (
-              <Link
-                className="compliance-checklist__item-action checklist-step-drawer__primary-action"
-                to={findingsHref(item.check_ids, accountId)}
-              >
-                Review findings
-              </Link>
+        {state === "action" ? (
+          <section className="checklist-step-drawer__section">
+            <div className="checklist-step-drawer__section-head">
+              <h3 className="checklist-step-drawer__section-title">Actions</h3>
+            </div>
+            <div className="checklist-step-drawer__actions">
+              {item.action_kind === "activate" && item.action_url ? (
+                <a
+                  className="compliance-checklist__item-action checklist-step-drawer__primary-action"
+                  href={item.action_url}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Open in AWS <span aria-hidden>↗</span>
+                </a>
+              ) : item.action_kind === "review" ? (
+                <Link
+                  className="compliance-checklist__item-action checklist-step-drawer__primary-action"
+                  to={findingsHref(item.check_ids, accountId)}
+                >
+                  Review findings
+                </Link>
+              ) : null}
+            </div>
+            <p className="checklist-step-drawer__rescan-note">
+              Re-scanning verifies this automatically.
+            </p>
+          </section>
+        ) : null}
+
+        <section className="checklist-step-drawer__section checklist-step-drawer__section--resources">
+          <div className="checklist-step-drawer__section-head">
+            <h3 className="checklist-step-drawer__section-title">
+              {resourceData.kind === "absence"
+                ? "Affected resources — account-wide"
+                : "Affected resources"}
+            </h3>
+            {resourceData.kind === "named" && resourceData.resources.length > 0 ? (
+              <span className="checklist-step-drawer__count-pill">{affectedCount}</span>
             ) : null}
           </div>
-          <p className="checklist-step-drawer__rescan-note">
-            Re-scanning verifies this automatically.
-          </p>
+          {resourceData.kind === "absence" ? (
+            resourceData.regionCount > 0 ? (
+              <AbsenceGapSummaryTile
+                regionCount={resourceData.regionCount}
+                capability={resourceData.capability}
+                checkId={resourceData.checkId}
+              />
+            ) : (
+              <p className="checklist-step-drawer__muted">No open findings on mapped checks.</p>
+            )
+          ) : resourceData.resources.length > 0 ? (
+            <ChecklistStepResourceDisplay resources={resourceData.resources} />
+          ) : (
+            <p className="checklist-step-drawer__muted">No open findings on mapped checks.</p>
+          )}
         </section>
-      ) : null}
-
-      <section className="control-detail-section">
-        <div className="control-detail-section__head">
-          <h3 className="control-detail-section__title">
-            Affected resources ({resources.length})
-          </h3>
-        </div>
-        {resources.length > 0 ? (
-          <ul className="checklist-step-drawer__resource-list">
-            {resources.map((resource) => (
-              <li key={`${resource.name}:${resource.region}`}>
-                <span className="checklist-step-drawer__resource-name">{resource.name}</span>
-                <span className="checklist-step-drawer__resource-region">{resource.region}</span>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="checklist-step-drawer__muted">No open findings on mapped checks.</p>
-        )}
-      </section>
+      </div>
     </div>
   );
 }
@@ -473,6 +570,30 @@ export function ComplianceChecklist({
   const total = counts.verified + counts.action + counts.manual;
   const remaining = counts.action + counts.manual;
   const verifiedPct = total > 0 ? Math.round((counts.verified / total) * 100) : 0;
+  const technicalVerifiedCount = technicalItems.filter(
+    (row) => row.state === "verified",
+  ).length;
+  const manualVerifiedCount = manualControls.filter((control) =>
+    acceptedControlIds.has(control.id),
+  ).length;
+  const phaseProgress: Record<ChecklistPhaseId, number> = {
+    "technical-gaps":
+      counts.action + technicalVerifiedCount > 0
+        ? Math.round(
+            (technicalVerifiedCount / (counts.action + technicalVerifiedCount)) * 100,
+          )
+        : 0,
+    "evidence-required":
+      counts.manual + manualVerifiedCount > 0
+        ? Math.round((manualVerifiedCount / (counts.manual + manualVerifiedCount)) * 100)
+        : 0,
+    completed: counts.verified > 0 ? 100 : 0,
+  };
+  const readinessBreakdown = [
+    { id: "technical", label: "Enable", count: counts.action, tone: "amber" },
+    { id: "evidence", label: "Evidence", count: counts.manual, tone: "violet" },
+    { id: "verified", label: "Verified", count: counts.verified, tone: "teal" },
+  ].filter((entry) => entry.count > 0);
 
   const playbooksByPhase = useMemo(() => {
     const result: Record<ChecklistPhaseId, PlaybookGroup[]> = {
@@ -586,15 +707,9 @@ export function ComplianceChecklist({
 
   const renderPlaybookGroups = (phaseId: ChecklistPhaseId, playbooks: PlaybookGroup[]) =>
     playbooks.map(({ playbook, items }) => {
-      const allPlaybookItems = playbook.items.filter((item) => {
-        if (item.status === "not_applicable" || item.status === "not_assessed") return false;
-        return belongsInEnablementChecklist(item);
-      });
-      const unmetCount = allPlaybookItems.filter(
-        (item) => stateForTechnicalItem(item.status) === "action",
-      ).length;
       const groupKey = `${phaseId}:${playbook.key}`;
       const isExpanded = expandedGroups.has(groupKey);
+      const isCompleted = phaseId === "completed";
 
       return (
         <div
@@ -608,12 +723,6 @@ export function ComplianceChecklist({
             onClick={() => toggleGroup(groupKey)}
           >
             <div className="compliance-control-card__main">
-              <span
-                className={`compliance-control-card__chevron${isExpanded ? " is-open" : ""}`}
-                aria-hidden
-              >
-                ›
-              </span>
               <div className="compliance-control-card__title">
                 <h3>{playbook.label}</h3>
                 <p>{playbook.question}</p>
@@ -621,9 +730,15 @@ export function ComplianceChecklist({
             </div>
             <div className="compliance-control-card__state">
               <ChecklistGroupChip
-                tone={unmetCount > 0 ? "amber" : "green"}
-                label={unmetCount > 0 ? `${unmetCount} unmet` : "Complete"}
+                tone={isCompleted ? "teal" : "amber"}
+                label={isCompleted ? `${items.length} verified` : `${items.length} to enable`}
               />
+              <span
+                className={`compliance-control-card__chevron${isExpanded ? " is-open" : ""}`}
+                aria-hidden
+              >
+                ›
+              </span>
             </div>
           </button>
 
@@ -709,12 +824,6 @@ export function ComplianceChecklist({
           onClick={() => toggleGroup(groupKey)}
         >
           <div className="compliance-control-card__main">
-            <span
-              className={`compliance-control-card__chevron${isExpanded ? " is-open" : ""}`}
-              aria-hidden
-            >
-              ›
-            </span>
             <div className="compliance-control-card__title">
               <h3>Policies and human processes</h3>
               <p>Do your policies, runbooks, exercises, and approvals have current evidence?</p>
@@ -722,15 +831,19 @@ export function ComplianceChecklist({
           </div>
           <div className="compliance-control-card__state">
             <ChecklistGroupChip
-              tone={phaseId === "completed" ? "green" : manualUnmetCount > 0 ? "violet" : "green"}
+              tone={phaseId === "completed" ? "teal" : "violet"}
               label={
                 phaseId === "completed"
-                  ? "Complete"
-                  : manualUnmetCount > 0
-                    ? `${manualUnmetCount} evidence required`
-                    : "Complete"
+                  ? `${visibleManualControls.length} accepted`
+                  : `${manualUnmetCount} evidence required`
               }
             />
+            <span
+              className={`compliance-control-card__chevron${isExpanded ? " is-open" : ""}`}
+              aria-hidden
+            >
+              ›
+            </span>
           </div>
         </button>
 
@@ -847,25 +960,62 @@ export function ComplianceChecklist({
           </p>
         </div>
         <div className="compliance-checklist__intro-side">
-          <div
-            className="compliance-checklist__progress"
-            aria-label={`${counts.verified} of ${total} requirements verified`}
-          >
-            <span className="compliance-checklist__progress-label">
-              <strong>{counts.verified}</strong>
-              <span> of {total || "—"} verified</span>
-            </span>
-            <div
-              className="compliance-checklist__progress-bar"
-              role="progressbar"
-              aria-valuenow={counts.verified}
-              aria-valuemin={0}
-              aria-valuemax={total || 1}
-            >
-              <span style={{ width: `${verifiedPct}%` }} />
+          <div className="compliance-checklist__readiness-ring" aria-hidden>
+            <svg viewBox="0 0 180 180">
+              <circle
+                className="compliance-checklist__readiness-ring-track"
+                cx="90"
+                cy="90"
+                r="70"
+              />
+              <circle
+                className={`compliance-checklist__readiness-ring-value${
+                  verifiedPct === 0 ? " is-empty" : ""
+                }`}
+                cx="90"
+                cy="90"
+                r="70"
+                pathLength="100"
+                strokeDasharray={`${verifiedPct} ${100 - verifiedPct}`}
+              />
+            </svg>
+            <div className="compliance-checklist__readiness-ring-copy">
+              <span>
+                <strong>{counts.verified}</strong>
+                <em>/{total || 0}</em>
+              </span>
+              <small>Verified</small>
             </div>
           </div>
-          {action ? <div className="compliance-checklist__export">{action}</div> : null}
+          <div className="compliance-checklist__readiness-summary">
+            {action ? <div className="compliance-checklist__export">{action}</div> : null}
+            <div
+              className="compliance-checklist__breakdown"
+              aria-label={`${counts.action} to enable, ${counts.manual} need evidence, ${counts.verified} verified`}
+            >
+              <div className="compliance-checklist__breakdown-head">
+                <p>Where the {total} requirement{total === 1 ? "" : "s"} stand</p>
+                <span className="compliance-checklist__breakdown-pct">{verifiedPct}% ready</span>
+              </div>
+              <div className="compliance-checklist__breakdown-bar" aria-hidden>
+                {readinessBreakdown.map((entry) => (
+                  <span
+                    key={entry.id}
+                    className={`is-${entry.tone}`}
+                    style={{ flexGrow: entry.count }}
+                  />
+                ))}
+              </div>
+              <div className="compliance-checklist__breakdown-legend">
+                {readinessBreakdown.map((entry) => (
+                  <span key={entry.id} className={`is-${entry.tone}`}>
+                    <i aria-hidden />
+                    <strong>{entry.count}</strong> {entry.label}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -880,7 +1030,7 @@ export function ComplianceChecklist({
           return (
             <section
               key={phase.id}
-              className={`compliance-checklist__phase compliance-control-card${
+              className={`compliance-checklist__phase compliance-control-card is-${phase.tone}${
                 isExpanded ? " is-expanded" : ""
               }`}
             >
@@ -891,11 +1041,8 @@ export function ComplianceChecklist({
                 onClick={() => togglePhase(phase.id)}
               >
                 <div className="compliance-control-card__main">
-                  <span
-                    className={`compliance-control-card__chevron${isExpanded ? " is-open" : ""}`}
-                    aria-hidden
-                  >
-                    ›
+                  <span className={`compliance-checklist__phase-marker is-${phase.tone}`} aria-hidden>
+                    {phase.marker}
                   </span>
                   <div className="compliance-control-card__title">
                     <h2>{phase.title}</h2>
@@ -904,29 +1051,34 @@ export function ComplianceChecklist({
                 </div>
                 <div className="compliance-control-card__state">
                   <ChecklistGroupChip
-                    tone={
-                      phase.id === "completed"
-                        ? "green"
-                        : phase.id === "evidence-required"
-                          ? count > 0
-                            ? "violet"
-                            : "green"
-                          : count > 0
-                            ? "amber"
-                            : "green"
-                    }
+                    tone={count > 0 || phase.id !== "completed" ? phase.tone : "neutral"}
                     label={
                       phase.id === "completed"
-                        ? count > 0
-                          ? `${count} complete`
-                          : "Complete"
-                        : count > 0
-                          ? `${count} remaining`
-                          : "Complete"
+                        ? `${count} verified`
+                        : phase.id === "technical-gaps"
+                          ? `${count} to enable`
+                          : `${count} required`
                     }
                   />
+                  <span
+                    className={`compliance-control-card__chevron${isExpanded ? " is-open" : ""}`}
+                    aria-hidden
+                  >
+                    ›
+                  </span>
                 </div>
               </button>
+
+              <div
+                className="compliance-checklist__phase-progress"
+                role="progressbar"
+                aria-label={`${phase.title} progress`}
+                aria-valuenow={phaseProgress[phase.id]}
+                aria-valuemin={0}
+                aria-valuemax={100}
+              >
+                <span style={{ width: `${phaseProgress[phase.id]}%` }} />
+              </div>
 
               {isExpanded ? (
                 <div className="compliance-checklist__phase-body">

@@ -30,9 +30,6 @@ import { historyDetailLine, historyTypeDisplay } from "../lib/historyEvidence";
 import { controlPostureScore } from "../lib/controlPostureScore";
 import { DeploymentParametersCard } from "../components/accountOnboardingUI";
 import {
-  ADVANCED_POLICY_RAW_ACTIONS,
-} from "../data/capabilityCopy";
-import {
   parseCfnLaunchMeta,
   resolveDeployArtifacts,
   type CfnConnectionOptions,
@@ -82,7 +79,6 @@ import "../styles/accounts-page.css";
 import "../styles/findings-v2.css";
 
 type ConnectionOptions = {
-  enable_advanced_policy_generation: boolean;
   remediation_modules: RemediationModules;
 };
 
@@ -93,10 +89,8 @@ type Account = {
   status: string;
   external_id: string;
   role_arn: string | null;
-  enable_advanced_policy_generation: boolean;
   remediation_modules: RemediationModules;
   remediation_modules_deployed: RemediationModules;
-  advanced_policy_generation_deployed: boolean;
   cfn_stack_name: string;
   cfn_launch_url: string;
   cfn_update_launch_url: string;
@@ -112,13 +106,11 @@ type Account = {
 };
 
 const DEFAULT_CONNECTION_OPTIONS: ConnectionOptions = {
-  enable_advanced_policy_generation: false,
   remediation_modules: { ...DEFAULT_REMEDIATION_MODULES },
 };
 
 function defaultOnboardingConnectionOptions(): ConnectionOptions {
   return {
-    enable_advanced_policy_generation: false,
     remediation_modules: { ...DEFAULT_REMEDIATION_MODULES },
   };
 }
@@ -137,13 +129,8 @@ function roleArnFieldValidation(
 
 function accountConnectionOptions(acc: Account): ConnectionOptions {
   return {
-    enable_advanced_policy_generation: acc.enable_advanced_policy_generation,
     remediation_modules: { ...DEFAULT_REMEDIATION_MODULES, ...acc.remediation_modules },
   };
-}
-
-function hasOptionalCapabilities(acc: Account): boolean {
-  return acc.enable_advanced_policy_generation;
 }
 
 type PermissionVerifyRow = { action: string; granted: boolean };
@@ -393,17 +380,6 @@ function enforceDeployedCapabilityLocks(
   capabilityVerify: CapabilityVerifyResults | null,
   options: ConnectionOptions,
 ): ConnectionOptions {
-  let enableAdvanced = options.enable_advanced_policy_generation;
-  if (
-    !enableAdvanced &&
-    capabilityLockedInAws(
-      capabilityVerify?.advanced_policy_generation,
-      acc.advanced_policy_generation_deployed,
-    )
-  ) {
-    enableAdvanced = true;
-  }
-
   const remediation_modules = { ...options.remediation_modules };
   for (const spec of REMEDIATION_MODULE_SPECS) {
     if (
@@ -417,10 +393,7 @@ function enforceDeployedCapabilityLocks(
     }
   }
 
-  return {
-    enable_advanced_policy_generation: enableAdvanced,
-    remediation_modules,
-  };
+  return { remediation_modules };
 }
 
 function RemediationPermissionsBlock({
@@ -971,13 +944,7 @@ function matchesCloudAccountSearch(cloud: CloudAccountRow, query: string): boole
 function matchesAccountSearch(acc: Account, query: string): boolean {
   const needle = query.trim().toLowerCase();
   if (!needle) return true;
-  const opts = accountConnectionOptions(acc);
-  const tags = [
-    "aws",
-    "amazon",
-    "core scanner",
-    opts.enable_advanced_policy_generation ? "policy generation" : "",
-  ];
+  const tags = ["aws", "amazon", "core scanner"];
   const haystack = [acc.label, acc.account_id ?? "", acc.status, ...tags].join(" ").toLowerCase();
   return haystack.includes(needle);
 }
@@ -1615,8 +1582,8 @@ const dangerGhostBtn =
   "inline-flex items-center gap-1.5 rounded-lg border border-transparent px-3 py-1.5 text-xs font-medium text-red-600 transition hover:border-red-200 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50";
 
 function CapabilityBadges({
-  acc,
-  connectionOptions,
+  acc: _acc,
+  connectionOptions: _connectionOptions,
   capabilityVerify: _capabilityVerify,
   variant = "default",
 }: {
@@ -1626,12 +1593,6 @@ function CapabilityBadges({
   capabilityVerify?: CapabilityVerifyResults | null;
   variant?: "default" | "table";
 }) {
-  const connected = isAccountConnected(acc);
-  const opts = connectionOptions ?? accountConnectionOptions(acc);
-  const policyGenDeployed = acc.advanced_policy_generation_deployed ?? false;
-  const policyGenSelected =
-    (connected && acc.enable_advanced_policy_generation) ||
-    (!connected && opts.enable_advanced_policy_generation);
   const wrapClass =
     variant === "table"
       ? "accounts-capability-badges"
@@ -1642,17 +1603,6 @@ function CapabilityBadges({
       <span className="shrink-0 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-800 ring-1 ring-emerald-200/60">
         Core scanner
       </span>
-      {(policyGenDeployed || policyGenSelected) && (
-        <span
-          className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium ring-1 ${
-            policyGenDeployed
-              ? "bg-sky-50 text-sky-800 ring-sky-200/60"
-              : "bg-sky-50/50 text-sky-700 ring-sky-200/40"
-          }`}
-        >
-          Policy gen
-        </span>
-      )}
     </div>
   );
 }
@@ -1680,19 +1630,17 @@ function ManageCapabilitiesPanel({
   capabilityVerify: CapabilityVerifyResults | null;
   verificationMeta: VerificationMeta | null;
 }) {
-  const optionalCapabilities = hasOptionalCapabilities(acc);
   const [deployTab, setDeployTab] = useState<DeployTab>("cli");
   const [cliExpanded, setCliExpanded] = useState(false);
   return (
     <div className="border-t border-zinc-200/60 bg-zinc-50/40 px-4 py-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-sm font-semibold text-zinc-900">Manage capabilities</p>
+          <p className="text-sm font-semibold text-zinc-900">Connector</p>
           <p className="mt-0.5 text-xs leading-relaxed text-zinc-500">
-            Choose optional features, then update your{" "}
+            The Veritrail connector is a single read-only role. Update your{" "}
             <span className="font-mono text-zinc-600">{acc.cfn_stack_name || CONNECTOR_STACK_NAME}</span>{" "}
-            stack in AWS. Core is read only; policy generation reads CloudTrail and starts
-            IAM policy-generation jobs (no resource changes).
+            stack in AWS to the latest template. It never modifies your resources.
           </p>
           <div className="mt-1.5 flex flex-wrap items-center gap-2">
             <ConnectorTemplateBadge version={acc.cfn_template_version} />
@@ -1700,11 +1648,6 @@ function ManageCapabilitiesPanel({
             <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-800 ring-1 ring-emerald-200/60">
               Core Scanner
             </span>
-            {draft.enable_advanced_policy_generation && (
-              <span className="rounded-full bg-sky-50 px-2.5 py-1 text-[11px] font-medium text-sky-800 ring-1 ring-sky-200/60">
-                Policy Generation
-              </span>
-            )}
           </div>
         </div>
         <button type="button" onClick={onClose} className="text-xs font-medium text-zinc-500 hover:text-zinc-800">
@@ -1723,13 +1666,6 @@ function ManageCapabilitiesPanel({
             Read-only cloud evidence for SOC 2 / CIS / ISO mappings. Cannot modify your resources.
           </p>
         </div>
-
-        <AdvancedPolicyGenerationCard
-          enabled={draft.enable_advanced_policy_generation}
-          onChange={(v) => onDraftChange({ ...draft, enable_advanced_policy_generation: v })}
-          verify={capabilityVerify?.advanced_policy_generation}
-          deployedFallback={acc.advanced_policy_generation_deployed}
-        />
       </div>
 
       {saveError && (
@@ -1747,15 +1683,6 @@ function ManageCapabilitiesPanel({
           onCliExpandedChange={setCliExpanded}
           deployOptions={draft}
         />
-        {acc.status === "connected" && optionalCapabilities && (
-          <PermissionVerificationPanel
-            onVerify={onVerifyCapabilities}
-            verifying={verifyingCapabilities}
-            feedback={verifyFeedback}
-            verificationMeta={verificationMeta}
-            showButton
-          />
-        )}
       </div>
     </div>
   );
@@ -1774,14 +1701,18 @@ function ConnectionCapabilitiesPicker({
   acc?: Account;
   capabilityVerify?: CapabilityVerifyResults | null;
 }) {
-  const advancedDeployed = acc?.advanced_policy_generation_deployed ?? false;
+  void value;
+  void onChange;
+  void disabled;
+  void acc;
+  void capabilityVerify;
 
   return (
     <div className="space-y-3">
       <div>
         <p className="text-sm font-semibold text-zinc-900">Connection mode</p>
         <p className="mt-0.5 text-xs leading-relaxed text-zinc-500">
-          Start read-only. Enable optional capabilities only when you need them.
+          The Veritrail connector is read-only — it collects evidence and never modifies your resources.
         </p>
       </div>
 
@@ -1798,106 +1729,6 @@ function ConnectionCapabilitiesPicker({
             </p>
           </div>
         </div>
-      </div>
-
-      <AdvancedPolicyGenerationCard
-        enabled={value.enable_advanced_policy_generation}
-        onChange={(v) => onChange({ ...value, enable_advanced_policy_generation: v })}
-        disabled={disabled}
-        verify={capabilityVerify?.advanced_policy_generation}
-        deployedFallback={advancedDeployed}
-      />
-    </div>
-  );
-}
-
-function AdvancedPolicyGenerationCard({
-  enabled,
-  onChange,
-  disabled,
-  verify,
-  deployedFallback,
-  compact = false,
-}: {
-  enabled: boolean;
-  onChange: (v: boolean) => void;
-  disabled?: boolean;
-  verify?: ModuleVerifyResult;
-  deployedFallback?: boolean;
-  compact?: boolean;
-}) {
-  const locked = capabilityLockedInAws(verify, Boolean(deployedFallback));
-  const checked = locked ? true : enabled;
-  const inputDisabled = disabled || locked;
-
-  const body = (
-    <>
-      {locked ? (
-        <CapabilityVerifiedMark />
-      ) : (
-        <input
-          type="checkbox"
-          className="mt-0.5 shrink-0 rounded border-zinc-300 text-teal-600 focus:ring-teal-500/30"
-          checked={checked}
-          disabled={inputDisabled}
-          aria-label="Enable Advanced IAM policy generation"
-          onChange={(e) => onChange(e.target.checked)}
-        />
-      )}
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <p className="text-sm font-medium leading-snug text-zinc-900">Advanced IAM policy generation</p>
-          <CapabilityAccessBadge kind="read-analysis" />
-        </div>
-        <p className="mt-0.5 text-xs leading-relaxed text-zinc-500">
-          Uses IAM Access Analyzer to generate least-privilege policy recommendations from CloudTrail and IAM
-          last-accessed data.
-        </p>
-        {!compact && (
-          <>
-            {checked && (
-              <div className="mt-2">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
-                  Required permissions
-                </p>
-                <div className="mt-2">
-                  <RemediationPermissionsBlock
-                    permissions={ADVANCED_POLICY_RAW_ACTIONS}
-                    verifyRows={verify?.permissions}
-                  />
-                </div>
-              </div>
-            )}
-          </>
-        )}
-      </div>
-    </>
-  );
-
-  if (compact) {
-    return (
-      <label
-        className={`flex items-start gap-2.5 py-4 ${
-          inputDisabled && !locked ? "cursor-not-allowed opacity-60" : locked ? "cursor-default" : "cursor-pointer"
-        }`}
-      >
-        {body}
-      </label>
-    );
-  }
-
-  return (
-    <div
-      className={`overflow-hidden rounded-lg border border-l-4 transition-colors ${
-        locked
-          ? "border-l-emerald-500 border-emerald-200/60 bg-emerald-50/30 shadow-sm shadow-zinc-950/[0.02]"
-          : checked
-            ? "border-l-teal-500 border-teal-200/60 bg-teal-50/30 shadow-sm shadow-zinc-950/[0.03]"
-            : "border-l-transparent border-zinc-200/60 bg-zinc-50/30"
-      } ${inputDisabled && !locked ? "opacity-60" : ""}`}
-    >
-      <div className="px-2.5 py-2.5">
-        <div className="flex items-start gap-2.5">{body}</div>
       </div>
     </div>
   );
@@ -2130,10 +1961,8 @@ function terraformForConnection(acc: Account, connectionOptions: ConnectionOptio
   const veritrailPrincipalArnVar = trustPrincipalArn
     ? `variable "veritrail_principal_arn" {\n  description = "AWS principal ARN that Veritrail uses to assume the connector role. Confirm this in your Veritrail deployment settings before applying."\n  type        = string\n  default     = ${hclString(trustPrincipalArn)}\n}`
     : `variable "veritrail_principal_arn" {\n  description = "AWS principal ARN that Veritrail uses to assume the connector role. Confirm this in your Veritrail deployment settings before applying."\n  type        = string\n}`;
-  const scannerStatements = [
-    ...CORE_SCANNER_STATEMENTS,
-    ...(connectionOptions.enable_advanced_policy_generation ? ADVANCED_POLICY_STATEMENTS : []),
-  ];
+  void connectionOptions;
+  const scannerStatements = [...CORE_SCANNER_STATEMENTS];
   const roleBlocks = `data "aws_iam_policy_document" "veritrail_core_scanner_role_trust" {\n  statement {\n    sid     = "AllowVeritrailAssumeRole"\n    effect  = "Allow"\n    actions = ["sts:AssumeRole"]\n\n    principals {\n      type        = "AWS"\n      identifiers = [var.veritrail_principal_arn]\n    }\n\n    condition {\n      test     = "StringEquals"\n      variable = "sts:ExternalId"\n      values   = [var.external_id]\n    }\n  }\n\n  statement {\n    sid     = "AllowVeritrailRoleChainingContext"\n    effect  = "Allow"\n    actions = ["sts:SetSourceIdentity", "sts:TagSession"]\n\n    principals {\n      type        = "AWS"\n      identifiers = [var.veritrail_principal_arn]\n    }\n  }\n}\n\ndata "aws_iam_policy_document" "veritrail_core_scanner_role_policy" {\n${terraformPolicyDocumentForStatements(scannerStatements, {
       PassAccessAnalyzerMonitorRole: "aws_iam_role.veritrail_core_scanner_role.arn",
     })}\n}\n\nresource "aws_iam_role" "veritrail_core_scanner_role" {\n  name = var.veritrail_core_scanner_role_name\n\n  assume_role_policy = data.aws_iam_policy_document.veritrail_core_scanner_role_trust.json\n\n  tags = merge(var.tags, {\n    Name        = var.veritrail_core_scanner_role_name\n    ManagedBy   = "Terraform"\n    Application = "Veritrail"\n  })\n}\n\nresource "aws_iam_role_policy" "veritrail_core_scanner_role" {\n  name   = "VeritrailScannerAccess"\n  role   = aws_iam_role.veritrail_core_scanner_role.id\n  policy = data.aws_iam_policy_document.veritrail_core_scanner_role_policy.json\n}`;
@@ -2253,19 +2082,6 @@ const CORE_SCANNER_STATEMENTS: readonly PolicyStatementSummary[] = [
   { sid: "EcsConfiguration", actions: ["ecs:ListClusters", "ecs:DescribeClusters", "ecs:ListServices", "ecs:DescribeServices", "ecs:DescribeTaskDefinition"], resource: "*" },
   { sid: "InspectorConfiguration", actions: ["inspector2:BatchGetAccountStatus", "inspector2:ListCoverage", "inspector2:ListFindings", "inspector2:BatchGetFindingDetails"], resource: "*" },
   { sid: "OrganizationsAccountLabel", actions: ["organizations:DescribeAccount"], resource: "*" },
-] as const;
-
-const ADVANCED_POLICY_STATEMENTS: readonly PolicyStatementSummary[] = [
-  {
-    sid: "AccessAnalyzerPolicyGeneration",
-    actions: ADVANCED_POLICY_RAW_ACTIONS.filter((action) => action !== "iam:PassRole"),
-    resource: "*",
-  },
-  {
-    sid: "PassAccessAnalyzerMonitorRole",
-    actions: ["iam:PassRole"],
-    resource: "Access Analyzer monitor role ARN",
-  },
 ] as const;
 
 function containCodeBlockWheel(event: WheelEvent<HTMLElement>) {
@@ -3242,7 +3058,6 @@ function AccountCard({
     setDraftCapabilities(accountConnectionOptions(acc));
   }, [
     acc.id,
-    acc.enable_advanced_policy_generation,
     acc.remediation_modules,
     acc.status,
   ]);
@@ -4346,7 +4161,6 @@ function AccountSplitDetailPane({
   }, [
     isAws,
     acc?.id,
-    acc?.enable_advanced_policy_generation,
     acc?.remediation_modules,
     acc?.status,
   ]);
@@ -5366,7 +5180,6 @@ function AccountPremiumCard({
     setDraftCapabilities(accountConnectionOptions(acc));
   }, [
     acc.id,
-    acc.enable_advanced_policy_generation,
     acc.remediation_modules,
     acc.status,
   ]);
@@ -5876,7 +5689,6 @@ export default function Accounts() {
       api<Account>("/v1/accounts", {
         method: "POST",
         body: JSON.stringify({
-          enable_advanced_policy_generation: opts.enable_advanced_policy_generation,
           remediation_modules: opts.remediation_modules,
         }),
       }),
@@ -6165,7 +5977,6 @@ export default function Accounts() {
     }
   }, [
     pendingAcc?.id,
-    pendingAcc?.enable_advanced_policy_generation,
     pendingAcc?.remediation_modules,
     expandedId,
   ]);

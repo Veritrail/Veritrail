@@ -38,13 +38,11 @@ export function displayConnectorStackName(acc: {
   return acc.cfn_stack_name || CONNECTOR_STACK_NAME;
 }
 
-export function connectionPosture(opts: {
-  enable_advanced_policy_generation: boolean;
+export function connectionPosture(opts?: {
   remediation_modules?: RemediationModules;
 }): ConnectionPosture {
-  // write remediation retired — never scoped-write from remediation_modules
-  void opts.remediation_modules;
-  if (opts.enable_advanced_policy_generation) return "read-only-analysis";
+  // Advanced policy generation and write remediation are retired — always read-only.
+  void opts?.remediation_modules;
   return "read-only";
 }
 

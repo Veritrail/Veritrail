@@ -2,7 +2,9 @@ import { useCallback, useEffect, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   accountIdFromSearchParams,
+  readStoredSelectedAccountId,
   resolveSelectedAccountId,
+  type AccountScopeStorage,
   type ResolveSelectedAccountOptions,
   writeStoredSelectedAccountId,
 } from "../lib/selectedAccountStorage";
@@ -18,18 +20,23 @@ export function useSelectedAccountId(
   accountsReady: boolean,
   options?: {
     holdUrlSyncWhenParams?: string[];
-    scopeDefaults?: Pick<ResolveSelectedAccountOptions, "cloudAccountCount" | "hasSourceControl" | "hasIdentity">;
+    scopeDefaults?: Pick<
+      ResolveSelectedAccountOptions,
+      "cloudAccountCount" | "hasSourceControl" | "hasIdentity" | "scopeIds"
+    >;
     /** Never write `account_id` into the URL or sessionStorage (org readiness home:
      *  bare `/home` must stay unscoped instead of auto-selecting a persisted account). */
     disableUrlSync?: boolean;
+    /** Override default `veritrail.selectedAccountId` persistence (e.g. Findings scope picker). */
+    storage?: AccountScopeStorage;
   },
 ) {
   const [searchParams, setSearchParams] = useSearchParams();
   const urlAccountId = accountIdFromSearchParams(searchParams);
   const connectedIds = useMemo(() => connectedAccounts.map((account) => account.id), [connectedAccounts]);
-  const holdUrlSync =
-    (options?.disableUrlSync ?? false) ||
-    (options?.holdUrlSyncWhenParams ?? []).some((key) => searchParams.has(key));
+  const readStored = options?.storage?.read ?? readStoredSelectedAccountId;
+  const writeStored = options?.storage?.write ?? writeStoredSelectedAccountId;
+  const scopeIds = options?.scopeDefaults?.scopeIds;
 
   const accountId = useMemo(() => {
     if (!accountsReady || connectedIds.length === 0) {
@@ -37,9 +44,15 @@ export function useSelectedAccountId(
     }
     return resolveSelectedAccountId(connectedIds, {
       urlAccountId,
+      storedAccountId: readStored(),
       ...options?.scopeDefaults,
     });
-  }, [accountsReady, connectedIds, options?.scopeDefaults, urlAccountId]);
+  }, [accountsReady, connectedIds, options?.scopeDefaults, readStored, urlAccountId]);
+
+  const holdUrlSync =
+    (options?.disableUrlSync ?? false) ||
+    (options?.holdUrlSyncWhenParams ?? []).some((key) => searchParams.has(key)) ||
+    (!!accountId && !!scopeIds?.includes(accountId));
 
   const activeAccount = useMemo(
     () => connectedAccounts.find((account) => account.id === accountId) ?? connectedAccounts[0],
@@ -51,7 +64,7 @@ export function useSelectedAccountId(
   useEffect(() => {
     if (!accountsReady || !effectiveAccountId || holdUrlSync) return;
 
-    writeStoredSelectedAccountId(effectiveAccountId);
+    writeStored(effectiveAccountId);
 
     const canonical = searchParams.get("account_id");
     const legacy = searchParams.get("account");
@@ -66,11 +79,11 @@ export function useSelectedAccountId(
       },
       { replace: true },
     );
-  }, [accountsReady, effectiveAccountId, holdUrlSync, searchParams, setSearchParams]);
+  }, [accountsReady, effectiveAccountId, holdUrlSync, searchParams, setSearchParams, writeStored]);
 
   const setAccountId = useCallback(
     (id: string, options?: SetAccountIdOptions) => {
-      writeStoredSelectedAccountId(id);
+      writeStored(id);
       setSearchParams(
         (prev) => {
           const next = new URLSearchParams(prev);
@@ -83,7 +96,7 @@ export function useSelectedAccountId(
         { replace: true },
       );
     },
-    [setSearchParams],
+    [setSearchParams, writeStored],
   );
 
   return { accountId: effectiveAccountId, activeAccount, setAccountId };

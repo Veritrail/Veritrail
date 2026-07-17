@@ -1,46 +1,281 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: >
-  VeritrailAccountConnector - parent stack for Veritrail in your AWS account. Deploys a read-only
-  scanner role by default. Optional nested stack adds Access Analyzer policy generation when
-  explicitly enabled.
+  VeritrailAccountConnector - read-only scanner role for Veritrail in your AWS account.
+  Single flat template: one IAM role, no nested stacks, no write access to customer resources.
+
+Metadata:
+  VeritrailVersion: "2026.07"
+  VeritrailTemplate: veritrail-stack
 
 Parameters:
   VeritrailAccountPrincipal:
     Type: String
     Default: "arn:aws:iam::016266969060:role/VeritrailControlPlane"
+    Description: ARN of the Veritrail control plane principal.
   ExternalId:
     Type: String
     NoEcho: true
+    Description: Unique ExternalId issued at onboarding. Required to assume the role.
   RoleName:
     Type: String
     Default: VeritrailScannerRole
-    Description: Veritrail connector IAM role name. Single RoleArn output for onboarding.
-  EnableAdvancedPolicyGeneration:
-    Type: String
-    Default: "No"
-    AllowedValues: ["Yes", "No"]
-  CoreScannerTemplateURL:
-    Type: String
-    Default: "https://amzn-s3-veritrail.s3.us-east-1.amazonaws.com/infra/2026.06/veritrail-core-scanner.yaml"
+    Description: Veritrail connector IAM role name. Do not rename on stack updates.
 
 Resources:
-  CoreScannerStack:
-    Type: AWS::CloudFormation::Stack
+  VeritrailRole:
+    Type: AWS::IAM::Role
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
-      TemplateURL: !Ref CoreScannerTemplateURL
-      Tags:
-        - Key: veritrail-template
-          Value: veritrail-core-scanner
-        - Key: veritrail-version
-          Value: "2026.06"
-      Parameters:
-        VeritrailAccountPrincipal: !Ref VeritrailAccountPrincipal
-        ExternalId: !Ref ExternalId
-        RoleName: !Ref RoleName
-        EnableAdvancedPolicyGeneration: !Ref EnableAdvancedPolicyGeneration
+      RoleName: !Ref RoleName
+      Description: Veritrail read-only compliance scanner. No write access to customer resources.
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Ref VeritrailAccountPrincipal
+            Action:
+              - sts:AssumeRole
+            Condition:
+              StringEquals:
+                sts:ExternalId: !Ref ExternalId
+          - Effect: Allow
+            Principal:
+              AWS: !Ref VeritrailAccountPrincipal
+            Action:
+              - sts:SetSourceIdentity
+              - sts:TagSession
+      Policies:
+        - PolicyName: VeritrailMinimalReadOnly
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: IamUserAndKeyEnumeration
+                Effect: Allow
+                Action:
+                  - iam:ListUsers
+                  - iam:ListMFADevices
+                  - iam:GetLoginProfile
+                  - iam:ListAccessKeys
+                  - iam:GetAccessKeyLastUsed
+                  - iam:GetAccountSummary
+                  - iam:ListAccountAliases
+                  - iam:GetAccountPasswordPolicy
+                Resource: "*"
+              - Sid: IamRoleEnumeration
+                Effect: Allow
+                Action:
+                  - iam:ListRoles
+                  - iam:ListRolePolicies
+                  - iam:GetRolePolicy
+                  - iam:ListAttachedRolePolicies
+                  - iam:GetPolicy
+                  - iam:GetPolicyVersion
+                  - iam:ListPolicies
+                Resource: "*"
+              - Sid: IamServiceLastAccessedRead
+                Effect: Allow
+                Action:
+                  - iam:GetServiceLastAccessedDetails
+                Resource: "*"
+              - Sid: IamServerCertificates
+                Effect: Allow
+                Action:
+                  - iam:ListServerCertificates
+                  - iam:GetServerCertificate
+                Resource: "*"
+              - Sid: AccountContacts
+                Effect: Allow
+                Action:
+                  - account:GetContactInformation
+                  - account:GetAlternateContact
+                  - account:GetAccountInformation
+                Resource: "*"
+              - Sid: S3BucketConfiguration
+                Effect: Allow
+                Action:
+                  - s3:ListAllMyBuckets
+                  - s3:GetAccountPublicAccessBlock
+                  - s3:GetBucketLogging
+                  - s3:GetEncryptionConfiguration
+                  - s3:GetBucketVersioning
+                  - s3:GetBucketPublicAccessBlock
+                  - s3:GetBucketPolicy
+                  - s3:GetBucketAcl
+                Resource: "*"
+              - Sid: KmsKeyConfiguration
+                Effect: Allow
+                Action:
+                  - kms:ListKeys
+                  - kms:DescribeKey
+                  - kms:GetKeyRotationStatus
+                  - kms:GetKeyPolicy
+                  - kms:ListAliases
+                Resource: "*"
+              - Sid: CloudTrailConfiguration
+                Effect: Allow
+                Action:
+                  - cloudtrail:DescribeTrails
+                  - cloudtrail:GetTrailStatus
+                  - cloudtrail:LookupEvents
+                Resource: "*"
+              - Sid: AwsBackupConfiguration
+                Effect: Allow
+                Action:
+                  - backup:ListBackupPlans
+                  - backup:ListBackupVaults
+                Resource: "*"
+              - Sid: GuardDutyConfiguration
+                Effect: Allow
+                Action:
+                  - guardduty:ListDetectors
+                  - guardduty:GetDetector
+                  - guardduty:ListFindings
+                  - guardduty:GetFindings
+                Resource: "*"
+              - Sid: SecurityHubConfiguration
+                Effect: Allow
+                Action:
+                  - securityhub:DescribeHub
+                Resource: "*"
+              - Sid: VpcAndSecurityGroupEnumeration
+                Effect: Allow
+                Action:
+                  - ec2:DescribeRegions
+                  - ec2:DescribeVpcs
+                  - ec2:DescribeFlowLogs
+                  - ec2:DescribeSecurityGroups
+                Resource: "*"
+              - Sid: Ec2InstanceEnumeration
+                Effect: Allow
+                Action:
+                  - ec2:DescribeInstances
+                  - ec2:DescribeVolumes
+                  - ec2:DescribeSnapshots
+                  - ec2:DescribeSnapshotAttribute
+                  - ec2:DescribeImages
+                  - ec2:GetEbsEncryptionByDefault
+                Resource: "*"
+              - Sid: AccessAnalyzerEnumeration
+                Effect: Allow
+                Action:
+                  - access-analyzer:ListAnalyzers
+                Resource: "*"
+              - Sid: ConfigServiceConfiguration
+                Effect: Allow
+                Action:
+                  - config:DescribeConfigurationRecorders
+                  - config:DescribeConfigurationRecorderStatus
+                  - config:DescribeDeliveryChannels
+                  - config:DescribeComplianceByConfigRule
+                Resource: "*"
+              - Sid: IdentityCenterDirectory
+                Effect: Allow
+                Action:
+                  - sso:ListInstances
+                  - sso:DescribeInstance
+                  - sso:ListPermissionSets
+                  - sso:DescribePermissionSet
+                  - sso:ListAccountsForProvisionedPermissionSet
+                  - sso:ListAccountAssignments
+                  - identitystore:ListUsers
+                  - identitystore:DescribeUser
+                  - identitystore:DescribeGroup
+                Resource: "*"
+              - Sid: RdsConfiguration
+                Effect: Allow
+                Action:
+                  - rds:DescribeDBInstances
+                  - rds:DescribeDBSnapshots
+                  - rds:DescribeDBSnapshotAttributes
+                Resource: "*"
+              - Sid: AcmCertificates
+                Effect: Allow
+                Action:
+                  - acm:ListCertificates
+                  - acm:DescribeCertificate
+                Resource: "*"
+              - Sid: LambdaConfiguration
+                Effect: Allow
+                Action:
+                  - lambda:ListFunctions
+                  - lambda:GetFunctionEventInvokeConfig
+                Resource: "*"
+              - Sid: SecretsManagerConfiguration
+                Effect: Allow
+                Action:
+                  - secretsmanager:ListSecrets
+                Resource: "*"
+              - Sid: SsmParameters
+                Effect: Allow
+                Action:
+                  - ssm:DescribeParameters
+                Resource: "*"
+              - Sid: ElbConfiguration
+                Effect: Allow
+                Action:
+                  - elasticloadbalancing:DescribeLoadBalancers
+                  - elasticloadbalancing:DescribeLoadBalancerAttributes
+                  - elasticloadbalancing:DescribeListeners
+                Resource: "*"
+              - Sid: DynamoDbConfiguration
+                Effect: Allow
+                Action:
+                  - dynamodb:ListTables
+                  - dynamodb:DescribeTable
+                  - dynamodb:DescribeContinuousBackups
+                Resource: "*"
+              - Sid: SnsConfiguration
+                Effect: Allow
+                Action:
+                  - sns:ListTopics
+                  - sns:GetTopicAttributes
+                Resource: "*"
+              - Sid: SqsConfiguration
+                Effect: Allow
+                Action:
+                  - sqs:ListQueues
+                  - sqs:GetQueueAttributes
+                Resource: "*"
+              - Sid: EcrConfiguration
+                Effect: Allow
+                Action:
+                  - ecr:DescribeRepositories
+                  - ecr:GetRegistryScanningConfiguration
+                Resource: "*"
+              - Sid: EksConfiguration
+                Effect: Allow
+                Action:
+                  - eks:ListClusters
+                  - eks:DescribeCluster
+                Resource: "*"
+              - Sid: EcsConfiguration
+                Effect: Allow
+                Action:
+                  - ecs:ListClusters
+                  - ecs:DescribeClusters
+                  - ecs:ListServices
+                  - ecs:DescribeServices
+                  - ecs:DescribeTaskDefinition
+                Resource: "*"
+              - Sid: InspectorConfiguration
+                Effect: Allow
+                Action:
+                  - inspector2:BatchGetAccountStatus
+                  - inspector2:ListCoverage
+                  - inspector2:ListFindings
+                  - inspector2:BatchGetFindingDetails
+                Resource: "*"
+              - Sid: OrganizationsAccountLabel
+                Effect: Allow
+                Action:
+                  - organizations:DescribeAccount
+                Resource: "*"
 
 Outputs:
   RoleArn:
-    Value: !GetAtt CoreScannerStack.Outputs.RoleArn
+    Value: !GetAtt VeritrailRole.Arn
   ExternalId:
     Value: !Ref ExternalId

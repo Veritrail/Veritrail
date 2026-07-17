@@ -44,7 +44,7 @@ Status key: **done** · **partial** · **new** · **out of scope** · **rejected
 | 23 | Credential vaulting / short-lived tokens for Veritrail-held secrets | **partial** | Ops posture (`docs/hetzner-vault-rolesanywhere.md`); keep as reference |
 | 24 | Retire write-remediation UI + backend (align product with scanning-only) | **done** | Frontend + backend/infra retired (§2.3). DB columns accept-and-ignore |
 | 25 | LLM-generated Terraform fixes / fix PRs / auto-remediation | **out of scope** | Violates scanning-only. Manual console/CLI guidance stays (`remediationSummaries.ts`, `cliRemediation.ts`) |
-| 26 | Agent-based or event-driven (CloudTrail/EventBridge) scanning at scale | **out of scope (for now)** | Cron/AssumeRole is correct at current scale; locked in `docs/compliance-expansion-checklist.md`. Revisit at hundreds of accounts |
+| 26 | Agent-based or event-driven (CloudTrail/EventBridge) scanning at scale | **out of scope (for now)** | Cron/AssumeRole is correct at current scale. Revisit at hundreds of accounts |
 | 27 | Pricing, auditor channel, Veritrail's own SOC 2, EU residency, vertical frameworks | **human decision** | See §3 |
 
 ---

@@ -109,7 +109,7 @@ export default function Privacy() {
       </LegalSection>
 
       <LegalSection heading="Children">
-        <p>Veritrail is a business tool and is not directed to anyone under 16. We do not knowingly collect their data.</p>
+        <p>Veritrail is a business tool for organizations and isn't intended for anyone under 16. We don't direct our services to children or knowingly collect their personal data. If we learn we've done so, we'll delete it.</p>
       </LegalSection>
 
       <LegalSection heading="Changes to this policy">

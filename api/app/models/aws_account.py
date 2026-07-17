@@ -25,8 +25,6 @@ class AwsAccount(Base):
     )
     status: Mapped[str] = mapped_column(String(40), default="pending")  # pending|connected|error
     cfn_stack_name: Mapped[str] = mapped_column(String(64), default="VeritrailAccountConnector", nullable=False)
-    enable_advanced_policy_generation: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    advanced_policy_generation_deployed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     enable_remediation_sg: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     enable_remediation_s3: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     enable_remediation_iam_keys: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)

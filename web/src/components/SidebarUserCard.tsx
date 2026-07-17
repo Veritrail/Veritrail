@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { logout } from "../api";
 import {
-  formatSidebarAccountsLabel,
+  formatSidebarAccountsCount,
+  formatSidebarAccountsStatus,
   getSidebarAccountsBarFill,
 } from "../hooks/useAccountsPlanUsage";
 import { resolveUserDisplayName } from "../lib/displayNames";
@@ -72,9 +73,12 @@ export default function SidebarUserCard({
 
   const close = () => setOpen(false);
   const showAccountsBar = planLoading || planLabel != null;
-  const accountsLabel = planLoading ? "Loading…" : formatSidebarAccountsLabel(used, maxAccounts);
+  const accountsCount = planLoading ? "…" : formatSidebarAccountsCount(used, maxAccounts);
   const accountsBarFill = getSidebarAccountsBarFill(used, maxAccounts);
   const accountsUnlimited = !planLoading && maxAccounts == null;
+  const accountsAriaLabel = planLoading
+    ? "Accounts connected, loading"
+    : formatSidebarAccountsStatus(used, maxAccounts, planLabel);
 
   const signOut = () => {
     close();
@@ -96,14 +100,16 @@ export default function SidebarUserCard({
             .join(" ")}
           role="progressbar"
           aria-busy={planLoading || undefined}
-          aria-labelledby="sidebar-accounts-status-label"
+          aria-label={accountsAriaLabel}
           aria-valuemin={0}
           aria-valuemax={maxAccounts ?? undefined}
           aria-valuenow={planLoading ? undefined : used}
+          aria-valuetext={planLoading ? undefined : accountsCount}
         >
-          <span id="sidebar-accounts-status-label" className="app-sidebar__accounts-status-label">
-            {accountsLabel}
-          </span>
+          <div className="app-sidebar__accounts-status-row">
+            <span className="app-sidebar__accounts-status-label">Accounts connected</span>
+            <span className="app-sidebar__accounts-status-count">{accountsCount}</span>
+          </div>
           <div className="app-sidebar__accounts-status-track">
             {planLoading ? (
               <div className="app-sidebar__accounts-status-fill app-sidebar__accounts-status-fill--indeterminate" />

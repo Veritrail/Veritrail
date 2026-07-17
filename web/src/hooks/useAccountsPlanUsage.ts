@@ -39,14 +39,10 @@ export function formatAccountLimitText(used: number, maxAccounts: number | null)
   return `${used} of ${maxAccounts} ${noun}`;
 }
 
-/** Compact label above the sidebar accounts progress bar. */
-export function formatSidebarAccountsLabel(used: number, maxAccounts: number | null): string {
-  if (maxAccounts == null) {
-    const noun = used === 1 ? "account" : "accounts";
-    return `${used} ${noun} connected`;
-  }
-  const limitNoun = maxAccounts === 1 ? "account" : "accounts";
-  return `${used} out of ${maxAccounts} ${limitNoun} connected`;
+/** Count text for the sidebar accounts row (right side). */
+export function formatSidebarAccountsCount(used: number, maxAccounts: number | null): string {
+  if (maxAccounts == null) return String(used);
+  return `${used} / ${maxAccounts}`;
 }
 
 /** Screen-reader label for the sidebar accounts progress bar. */
@@ -57,11 +53,9 @@ export function formatSidebarAccountsStatus(
 ): string {
   const plan = formatPlanDisplayLabel(planLabel) ?? "org plan";
   if (maxAccounts == null) {
-    const noun = used === 1 ? "account" : "accounts";
-    return `${used} ${noun} connected (${plan})`;
+    return `Accounts connected: ${used} (${plan})`;
   }
-  const limitNoun = maxAccounts === 1 ? "account" : "accounts";
-  return `${used} out of ${maxAccounts} ${limitNoun} connected (${plan})`;
+  return `Accounts connected: ${used} / ${maxAccounts} (${plan})`;
 }
 
 /** Fill percentage for the sidebar accounts progress bar (0–100). */

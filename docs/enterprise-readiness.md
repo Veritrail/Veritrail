@@ -64,7 +64,8 @@ Tracks the deferred backlog from direction strategy docs. **Not** stale pre-June
 | Auditor approval UI for vault objects | Deferred | Presign API exists; end-to-end share records minimal |
 | Separate EvidenceRequirement / ControlCoverage tables | Deferred P4 | Logic in composites + `category_evidence_coverage.py` today |
 
-Canonical pipeline: [implementation-pipeline.md](./implementation-pipeline.md).
+Backlog now tracked in [open-work.md](./open-work.md) (the implementation-pipeline doc was
+retired once its 170/174 items shipped; residual phase-8 integrations moved there).
 
 ## Deferred (intentional)
 

@@ -41,12 +41,10 @@ class RemediationModulesIn(BaseModel):
 
 class AccountIn(BaseModel):
     label: str = "AWS Account"
-    enable_advanced_policy_generation: bool = False
     remediation_modules: RemediationModulesIn = RemediationModulesIn()
 
 
 class ConnectionOptionsIn(BaseModel):
-    enable_advanced_policy_generation: bool
     remediation_modules: RemediationModulesIn
 
 
@@ -57,10 +55,8 @@ class AccountOut(BaseModel):
     status: str
     external_id: str
     role_arn: str | None = None
-    enable_advanced_policy_generation: bool = False
     remediation_modules: RemediationModulesIn
     remediation_modules_deployed: RemediationModulesIn
-    advanced_policy_generation_deployed: bool = False
     cfn_stack_name: str = "VeritrailAccountConnector"
     cfn_launch_url: str | None = None
     cfn_update_launch_url: str | None = None
@@ -118,10 +114,6 @@ class ConnectorUpdateArtifactsOut(BaseModel):
     recommended_version_tag: str
 
 
-def _yes_no(flag: bool) -> str:
-    return "Yes" if flag else "No"
-
-
 def _remediation_modules_in(modules: dict[str, bool] | None = None) -> RemediationModulesIn:
     base = empty_remediation_modules()
     if modules:
@@ -153,10 +145,8 @@ def _cfn_stack_params(
     external_id: str,
     *,
     stack_name: str,
-    enable_advanced_policy_generation: bool,
 ) -> dict[str, str]:
     s = get_settings()
-    from app.services.cfn_versions import RECOMMENDED_CONNECTOR_VERSION, connector_child_template_url
 
     return {
         "templateURL": s.CFN_TEMPLATE_URL,
@@ -164,11 +154,6 @@ def _cfn_stack_params(
         "param_ExternalId": external_id,
         "param_VeritrailAccountPrincipal": s.TRUST_PRINCIPAL_ARN,
         "param_RoleName": s.CFN_SCANNER_ROLE_NAME,
-        "param_CoreScannerTemplateURL": connector_child_template_url(
-            RECOMMENDED_CONNECTOR_VERSION,
-            "veritrail-core-scanner.yaml",
-        ),
-        "param_EnableAdvancedPolicyGeneration": _yes_no(enable_advanced_policy_generation),
     }
 
 
@@ -176,15 +161,10 @@ def _launch_url(
     external_id: str,
     *,
     stack_name: str,
-    enable_advanced_policy_generation: bool,
     remediation_modules: dict[str, bool] | None = None,
 ) -> str:
     _ = remediation_modules
-    params = _cfn_stack_params(
-        external_id,
-        stack_name=stack_name,
-        enable_advanced_policy_generation=enable_advanced_policy_generation,
-    )
+    params = _cfn_stack_params(external_id, stack_name=stack_name)
     qs = "&".join(f"{k}={quote(v, safe='')}" for k, v in params.items())
     return f"{_cfn_console_base_url()}#/stacks/create/review?{qs}"
 
@@ -193,11 +173,10 @@ def _update_launch_url(
     external_id: str,
     *,
     stack_name: str,
-    enable_advanced_policy_generation: bool,
     remediation_modules: dict[str, bool] | None = None,
 ) -> str:
     # AWS documents quick-create links for create/review only. Update wizard URLs drop stackName.
-    _ = (external_id, enable_advanced_policy_generation, remediation_modules)
+    _ = (external_id, remediation_modules)
     return _cfn_stack_list_url(stack_name)
 
 
@@ -205,12 +184,9 @@ def _cli_command(
     external_id: str,
     *,
     stack_name: str,
-    enable_advanced_policy_generation: bool,
     remediation_modules: dict[str, bool] | None = None,
 ) -> str:
     _ = remediation_modules
-    from app.services.cfn_versions import RECOMMENDED_CONNECTOR_VERSION, connector_child_template_url
-
     s = get_settings()
     region = s.CFN_CONSOLE_REGION or "us-east-1"
     lines = [
@@ -221,8 +197,6 @@ def _cli_command(
         f"    ParameterKey=ExternalId,ParameterValue={external_id} \\",
         f"    ParameterKey=VeritrailAccountPrincipal,ParameterValue={s.TRUST_PRINCIPAL_ARN} \\",
         f"    ParameterKey=RoleName,ParameterValue={s.CFN_SCANNER_ROLE_NAME} \\",
-        f"    ParameterKey=CoreScannerTemplateURL,ParameterValue={connector_child_template_url(RECOMMENDED_CONNECTOR_VERSION, 'veritrail-core-scanner.yaml')} \\",
-        f"    ParameterKey=EnableAdvancedPolicyGeneration,ParameterValue={_yes_no(enable_advanced_policy_generation)} \\",
         "  --capabilities CAPABILITY_NAMED_IAM",
     ]
     return "\n".join(lines)
@@ -232,7 +206,6 @@ def _update_cli_command(
     external_id: str,
     *,
     stack_name: str,
-    enable_advanced_policy_generation: bool,
     remediation_modules: dict[str, bool] | None = None,
 ) -> str:
     _ = remediation_modules
@@ -242,7 +215,6 @@ def _update_cli_command(
         external_id=external_id,
         stack_name=stack_name,
         version_tag=RECOMMENDED_CONNECTOR_VERSION,
-        enable_advanced_policy_generation=enable_advanced_policy_generation,
     )
 
 
@@ -266,7 +238,6 @@ def _display_cfn_stack_name(acc: AwsAccount) -> str:
 def _account_out(acc: AwsAccount) -> AccountOut:
     modules = remediation_modules_dict(acc)
     option_kwargs = dict(
-        enable_advanced_policy_generation=acc.enable_advanced_policy_generation,
         remediation_modules=modules,
     )
     create_opts = dict(stack_name=_create_stack_name(), **option_kwargs)
@@ -279,10 +250,8 @@ def _account_out(acc: AwsAccount) -> AccountOut:
         external_id=acc.external_id,
         role_arn=acc.role_arn if acc.role_arn and (acc.status == "connected" or acc.account_id) else None,
         last_error=acc.last_error,
-        enable_advanced_policy_generation=acc.enable_advanced_policy_generation,
         remediation_modules=_remediation_modules_in(modules),
         remediation_modules_deployed=_remediation_modules_in(remediation_deployed_dict(acc)),
-        advanced_policy_generation_deployed=acc.advanced_policy_generation_deployed,
         cfn_stack_name=_display_cfn_stack_name(acc),
         cfn_launch_url=_launch_url(acc.external_id, **create_opts),
         cfn_update_launch_url=_update_launch_url(acc.external_id, **update_opts),
@@ -352,7 +321,6 @@ def create_account(body: AccountIn, _rbac: RequireAdmin, p=Depends(current_princ
         label=body.label,
         external_id=ext,
         cfn_stack_name=settings.CFN_STACK_NAME,
-        enable_advanced_policy_generation=body.enable_advanced_policy_generation,
     )
     set_remediation_modules(acc, _modules_from_body(body.remediation_modules))
     db.add(acc)
@@ -379,21 +347,8 @@ def update_connection_options(
     acc = db.get(AwsAccount, uuid.UUID(account_id))
     if not acc or str(acc.org_id) != p["org_id"]:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "account not found")
-    if (
-        acc.enable_advanced_policy_generation
-        and not body.enable_advanced_policy_generation
-        and acc.advanced_policy_generation_deployed
-    ):
-        raise HTTPException(
-            status.HTTP_409_CONFLICT,
-            "Advanced IAM policy generation is verified in your deployed role. "
-            "Update your CloudFormation stack with EnableAdvancedPolicyGeneration=No, "
-            "run Verify permissions, then turn this off in Veritrail.",
-        )
-    if body.enable_advanced_policy_generation != acc.enable_advanced_policy_generation:
-        acc.advanced_policy_generation_deployed = False
-    acc.enable_advanced_policy_generation = body.enable_advanced_policy_generation
-    # Write remediation retired — ignore client remediation_modules; leave DB columns as-is.
+    # Write remediation and advanced policy generation are retired — the connector
+    # is read-only. Ignore client remediation_modules; leave DB columns as-is.
     set_remediation_modules(acc, empty_remediation_modules())
     log_org_activity(
         db,
@@ -403,10 +358,7 @@ def update_connection_options(
         target_type="aws_account",
         target_id=str(acc.id),
         target_label=acc.label,
-        detail={
-            "advanced_policy_generation": body.enable_advanced_policy_generation,
-            "remediation_modules": {},
-        },
+        detail={"remediation_modules": {}},
     )
     db.commit()
     return _account_out(acc)

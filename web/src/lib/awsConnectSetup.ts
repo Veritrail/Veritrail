@@ -21,7 +21,6 @@ export type AwsConnectAccount = {
 };
 
 export const AWS_CORE_CONNECTION_OPTIONS: CfnConnectionOptions = {
-  enable_advanced_policy_generation: false,
   remediation_modules: { ...DEFAULT_REMEDIATION_MODULES },
 };
 

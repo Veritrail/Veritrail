@@ -338,7 +338,7 @@ def test_viewer_cannot_create_account(client, monkeypatch):
         res = client.post(
             "/v1/accounts",
             headers=_auth_header("viewer", org_id),
-            json={"label": "Test", "enable_advanced_policy_generation": False},
+            json={"label": "Test"},
         )
         assert res.status_code == 403
     finally:
@@ -360,7 +360,7 @@ def test_admin_can_create_account_route_passes_rbac(client, monkeypatch):
         res = client.post(
             "/v1/accounts",
             headers=_auth_header("admin", org_id),
-            json={"label": "Test", "enable_advanced_policy_generation": False},
+            json={"label": "Test"},
         )
         assert res.status_code != 403
     finally:
