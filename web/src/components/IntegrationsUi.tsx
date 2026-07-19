@@ -334,14 +334,19 @@ export function IntegrationBrandIcon({
   className?: string;
 }) {
   const { src, fallback, tileScale = 1, tilePadding = 8 } = INTEGRATION_BRAND[brand];
+  // Same-origin brand/integration assets are tiny and often above the fold —
+  // lazy + async decode made remote favicons (e.g. Jira) visibly pop in late.
+  const localAsset = src.startsWith("/");
+  const imgLoading = localAsset ? "eager" : "lazy";
+  const imgDecoding = localAsset ? "sync" : "async";
   const img = (
     <img
       src={src}
       alt=""
       aria-hidden
       className="h-full w-full object-contain"
-      decoding="async"
-      loading="lazy"
+      decoding={imgDecoding}
+      loading={imgLoading}
       style={tileScale !== 1 ? { transform: `scale(${tileScale})` } : undefined}
       onError={
         fallback
@@ -367,8 +372,8 @@ export function IntegrationBrandIcon({
           alt=""
           aria-hidden
           className="h-full w-full object-contain"
-          decoding="async"
-          loading="lazy"
+          decoding={imgDecoding}
+          loading={imgLoading}
           style={plainScale !== 1 ? { transform: `scale(${plainScale})` } : undefined}
           onError={
             fallback

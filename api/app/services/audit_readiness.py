@@ -47,8 +47,11 @@ _SDLC_CHECKS = frozenset(
         "github.repo.no_branch_protection",
         "gitlab.repo.no_branch_protection",
         "github.repo.dependabot_disabled",
+        "github.repo.dependabot_inactive",
         "github.repo.secret_scanning_disabled",
+        "github.repo.secret_scanning_inactive",
         "github.repo.code_scanning_disabled",
+        "github.repo.code_scanning_inactive",
     }
 )
 
@@ -81,7 +84,7 @@ _AUDITOR_TECHNICAL_PLAYBOOKS: tuple[dict[str, Any], ...] = (
             "claim that backups have been restore-tested."
         ),
         "narrative_domain_keys": ("backup_dr",),
-        "max_actions": 4,
+        "max_actions": 3,
         "items": (
             {
                 "key": "rds_backups",
@@ -145,26 +148,6 @@ _AUDITOR_TECHNICAL_PLAYBOOKS: tuple[dict[str, Any], ...] = (
                 "action_url": "https://console.aws.amazon.com/backup/home",
                 "activation_label": "Create an AWS Backup plan",
                 "recovery_priority": 2,
-            },
-            {
-                "key": "rds_deletion_protection",
-                "label": "RDS deletion protection (prevention)",
-                "verified_text": (
-                    "RDS deletion protection is enabled as a preventive safeguard; it does not "
-                    "restore deleted, corrupted, or encrypted data."
-                ),
-                "action_text": (
-                    "Enable RDS deletion protection to reduce accidental deletion risk. This is "
-                    "prevention, not a data restoration mechanism."
-                ),
-                "checks": ("rds.instance.no_deletion_protection",),
-                "required_types": frozenset({"rds_instance"}),
-                "resource_label": "RDS databases",
-                "activation_checks": ("rds.instance.no_deletion_protection",),
-                "action_label": "Enable",
-                "action_url": "https://console.aws.amazon.com/rds/home#databases:",
-                "activation_label": "Enable RDS deletion protection (prevention)",
-                "recovery_priority": 3,
             },
         ),
     },
@@ -538,8 +521,11 @@ _AUDITOR_TECHNICAL_PLAYBOOKS: tuple[dict[str, Any], ...] = (
                 "verified_text": "Secret scanning, code scanning, and dependency-update checks report no open gaps.",
                 "checks": (
                     "github.repo.secret_scanning_disabled",
+                    "github.repo.secret_scanning_inactive",
                     "github.repo.code_scanning_disabled",
+                    "github.repo.code_scanning_inactive",
                     "github.repo.dependabot_disabled",
+                    "github.repo.dependabot_inactive",
                 ),
                 "action_text": "Review repositories missing automated code-security checks.",
                 "review_label": "Review missing secret, code, and dependency scanning",

@@ -19,6 +19,8 @@ type ToolbarSearchInputProps = {
   "aria-label": string;
   className?: string;
   suggestions?: string[];
+  /** When set, picking a suggestion applies it (e.g. as a filter tag) and clears the input. */
+  onSelectSuggestion?: (suggestion: string) => void;
 };
 
 export function ToolbarSearchInput({
@@ -30,6 +32,7 @@ export function ToolbarSearchInput({
   "aria-label": ariaLabel,
   className,
   suggestions = [],
+  onSelectSuggestion,
 }: ToolbarSearchInputProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -95,7 +98,14 @@ export function ToolbarSearchInput({
   }, [value]);
 
   const selectSuggestion = (suggestion: string) => {
-    onChange(suggestion);
+    if (onSelectSuggestion) {
+      // The handler owns clearing the input — a second onChange("") here would
+      // race its URL write (functional setSearchParams updates don't reliably
+      // chain within one tick) and drop the just-applied filter.
+      onSelectSuggestion(suggestion);
+    } else {
+      onChange(suggestion);
+    }
     setFocused(false);
     inputRef.current?.focus();
   };

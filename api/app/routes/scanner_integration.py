@@ -207,6 +207,8 @@ def sync_scanner(
         "resolved": stats.resolved,
     }
     cfg.update(summary)
+    if stats.capability_evidence is not None:
+        cfg["capability_evidence"] = stats.capability_evidence
     set_provider_config(provider, cfg)
     provider.last_synced_at = datetime.fromisoformat(stats.last_synced_at)
     db.commit()

@@ -337,9 +337,21 @@ function IntegrationsContent() {
     queryKey: ["siem-integration", "datadog"],
     queryFn: () => api("/v1/integrations/siem/datadog", { schema: scannerIntegrationSchema }),
   });
+  const elasticSiem = useQuery({
+    queryKey: ["siem-integration", "elastic"],
+    queryFn: () => api("/v1/integrations/siem/elastic", { schema: scannerIntegrationSchema }),
+  });
   const pagerduty = useQuery({
     queryKey: ["pagerduty-integration"],
     queryFn: () => api("/v1/integrations/pagerduty", { schema: scannerIntegrationSchema }),
+  });
+  const crowdstrike = useQuery({
+    queryKey: ["edr-integration", "crowdstrike"],
+    queryFn: () => api("/v1/integrations/edr/crowdstrike", { schema: scannerIntegrationSchema }),
+  });
+  const sentinelone = useQuery({
+    queryKey: ["edr-integration", "sentinelone"],
+    queryFn: () => api("/v1/integrations/edr/sentinelone", { schema: scannerIntegrationSchema }),
   });
   const settings = useQuery({
     queryKey: ["settings"],
@@ -411,7 +423,10 @@ function IntegrationsContent() {
   const jiraConnected = !!jira.data?.connected;
   const splunkConnected = !!splunkSiem.data?.connected;
   const datadogConnected = !!datadogSiem.data?.connected;
+  const elasticConnected = !!elasticSiem.data?.connected;
   const pagerdutyConnected = !!pagerduty.data?.connected;
+  const crowdstrikeConnected = !!crowdstrike.data?.connected;
+  const sentineloneConnected = !!sentinelone.data?.connected;
 
   const awsHealth = cloudIntegrationHealth({
     scanning: awsScanRunning,
@@ -700,6 +715,25 @@ function IntegrationsContent() {
           } satisfies IntegrationRow,
         ]
       : []),
+    ...(elasticConnected
+      ? [
+          {
+            key: "siem-elastic",
+            name: "Elastic Security",
+            description: "Security rules, alert activity, and logging evidence from Elastic.",
+            icon: <IntegrationBrandIcon brand="elastic" size={48} />,
+            href: "/integrations/siem/elastic",
+            connected: true,
+            loading: elasticSiem.isLoading,
+            lastSyncAt: elasticSiem.data?.config.last_synced_at ?? null,
+            healthLabel: elasticSiem.data?.status === "error" ? "Needs reconnect" : "Healthy",
+            healthTone: (elasticSiem.data?.status === "error" ? "danger" : "ok") as Tone,
+            permissionsLabel: "API connected",
+            permissionsVerified: true,
+            capabilities: ["Security alerts", "Logging evidence"],
+          } satisfies IntegrationRow,
+        ]
+      : []),
     ...(pagerdutyConnected
       ? [
           {
@@ -716,6 +750,44 @@ function IntegrationsContent() {
             permissionsLabel: "Read-only API token",
             permissionsVerified: true,
             capabilities: ["On-call services", "Open incidents"],
+          } satisfies IntegrationRow,
+        ]
+      : []),
+    ...(crowdstrikeConnected
+      ? [
+          {
+            key: "crowdstrike",
+            name: "CrowdStrike",
+            description: "Managed-device coverage and sensor health for host scanning.",
+            icon: <IntegrationBrandIcon brand="crowdstrike" size={48} />,
+            href: "/integrations/edr/crowdstrike",
+            connected: true,
+            loading: crowdstrike.isLoading,
+            lastSyncAt: crowdstrike.data?.config.last_synced_at ?? null,
+            healthLabel: crowdstrike.data?.status === "error" ? "Needs reconnect" : "Healthy",
+            healthTone: (crowdstrike.data?.status === "error" ? "danger" : "ok") as Tone,
+            permissionsLabel: "OAuth API client",
+            permissionsVerified: true,
+            capabilities: ["Device coverage", "Sensor health"],
+          } satisfies IntegrationRow,
+        ]
+      : []),
+    ...(sentineloneConnected
+      ? [
+          {
+            key: "sentinelone",
+            name: "SentinelOne",
+            description: "Agent coverage and health for host/workload scanning.",
+            icon: <IntegrationBrandIcon brand="sentinelone" size={48} />,
+            href: "/integrations/edr/sentinelone",
+            connected: true,
+            loading: sentinelone.isLoading,
+            lastSyncAt: sentinelone.data?.config.last_synced_at ?? null,
+            healthLabel: sentinelone.data?.status === "error" ? "Needs reconnect" : "Healthy",
+            healthTone: (sentinelone.data?.status === "error" ? "danger" : "ok") as Tone,
+            permissionsLabel: "API token",
+            permissionsVerified: true,
+            capabilities: ["Agent coverage", "Threat findings"],
           } satisfies IntegrationRow,
         ]
       : []),
@@ -749,7 +821,10 @@ function IntegrationsContent() {
           jiraConnected,
           splunkConnected,
           datadogConnected,
+          elasticConnected,
           pagerdutyConnected,
+          crowdstrikeConnected,
+          sentineloneConnected,
           connectedScanners: {
             snyk: !!snykScanner.data?.connected,
             wiz: !!wizScanner.data?.connected,

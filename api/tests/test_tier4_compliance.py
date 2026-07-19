@@ -23,11 +23,14 @@ def test_tier4_vulnerability_management_composite():
 
 
 def test_tier4_secure_sdlc_includes_gitlab_security_checks():
+    composite_control_definitions.cache_clear()
     by_id = {d["id"]: d for d in composite_control_definitions()}
     sdlc = by_id["secure_sdlc"]
     assert "gitlab.repo.sast_disabled" in sdlc["checks"]
     assert "gitlab.repo.dependency_scanning_disabled" in sdlc["checks"]
     assert "gitlab.repo.container_scanning_disabled" in sdlc["checks"]
+    assert "github.repo.dependabot_inactive" in sdlc["checks"]
+    assert "github.repo.code_scanning_inactive" in sdlc["checks"]
 
 
 def test_tier4_identity_governance_includes_identity_center_stale():
@@ -53,12 +56,16 @@ def test_gitlab_collect_security_features_detects_jobs():
 
     transport = httpx.MockTransport(handler)
     client = httpx.Client(transport=transport)
-    features = _collect_security_features(client, "https://gitlab.com/api/v4", 1, "main")
-    assert features == {
-        "sast": True,
-        "dependency_scanning": True,
-        "container_scanning": True,
-    }
+    features, _drafts, collected = _collect_security_features(
+        client, "https://gitlab.com/api/v4", 1, "main"
+    )
+    assert features["sast"] is True
+    assert features["dependency_scanning"] is True
+    assert features["container_scanning"] is True
+    assert features["capability_evidence"]["source_code_scanning"]["has_observable_activity"] is True
+    assert features["capability_evidence"]["dependency_scanning"]["enabled"] is True
+    # Vulnerability Report unavailable (404) → do not mark findings collected.
+    assert collected == set()
 
 
 def test_gitlab_collect_security_features_marks_missing_when_pipelines_exist():
@@ -71,12 +78,14 @@ def test_gitlab_collect_security_features_marks_missing_when_pipelines_exist():
 
     transport = httpx.MockTransport(handler)
     client = httpx.Client(transport=transport)
-    features = _collect_security_features(client, "https://gitlab.com/api/v4", 1, "main")
-    assert features == {
-        "sast": False,
-        "dependency_scanning": False,
-        "container_scanning": False,
-    }
+    features, _drafts, collected = _collect_security_features(
+        client, "https://gitlab.com/api/v4", 1, "main"
+    )
+    assert features["sast"] is False
+    assert features["dependency_scanning"] is False
+    assert features["container_scanning"] is False
+    assert features["capability_evidence"]["source_code_scanning"]["enabled"] is False
+    assert collected == set()
 
 
 def test_gitlab_sast_disabled_check_flags_repo(mock_db):

@@ -419,6 +419,39 @@ def build_evidence_pack(
             "pagerduty_integration.json",
             json.dumps(_build_pagerduty_integration(db, org_id), indent=2, default=str),
         )
+        try:
+            from app.services.capability_lane_coverage import build_capability_lane_coverage
+
+            lane_payload = build_capability_lane_coverage(
+                db, org_id, persist_snapshot=False
+            )
+            # Distinguish "no findings" from "no data" in export.
+            lean = {
+                "generated_at": lane_payload.get("generated_at"),
+                "connected_providers": lane_payload.get("connected_providers"),
+                "secure_sdlc_rollup": lane_payload.get("secure_sdlc_rollup"),
+                "vulnerability_management_rollup": lane_payload.get(
+                    "vulnerability_management_rollup"
+                ),
+                "lanes": {
+                    k: {kk: vv for kk, vv in lane.items() if kk != "envelopes"}
+                    for k, lane in (lane_payload.get("lanes") or {}).items()
+                },
+                "operational": lane_payload.get("operational"),
+                "data_collected": bool(
+                    lane_payload.get("connected_providers")
+                    or (lane_payload.get("operational") or {}).get("connected_providers")
+                ),
+            }
+            _write(
+                "capability_lane_coverage.json",
+                json.dumps(lean, indent=2, default=str),
+            )
+        except Exception:  # noqa: BLE001
+            _write(
+                "capability_lane_coverage.json",
+                json.dumps({"data_collected": False, "error": "capability_grading_unavailable"}),
+            )
 
         from app.services.pack_signing import signing_enabled
 

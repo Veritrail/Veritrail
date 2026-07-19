@@ -29,8 +29,9 @@ const ABSENCE_GAP_CAPABILITY: Record<string, string> = {
 const ABSENCE_GAP_ACTIONS: Record<string, AbsenceGapActions> = {
   "aws.vulnerability_monitoring.not_detected": {
     externalOption:
-      "Provide evidence that you manage vulnerability management outside AWS (e.g. Wiz, Orca, Snyk, or Tenable export or dashboard link).",
-    awsOption: "Enable AWS Inspector and container/image scanning in this account.",
+      "Provide evidence from an equivalent scanner only for asset classes Inspector does not cover (optional — never required when native evidence already grades the lane).",
+    awsOption:
+      "Enable Amazon Inspector for EC2/ECR/Lambda in this account, or connect GitHub/GitLab scanning for source assets.",
   },
   "vpc.flow_logs.not_enabled": {
     externalOption:
@@ -56,7 +57,7 @@ const ABSENCE_GAP_ACTIONS: Record<string, AbsenceGapActions> = {
     externalOption:
       "Attest that the organization analyzer lives in your management account — unverified until that account is connected — or provide evidence of equivalent external-access review coverage.",
     awsOption:
-      "Connect the IAM Access Analyzer — if using an AWS Organization, connect the delegated admin or management account.",
+      "Enable IAM Access Analyzer for this account. On AWS Organizations, enable it from the management or delegated-admin account.",
   },
   "cloudtrail.trail.not_enabled": {
     externalOption:

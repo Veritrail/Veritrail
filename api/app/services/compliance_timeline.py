@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.models import Finding, FindingEvent, ScanRun
 from app.models.control import Control, CheckControl
+from app.services.check_evidence import CLASS_BENCHMARK, evidence_class_for_check
 from app.services.finding_history import (
     finding_open_for_control,
     finding_state_at,
@@ -147,6 +148,9 @@ def build_control_history(
             events.append({
                 "timestamp": evt.ts.isoformat(),
                 "type": f"finding_{evt.action}",
+                "finding_id": str(f.id),
+                "finding_status": finding_state_at(f, now, events_by_finding.get(f.id)),
+                "affects_control_status": evidence_class_for_check(f.check_id) == CLASS_BENCHMARK,
                 "check_id": f.check_id,
                 "resource_arn": f.resource_arn,
                 "detail": evt.note or f.title,
@@ -157,6 +161,9 @@ def build_control_history(
             events.append({
                 "timestamp": f.first_seen.isoformat(),
                 "type": "finding_detected",
+                "finding_id": str(f.id),
+                "finding_status": finding_state_at(f, now, events_by_finding.get(f.id)),
+                "affects_control_status": evidence_class_for_check(f.check_id) == CLASS_BENCHMARK,
                 "check_id": f.check_id,
                 "resource_arn": f.resource_arn,
                 "detail": f.title,

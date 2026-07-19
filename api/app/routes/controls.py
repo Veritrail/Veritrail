@@ -160,6 +160,7 @@ class CompositeControlOut(BaseModel):
     sdlc_insights: dict | None = None
     scanning_attestation: dict | None = None
     scanning_attestable_checks: list[str] = []
+    capability_lanes: dict | None = None
     evidence_integrations: list[EvidenceIntegrationOut] = []
 
 
@@ -1066,6 +1067,9 @@ def list_composite_controls_route(
             acc_id = acc.id
 
     rows = list_composite_controls(db, uuid.UUID(p["org_id"]), acc_id)
+    # list_composite_controls stages an hourly capability snapshot. Commit it
+    # explicitly; get_db closes read sessions without an implicit commit.
+    db.commit()
     return [CompositeControlOut(**row) for row in rows]
 
 

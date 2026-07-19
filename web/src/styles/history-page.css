@@ -1828,6 +1828,22 @@
   list-style: none;
 }
 
+.history-controls__drill-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.65rem 0.75rem;
+  border-bottom: 1px solid #e7ebf0;
+  color: #344155;
+  font-size: 0.75rem;
+}
+
+.history-controls__drill-heading span {
+  color: #8793a6;
+  font-size: 0.7rem;
+  font-weight: 500;
+}
+
 .history-controls__drill-list li {
   display: flex;
   align-items: baseline;
@@ -1854,6 +1870,7 @@
   line-height: 1.2;
 }
 .history-controls__drill-type.is-resolved { background: #e2f4f0; color: #0a6f66; }
+.history-controls__drill-type.is-open { background: #fbeacb; color: #8a5a0f; }
 .history-controls__drill-type.is-reopened,
 .history-controls__drill-type.is-opened,
 .history-controls__drill-type.is-detected { background: #fbeacb; color: #8a5a0f; }
@@ -1977,3 +1994,7 @@
   font-size: 0.78rem;
   font-weight: 600;
 }
+
+/* Transition rows inherit the same typography as other History values. */
+.history-controls__steady--regressed { color: #b3423d; }
+.history-controls__steady--recovered { color: #0a6f66; }

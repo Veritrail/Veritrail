@@ -240,6 +240,8 @@ export function OrgReadinessHome() {
     const rows = controlsQ.data ?? [];
     return {
       failing: rows.filter((row) => row.status === "fail").length,
+      passing: rows.filter((row) => row.status === "pass").length,
+      atRisk: rows.filter((row) => row.status === "at_risk").length,
       graded: rows.some((row) => row.status !== "no_data"),
     };
   }, [controlsQ.data]);
@@ -316,9 +318,9 @@ export function OrgReadinessHome() {
         key: `finding:${group.checkId}`,
         title: labelForCheck(group.checkId),
         detail: [
-          group.location,
-          controls.length > 0 ? controls.slice(0, 3).join(", ") : null,
+          controls.length > 0 ? `Unblocks ${controls.slice(0, 3).join(", ")}` : null,
           `${group.count} finding${group.count === 1 ? "" : "s"}`,
+          group.location,
         ]
           .filter(Boolean)
           .join(" · "),
@@ -399,11 +401,11 @@ export function OrgReadinessHome() {
               <span className="org-home__title-statement">
                 {" — "}
                 <span className="org-home__headline-em">{highCount} high</span> finding
-                {highCount === 1 ? "" : "s"} stand{highCount === 1 ? "s" : ""} between you and SOC 2.
+                {highCount === 1 ? "" : "s"} stand{highCount === 1 ? "s" : ""} between you and SOC 2 technical readiness.
               </span>
             ) : homeState === "clear" ? (
               <span className="org-home__title-statement">
-                {" "}— no high findings stand between you and SOC 2.
+                {" "}— no high findings stand between you and SOC 2 technical readiness.
               </span>
             ) : null}
           </h1>

@@ -8,6 +8,11 @@ Built for AWS-heavy engineering teams heading into SOC 2 who need a credible clo
 
 **One-line:** Connect your AWS account → first downloadable SOC2 evidence pack in under 10 minutes.
 
+**Product direction:** [`docs/technical-evidence-coverage-spec.md`](docs/technical-evidence-coverage-spec.md)
+defines Veritrail's provider-equivalent technical evidence model: deepen native GitHub/GitLab
+and AWS/GCP/Azure evidence before requiring optional third-party scanners, then normalize
+SIEM, incident-operations, and endpoint sources into the same coverage contract.
+
 ---
 
 ## What it is

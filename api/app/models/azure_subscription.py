@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, UniqueConstraint, func
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.db import Base
@@ -38,6 +38,7 @@ class AzureDefenderStatus(Base):
     secure_score: Mapped[float | None] = mapped_column(Float, nullable=True)
     pricing_tier: Mapped[str | None] = mapped_column(String(40), nullable=True)
     defender_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    evidence_json: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

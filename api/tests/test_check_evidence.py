@@ -17,6 +17,10 @@ def test_extended_mapped_is_supporting():
     assert evidence_class_for_check("guardduty.detector.not_enabled") == CLASS_SUPPORTING
 
 
+def test_dynamodb_pitr_is_benchmark_recovery_evidence():
+    assert evidence_class_for_check("dynamodb.table.no_pitr") == CLASS_BENCHMARK
+
+
 def test_core_mapped_is_benchmark():
     assert evidence_class_for_check("iam.root.no_mfa") == CLASS_BENCHMARK
 

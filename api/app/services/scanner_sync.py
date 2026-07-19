@@ -28,6 +28,7 @@ class ScannerSyncStats:
     resolved: int = 0
     open_findings_count: int = 0
     last_synced_at: str = ""
+    capability_evidence: list | None = None
 
 
 def check_id_for_vendor(vendor: str) -> str:
@@ -96,7 +97,26 @@ def sync_scanner_provider(
         drafts=drafts,
         check_ids_run={check_id},
     )
+    from app.services.scanner_capability_evidence import build_scanner_capability_evidence
+
     now = datetime.now(timezone.utc).isoformat()
+    severity_counts = {"critical": 0, "high": 0, "medium": 0, "low": 0}
+    for row in imported:
+        sev = normalize_severity(row.severity).lower()
+        if sev in severity_counts:
+            severity_counts[sev] += 1
+        else:
+            severity_counts["low"] += 1
+    capability_evidence = build_scanner_capability_evidence(
+        key,
+        open_findings_count=len(imported),
+        last_synced_at=now,
+        # Open findings are not an asset inventory. Until a vendor adapter
+        # collects its authoritative assessed-asset denominator, keep coverage
+        # partial instead of treating affected resources as the full scope.
+        asset_count=None,
+        severity_counts=severity_counts,
+    )
     return ScannerSyncStats(
         vendor=key,
         imported=len(imported),
@@ -104,6 +124,7 @@ def sync_scanner_provider(
         resolved=resolved,
         open_findings_count=len(imported),
         last_synced_at=now,
+        capability_evidence=capability_evidence,
     )
 
 

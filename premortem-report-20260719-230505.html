@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Premortem — Technical Evidence Coverage Rollout</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --surface: #1a1d24;
+    --surface-2: #22262f;
+    --border: #2e3440;
+    --text: #e8eaed;
+    --muted: #9aa3b2;
+    --danger: #f87171;
+    --warn: #fbbf24;
+    --accent: #60a5fa;
+    --good: #34d399;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.55;
+    padding: 2rem 1.25rem 4rem;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; }
+  h1 { font-size: 1.75rem; margin: 0 0 0.35rem; letter-spacing: -0.02em; }
+  .eyebrow {
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 0.7rem;
+    color: var(--muted);
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+  }
+  .lede { color: var(--muted); margin: 0 0 2rem; font-size: 1.05rem; }
+  .synthesis {
+    background: linear-gradient(180deg, #1e2430 0%, var(--surface) 100%);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 1.5rem 1.6rem;
+    margin-bottom: 2.5rem;
+  }
+  .synthesis h2 {
+    margin: 0 0 1.1rem;
+    font-size: 1.15rem;
+    color: var(--warn);
+  }
+  .synth-grid {
+    display: grid;
+    gap: 1rem;
+  }
+  @media (min-width: 720px) {
+    .synth-grid { grid-template-columns: 1fr 1fr; }
+  }
+  .synth-item {
+    background: var(--surface-2);
+    border-radius: 10px;
+    padding: 1rem 1.1rem;
+    border: 1px solid var(--border);
+  }
+  .synth-item.full { grid-column: 1 / -1; }
+  .synth-item h3 {
+    margin: 0 0 0.4rem;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+  }
+  .synth-item p { margin: 0; font-size: 0.95rem; }
+  .synth-item ul { margin: 0.4rem 0 0; padding-left: 1.15rem; }
+  .synth-item li { margin: 0.35rem 0; font-size: 0.92rem; }
+  .tag {
+    display: inline-block;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 0.15rem 0.45rem;
+    border-radius: 4px;
+    margin-right: 0.4rem;
+    vertical-align: middle;
+  }
+  .tag-likely { background: #7f1d1d; color: #fecaca; }
+  .tag-danger { background: #78350f; color: #fde68a; }
+  .tag-hidden { background: #1e3a5f; color: #bfdbfe; }
+  h2.section {
+    font-size: 1.05rem;
+    margin: 0 0 1rem;
+    color: var(--muted);
+    font-weight: 600;
+  }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.25rem 1.35rem;
+    margin-bottom: 1rem;
+  }
+  .card h3 {
+    margin: 0 0 0.85rem;
+    font-size: 1.05rem;
+    letter-spacing: -0.01em;
+  }
+  .card .num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 6px;
+    background: var(--surface-2);
+    color: var(--accent);
+    font-size: 0.8rem;
+    font-weight: 700;
+    margin-right: 0.5rem;
+  }
+  .card h4 {
+    margin: 0.9rem 0 0.35rem;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+  }
+  .card p { margin: 0 0 0.55rem; font-size: 0.92rem; color: #d1d5db; }
+  .card p:last-child { margin-bottom: 0; }
+  .assumption {
+    border-left: 3px solid var(--warn);
+    padding-left: 0.75rem;
+    color: var(--text) !important;
+    font-style: italic;
+  }
+  .footer {
+    margin-top: 2.5rem;
+    font-size: 0.8rem;
+    color: var(--muted);
+    border-top: 1px solid var(--border);
+    padding-top: 1rem;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">Premortem · Prospective hindsight · Jul 19, 2026</div>
+  <h1>Technical Evidence Coverage Rollout</h1>
+  <p class="lede">
+    It's 6 months from now. The Phases 0–5 evidence coverage ship — capability lanes,
+    GitHub/GitLab depth, native cloud collectors, SIEM/on-call envelopes, CrowdStrike &amp;
+    SentinelOne, scanner parity, migration 0100 snapshots — has failed. Here's why.
+  </p>
+
+  <section class="synthesis">
+    <h2>Synthesis</h2>
+    <div class="synth-grid">
+      <div class="synth-item">
+        <h3><span class="tag tag-likely">Most likely</span> Failure</h3>
+        <p>
+          <strong>Unrelated regressions rode the mega-commit.</strong> An ~80–90 file mixed WIP push
+          (evidence + Findings/Integrations/CSS) shipped breaks nobody reviewed. Green CI was treated
+          as product safety. Customers noticed flaky pages more than new evidence value.
+        </p>
+      </div>
+      <div class="synth-item">
+        <h3><span class="tag tag-danger">Most dangerous</span> Failure</h3>
+        <p>
+          <strong>Auditor liability — evidence that lied.</strong> A lane marked <em>covered</em>
+          (scanner enablement / partial sync / thin denominator) was rejected in a real SOC 2 walkthrough.
+          Audit slipped a quarter; "honest technical evidence" became indefensible.
+        </p>
+      </div>
+      <div class="synth-item full">
+        <h3><span class="tag tag-hidden">Hidden assumption</span></h3>
+        <p>
+          That <strong>mocked unit tests + a green CI suite + "connected" integration health</strong>
+          equal auditor-defensible, production-true coverage — without live-tenant Connect/sync,
+          scoped PRs, or collector-failure alerts.
+        </p>
+      </div>
+      <div class="synth-item full">
+        <h3>Revised plan</h3>
+        <ul>
+          <li><strong>Ship in slices, not megacommit:</strong> PR1 = GitHub/GitLab false-resolve + pagination only; PR2 = cloud collectors; PR3 = SIEM/PagerDuty envelopes; PR4 = EDR catalog+API behind a feature flag; PR5 = scanner envelopes + snapshots. Never mix Findings/CSS/UI polish into evidence PRs.</li>
+          <li><strong>Live-tenant gate before GA:</strong> one real GitHub org, one GitLab (or documented Premium/Ultimate gap), one AWS Inspector account, and either CrowdStrike <em>or</em> SentinelOne Connect→sync→lane grade must succeed before EDR leaves "beta".</li>
+          <li><strong>Never export "covered" when limitations exist:</strong> if <code>capability_evidence.limitations</code> contains permission_denied / unavailable_by_plan / module_not_licensed / enablement_only, grade at most <em>limited</em> and say so in audit-pack prose.</li>
+          <li><strong>Deploy rehearsal:</strong> staging run of migration 0100 + api recreate + automatic nginx reload; documented downgrade or expand-contract path for snapshots table; retention/TTL on <code>capability_coverage_snapshots</code>.</li>
+          <li><strong>UI copy rewrite:</strong> replace "Unknown/Stale/Not covered" + snake_case flags with plain English ("We don't have enough evidence yet" / "Evidence is older than N days" / "Needs X permission") and one clear next action.</li>
+          <li><strong>Sync fairness:</strong> GitHub 429/Retry-After backoff, per-tenant job budgets, soft-fail partial pages without flipping whole-org covered.</li>
+        </ul>
+      </div>
+      <div class="synth-item full">
+        <h3>Pre-launch checklist</h3>
+        <ul>
+          <li>□ Diff of the evidence ship contains <em>only</em> evidence-related paths (no Findings/CSS/Accounts drive-bys).</li>
+          <li>□ Staging: alembic 0100 upgrade + one successful Controls lane grade + audit-pack export; then deliberate api recreate and confirm no 502 without manual nginx reload.</li>
+          <li>□ Live sync: GitHub Security console vs Veritrail lane status match for the same org; no audit export shows <em>covered</em> while limitations list denials.</li>
+          <li>□ EDR: at least one successful CrowdStrike or SentinelOne Connect + sync on a real tenant (or feature-flagged "beta" with no audit-pack claim).</li>
+          <li>□ Alert: Slack/page when &gt;N% of lanes go stale/unknown while Integrations still say connected, or when <code>scan.collector_failed</code> rises week-over-week.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <h2 class="section">Failure deep-dives</h2>
+
+  <article class="card">
+    <h3><span class="num">1</span> Evidence lied</h3>
+    <h4>The failure story</h4>
+    <p>Week three after ship: cloud-castles connects GitHub. Sync paginates Dependabot/code/secret alerts until mid-page 429s. Tests only returned tidy 200/403 mocks — no rate-limit path — so partial pages graded as fresh. Secure SDLC flipped to covered. Themarquee's GitLab Premium token hit Ultimate-gated findings; collectors wrote unavailable_by_plan_or_tier but lane merge still treated enablement envelopes as enough for green. Carwiz wired CrowdStrike/SentinelOne: agents healthy, Spotlight/vuln modules 403'd; host lane still showed covered because heartbeat looked like "activity." Azure Defender stored plan tiers as enabled while assessments soft-failed on missing Reader roles.</p>
+    <p>By month four an auditor opened a Veritrail package next to the GitHub Security and Falcon consoles. Denominators and open severes did not match. Trust in "honest technical evidence" collapsed.</p>
+    <h4>Underlying assumption</h4>
+    <p class="assumption">A green suite of mocked unit tests (403 branches included) was proof that live vendor APIs would grade the same way in production.</p>
+    <h4>Early warning signs</h4>
+    <p>1. First live tenant sync: lane status ≠ vendor console for the same org/repos/agents (esp. after GitHub 429s or GitLab plan gates).<br />
+       2. Audit package claims covered while stored capability_evidence still lists permission_denied, unavailable_by_plan_or_tier, or EDR module-not-licensed.</p>
+  </article>
+
+  <article class="card">
+    <h3><span class="num">2</span> Deploy broke production</h3>
+    <h4>The failure story</h4>
+    <p>Tuesday 11:40pm. Phases 0–5 ship as one commit — ~80 files plus alembic 0100 — on the lone Hetzner box. Docker compose rebuilds API onto a new IP; nginx keeps the old upstream → 502s (known failure mode, usually "just reload nginx"). Migration 0100 is still creating capability_coverage_snapshots and evidence_json columns; the lock stalls; workers bounce against a half-migrated schema. Controls and audit-pack export 500. Image rollback can't undo an advanced schema. By morning snapshots fill with no retention, disk pressure climbs, and two customers are mid–SOC 2 evidence freeze with a dead product.</p>
+    <h4>Underlying assumption</h4>
+    <p class="assumption">A solo-run, manual-migrate, single-box Compose deploy can absorb a schema-changing megacommit the same way a tiny UI tweak does.</p>
+    <h4>Early warning signs</h4>
+    <p>1. Redeploy recreates api and traffic 502s until manual nginx reload — still unfixed in the deploy script.<br />
+       2. Migration 0100 creates append-only snapshots with no prune/TTL while grading writes on every call.</p>
+  </article>
+
+  <article class="card">
+    <h3><span class="num">3</span> Unrelated regressions rode along</h3>
+    <h4>The failure story</h4>
+    <p>Evidence coverage sat in a tree with ~89 dirty files — new EDR routes next to Findings.tsx, Integrations.tsx, checkLabels, and CSS for Accounts/Compliance/History. Shipping meant one mega-commit. Nobody read the full diff. CI failed on tsc/pydantic mocks; a fix-CI subagent greened the build without testing the Findings drawer. Production broke first on drawer wiring against half-finished control maps; next week CSS bleed made Checklist unusable. Customers filed tickets about broken pages; the evidence feature went unnoticed. Velocity collapsed into fix-CI → fix-regression loops.</p>
+    <h4>Underlying assumption</h4>
+    <p class="assumption">Green CI on a mega-commit means the product is safe — so reviewing (or scoping) the full mixed-WIP diff is optional.</p>
+    <h4>Early warning signs</h4>
+    <p>1. Working tree regularly hits 50+ modified files spanning unrelated surfaces in one git status.<br />
+       2. Releases show a feature commit immediately followed by a fix-CI commit with no scoped PR isolating evidence from UI WIP.</p>
+  </article>
+
+  <article class="card">
+    <h3><span class="num">4</span> EDR connect failed on first real use</h3>
+    <h4>The failure story</h4>
+    <p>Acme's security lead clicked CrowdStrike Connect in month two. Blank base URL defaulted to api.crowdstrike.com; her tenant was EU-1 → 401. She rotated secrets and scopes; founder couldn't reproduce — every CI path MagicMock'd access_token:"t". A second customer got SentinelOne verify-pass then sync death on nextCursor shape the empty pagination mock never exercised. Spotlight 403 on a no-Spotlight SKU plus a missing Hosts scope surfaced as opaque "hosts query error 403." Slack threads labeled the logos broken. By month four, prospects asked if Endpoint Security was "real."</p>
+    <h4>Underlying assumption</h4>
+    <p class="assumption">HTTP mocks returning happy OAuth tokens and empty pagination proved Connect → sync → lane-grade would work against real CrowdStrike/SentinelOne tenants.</p>
+    <h4>Early warning signs</h4>
+    <p>1. Zero successful Connect/sync against a live CrowdStrike or SentinelOne tenant before GA.<br />
+       2. Every EDR test patches httpx with canned 200/403 — no contract tests for regional bases, OAuth errors, or multi-page cursors.</p>
+  </article>
+
+  <article class="card">
+    <h3><span class="num">5</span> Maintenance sprawl</h3>
+    <h4>The failure story</h4>
+    <p>Month three: GitHub narrowed security-alerts OAuth scope. /user still 200'd so integration_health stayed "connected." Dependabot/code-scanning envelopes stopped updating; after 14 days lanes went stale → unknown with no pager. By month five Azure Defender empty payloads under a renamed API version, GCP SCC collector_failed rollbacks, CrowdStrike and Tenable each broke on scope/rate-limit changes. Fifteen surfaces, one founder. Month six: a design partner exported an evidence pack — half the technical lanes unknown/stale. They filed support before the founder opened a collector log.</p>
+    <h4>Underlying assumption</h4>
+    <p class="assumption">Auth-ok connection health plus freshness windows would surface broken collectors before customers did — without deprecation monitoring or failure-rate alerts.</p>
+    <h4>Early warning signs</h4>
+    <p>1. Rising share of lanes in stale/unknown while Integrations still show connected.<br />
+       2. Per-collector scan.collector_failed (or empty "successful" syncs) climbing week over week with no alert.</p>
+  </article>
+
+  <article class="card">
+    <h3><span class="num">6</span> Auditor liability</h3>
+    <h4>The failure story</h4>
+    <p>A customer's SOC 2 auditor probed Vulnerability Management marked covered via a scanner integration. Under the hood, scanner_capability_evidence treated any tenant activity as whole-scope assessed; a legacy GitHub path still emitted enablement_only_legacy_snapshot envelopes. The auditor found unscanned hosts / thin denominators, rejected the lane, and the audit slipped a quarter. The customer blamed Veritrail publicly. "Audit-ready evidence" became a claim the company couldn't defend.</p>
+    <h4>Underlying assumption</h4>
+    <p class="assumption">A "covered" grade in the product UI/export is safe to hand an auditor without proving denominator completeness and non-enablement-only evidence.</p>
+    <h4>Early warning signs</h4>
+    <p>1. Count of single-envelope covered lanes in exported packages.<br />
+       2. Presence of enablement_only / legacy_snapshot limitations inside packages that still say covered.</p>
+  </article>
+
+  <article class="card">
+    <h3><span class="num">7</span> Scale &amp; rate limits</h3>
+    <h4>The failure story</h4>
+    <p>Prospect Northline (340 repos, ~12k Dependabot alerts) connected GitHub. The same full-pagination path built for tens of repos fired across every repo with no 429/Retry-After handling. Secondary rate-limit and abuse responses arrived; partial inventories remained; the next repo was hammered anyway. With concurrency 2 and Celery 15/20-minute caps, that job ate both workers for hours, hard-killed mid-org, and starved every other tenant's SIEM/EDR/cloud syncs. Freshness aged out; lanes flipped stale/unknown mid-demo for the CISO evaluating the product.</p>
+    <h4>Underlying assumption</h4>
+    <p class="assumption">Full-pagination, single-job org syncs proven on tens of repos would stay fast and fair at hundreds of repos on two shared workers with no per-tenant budgets or GitHub backoff.</p>
+    <h4>Early warning signs</h4>
+    <p>1. Per-sync GitHub request count / wall time climbing linearly with repos × alert pages (jobs approaching the 15-minute soft limit).<br />
+       2. Rising 403 secondary-rate-limit responses and queue wait for other tenants during one GitHub sync.</p>
+  </article>
+
+  <article class="card">
+    <h3><span class="num">8</span> Nobody understood the UI</h3>
+    <h4>The failure story</h4>
+    <p>The Compliance drawer shipped raw status labels — "Unknown", "Stale", "Not covered" — and limitation flags rendered as barely-humanized snake_case enums. Non-security founders read "unknown" as a Veritrail bug and "limited" as blame. Sales demos stumbled explaining phase2_native_cloud_pending provenance. Expand rates and next-action clicks stayed near zero. By month five the founder hid the Capability coverage section. Months of backend work became invisible.</p>
+    <h4>Underlying assumption</h4>
+    <p class="assumption">Users would read coverage states as neutral technical data, not as product bugs or personal blame.</p>
+    <h4>Early warning signs</h4>
+    <p>1. Support tickets that treat "unknown" as a Veritrail defect.<br />
+       2. Low drawer expand / action-click rates on Capability coverage vs other Fix-tab sections.</p>
+  </article>
+
+  <div class="footer">
+    Premortem method: Gary Klein (HBR 2007) · Prospective hindsight · Generated for Veritrail technical evidence coverage rollout · 2026-07-19
+  </div>
+</div>
+</body>
+</html>

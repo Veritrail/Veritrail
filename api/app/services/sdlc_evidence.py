@@ -19,6 +19,14 @@ _SECURITY_FEATURE_KEYS = (
 )
 
 
+def _capability_active(capability_evidence: dict[str, Any], capability: str) -> bool:
+    """True when enablement is on AND Phase-1 evidence shows observable activity."""
+    block = capability_evidence.get(capability) if isinstance(capability_evidence, dict) else None
+    if isinstance(block, dict):
+        return bool(block.get("enabled")) and bool(block.get("has_observable_activity"))
+    return False
+
+
 def _repo_security_status(repo: Repo, protection: RepoProtection | None) -> dict[str, Any]:
     features = repo.security_features if isinstance(repo.security_features, dict) else {}
     default_branch = (repo.default_branch or "main").strip()
@@ -33,12 +41,29 @@ def _repo_security_status(repo: Repo, protection: RepoProtection | None) -> dict
         elif val is None and repo.name and not repo.name.endswith(".disabled"):
             gaps.append(f"{key}_unknown")
 
+    cap_map = {
+        "dependabot_alerts": "dependency_scanning",
+        "code_scanning": "source_code_scanning",
+        "secret_scanning": "secret_scanning",
+    }
+    for legacy_key, cap_id in cap_map.items():
+        if features.get(legacy_key) is True and not _capability_active(
+            features.get("capability_evidence")
+            if isinstance(features.get("capability_evidence"), dict)
+            else {},
+            cap_id,
+        ):
+            gaps.append(f"{legacy_key}_inactive")
+
     return {
         "name": repo.name,
         "default_branch": default_branch,
         "has_branch_protection": has_protection,
         "required_reviews": protection.required_reviews if protection else None,
         "security_features": {k: features.get(k) for k in _SECURITY_FEATURE_KEYS},
+        "capability_evidence": features.get("capability_evidence")
+        if isinstance(features.get("capability_evidence"), dict)
+        else {},
         "gaps": gaps,
     }
 
@@ -143,6 +168,22 @@ def sdlc_insights_for_org(db: Session, org_id: uuid.UUID) -> dict[str, Any]:
     """Lightweight SDLC snapshot for composite secure_sdlc UI."""
     since = datetime.now(timezone.utc) - timedelta(days=90)
     data = build_sdlc_evidence(db, org_id, since)
+    dependabot_active = sum(
+        1
+        for d in data["repo_details"]
+        if _capability_active(d.get("capability_evidence") or {}, "dependency_scanning")
+    )
+    code_scanning_active = sum(
+        1
+        for d in data["repo_details"]
+        if _capability_active(d.get("capability_evidence") or {}, "source_code_scanning")
+    )
+    secret_scanning_active = sum(
+        1
+        for d in data["repo_details"]
+        if _capability_active(d.get("capability_evidence") or {}, "secret_scanning")
+    )
+
     return {
         "repos_total": data["repos_total"],
         "repos_with_branch_protection": data["repos_with_branch_protection"],
@@ -150,5 +191,8 @@ def sdlc_insights_for_org(db: Session, org_id: uuid.UUID) -> dict[str, Any]:
         "dependabot_enabled_repos": data["dependabot_enabled_repos"],
         "code_scanning_enabled_repos": data["code_scanning_enabled_repos"],
         "secret_scanning_enabled_repos": data["secret_scanning_enabled_repos"],
+        "dependabot_active_repos": dependabot_active,
+        "code_scanning_active_repos": code_scanning_active,
+        "secret_scanning_active_repos": secret_scanning_active,
         "repos_with_security_gaps": len(data["repos_with_security_gaps"]),
     }

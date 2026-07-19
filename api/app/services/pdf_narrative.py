@@ -167,8 +167,11 @@ CHECK_VERIFIED_PHRASES: dict[str, str] = {
     "github.repo.self_merge_allowed": "self-merged pull requests are prevented",
     "gitlab.repo.self_merge_allowed": "self-merged merge requests are prevented",
     "github.repo.secret_scanning_disabled": "secret scanning is enabled on repositories",
+    "github.repo.secret_scanning_inactive": "secret scanning shows observable alert activity",
     "github.repo.code_scanning_disabled": "code scanning is enabled on repositories",
+    "github.repo.code_scanning_inactive": "code scanning shows observable analysis activity",
     "github.repo.dependabot_disabled": "dependency update automation is enabled",
+    "github.repo.dependabot_inactive": "Dependabot shows observable alert activity",
     # Change management
     "github.repo.no_env_protection": "deployment environments are protected",
     "gitlab.repo.no_env_protection": "deployment environments are protected",

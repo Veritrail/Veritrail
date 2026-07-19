@@ -206,6 +206,28 @@ integrations, kept here after that doc was pruned:
 - **Kandji MDM** — device-management evidence (alongside existing Intune/Jamf).
 - **Azure management-group support** — org-level Azure onboarding (stretch).
 
+## 7c. Provider-equivalent technical evidence depth — **shipped (Phases 0–5)**
+
+Approved product-core direction and phased implementation spec:
+[`technical-evidence-coverage-spec.md`](./technical-evidence-coverage-spec.md).
+
+**Shipped:**
+- Phase 0 — shared capability semantics (`technical_capability.py`)
+- Phase 1 — GitHub/GitLab alert depth, false-resolve guards, capability lane UI
+- Phase 2 — AWS Inspector / GCP SCC+OS Config / Azure Defender envelope grading
+  (`cloud_capability_evidence.py` + deepened collectors)
+- Phase 3 — Splunk / Elastic / Datadog / PagerDuty operational capability envelopes
+- Phase 4 — CrowdStrike + SentinelOne catalog, connect UI, API routes, host-lane grading
+- Phase 5 — optional scanner capability envelopes; no vendor-presence grading
+- Historical `capability_coverage_snapshots` + audit-pack `capability_lane_coverage.json`
+
+**Honest remaining blockers (need live credentials / plan tiers):**
+- GitLab Vulnerability Report requires appropriate tier/scopes; otherwise job heuristics +
+  limitation flags remain.
+- CrowdStrike Spotlight / SentinelOne vuln modules return limitation flags when unlicensed (403).
+- Azure assessment soft-collect depends on Security Reader–class permissions.
+- Live end-to-end grading against real tenants is not exercised in CI (unit tests mock APIs).
+
 ## 9. Gap — check-less human criteria (CC7.4 et al.) can't receive external evidence — **done**
 
 **Closed by the checklist consolidation.** CC6.4/CC6.5/CC7.3/CC7.4 render in the checklist

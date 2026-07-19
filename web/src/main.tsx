@@ -30,6 +30,7 @@ import JamfIntegration from "./pages/JamfIntegration";
 import Questionnaire from "./pages/Questionnaire";
 import SiemIntegration from "./pages/SiemIntegration";
 import PagerDutyIntegration from "./pages/PagerDutyIntegration";
+import EdrIntegration from "./pages/EdrIntegration";
 import Integrations from "./pages/Integrations";
 import IntegrationCatalog from "./pages/IntegrationCatalog";
 import History from "./pages/History";
@@ -113,6 +114,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
             <Route path="/integrations/azure" element={<AzureIntegration />} />
             <Route path="/integrations/scanners/:vendor" element={<VulnScannerIntegration />} />
             <Route path="/integrations/pagerduty" element={<PagerDutyIntegration />} />
+            <Route path="/integrations/edr/:vendor" element={<EdrIntegration />} />
             <Route path="/integrations/intune" element={<IntuneIntegration />} />
             <Route path="/integrations/jamf" element={<JamfIntegration />} />
             <Route path="/questionnaire" element={<Questionnaire />} />

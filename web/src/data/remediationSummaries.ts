@@ -557,15 +557,30 @@ export const remediationSummaries: Record<string, RemediationSummary> = {
     risk: "Known vulnerable dependencies may go unpatched.",
     fix: "Enable Dependabot alerts and security updates.",
   },
+  "github.repo.dependabot_inactive": {
+    impact: "Dependabot is enabled but no alert/scan activity is observable.",
+    risk: "Enablement alone does not prove dependency scanning is operating.",
+    fix: "Confirm Dependabot alerts API access and that scans produce results on the default branch.",
+  },
   "github.repo.code_scanning_disabled": {
     impact: "GitHub code scanning not enabled.",
     risk: "Static analysis gaps in CI pipeline.",
     fix: "Enable code scanning with CodeQL or third-party integration.",
   },
+  "github.repo.code_scanning_inactive": {
+    impact: "Code scanning is enabled but no recent analysis activity is observable.",
+    risk: "Enablement alone does not prove SAST is running on the default branch.",
+    fix: "Run CodeQL (or equivalent) on the default branch and ensure analyses are visible to Veritrail.",
+  },
   "github.repo.secret_scanning_disabled": {
     impact: "GitHub secret scanning not enabled.",
     risk: "Leaked credentials may remain in git history.",
     fix: "Enable secret scanning and push protection.",
+  },
+  "github.repo.secret_scanning_inactive": {
+    impact: "Secret scanning is enabled but no alert activity is observable.",
+    risk: "Enablement alone does not prove secret scanning is operating.",
+    fix: "Confirm secret scanning alerts API access and plan coverage for the repository.",
   },
   "github.repo.security_status_checks_missing": {
     impact: "Required security status checks not configured.",

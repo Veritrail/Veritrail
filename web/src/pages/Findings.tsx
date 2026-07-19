@@ -1469,6 +1469,28 @@ export function FindingsWorkspace({ lockedAccountId, embedded = false }: Finding
     );
   }
 
+  /** Suggestion click → filter tag + cleared search, as ONE URL write.
+   *  Two sequential setSearchParams calls race (functional prev is not
+   *  guaranteed to chain within a tick), and the checks→state sync effect
+   *  then wipes the tag from the losing write. */
+  function applySuggestionAsTag(suggestion: string) {
+    const nextTags = searchTags.includes(suggestion)
+      ? searchTags
+      : [...searchTags, suggestion];
+    setSearchTags(nextTags);
+    setSearchText("");
+    if (!syncFiltersToUrl) return;
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.set("checks", nextTags.join(","));
+        next.delete("q");
+        return next;
+      },
+      { replace: true },
+    );
+  }
+
   function toggleSort(k: SortKey) {
     if (sortKey === k) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
     else {
@@ -1629,6 +1651,7 @@ export function FindingsWorkspace({ lockedAccountId, embedded = false }: Finding
                       value={searchText}
                       onChange={handleSearch}
                       suggestions={searchSuggestions}
+                      onSelectSuggestion={applySuggestionAsTag}
                     />
                     <div className="findings-v2-toolbar-group findings-v2-toolbar-group--divider" role="group" aria-label="Finding actions">
                       <button

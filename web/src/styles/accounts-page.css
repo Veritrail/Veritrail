@@ -8985,11 +8985,6 @@ button.accounts-flow-step:hover {
   border-top: 1px solid #f1f5f9;
 }
 
-.org-home__timeline-section--wide .org-home__timeline-row:nth-child(even) {
-  border-left: 1px solid #f1f5f9;
-  padding-left: 1.2rem;
-}
-
 .org-home__timeline-section--compact .org-home__timeline-text {
   overflow: hidden;
   color: #475569;

@@ -7,13 +7,13 @@ from unittest.mock import MagicMock
 
 from app.services.control_status import compute_control_status
 from app.services.composite_controls import (
+    apply_capability_rollup,
     assert_control_mapping_composite_coverage,
     composite_control_definitions,
     control_mapping_checks_missing_from_composites,
     evidence_integrations_for_check_ids,
     soc2_control_checks,
 )
-from app.services.control_status import compute_control_status
 
 
 def test_composite_definitions_load():
@@ -37,6 +37,27 @@ def test_composite_definitions_load():
             continue  # external evidence only — no automated checks
         assert entry.get("checks"), f"{entry['id']} must map checks"
         assert entry.get("control_id", "").startswith("COMPOSITE.")
+
+
+def test_capability_gap_blocks_legacy_pass_without_erasing_overrides():
+    assert apply_capability_rollup("pass", "passing", "action_needed", may_grade=True) == (
+        "fail",
+        "failing",
+    )
+    assert apply_capability_rollup(
+        "pass", "externally_covered", "action_needed", may_grade=False
+    ) == ("pass", "externally_covered")
+
+
+def test_verified_capability_can_grade_no_data_but_not_erase_findings():
+    assert apply_capability_rollup("no_data", "unevaluated", "verified", may_grade=True) == (
+        "pass",
+        "passing",
+    )
+    assert apply_capability_rollup("fail", "failing", "verified", may_grade=True) == (
+        "fail",
+        "failing",
+    )
 
 
 def test_tier3_composite_check_mappings():

@@ -129,10 +129,13 @@
     ],
     "checks": [
       "github.repo.code_scanning_disabled",
+      "github.repo.code_scanning_inactive",
       "github.repo.dependabot_disabled",
+      "github.repo.dependabot_inactive",
       "github.repo.insufficient_reviews",
       "github.repo.no_branch_protection",
       "github.repo.secret_scanning_disabled",
+      "github.repo.secret_scanning_inactive",
       "github.repo.security_status_checks_missing",
       "github.repo.self_merge_allowed",
       "gitlab.repo.container_scanning_disabled",

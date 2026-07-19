@@ -75,10 +75,13 @@ export const CHECK_FRAMEWORK_MAP: Record<string, string[]> = {
   "github.org.mfa_not_enforced": ["iso27001", "soc2"],
   "github.org.outside_collaborators": ["iso27001", "soc2"],
   "github.repo.code_scanning_disabled": ["iso27001", "soc2"],
+  "github.repo.code_scanning_inactive": ["iso27001", "soc2"],
   "github.repo.dependabot_disabled": ["iso27001", "soc2"],
+  "github.repo.dependabot_inactive": ["iso27001", "soc2"],
   "github.repo.insufficient_reviews": ["iso27001", "soc2"],
   "github.repo.no_branch_protection": ["iso27001", "soc2"],
   "github.repo.no_env_protection": ["iso27001", "soc2"],
+  "github.repo.secret_scanning_inactive": ["iso27001", "soc2"],
   "github.repo.secret_scanning_disabled": ["iso27001", "soc2"],
   "github.repo.security_status_checks_missing": ["iso27001", "soc2"],
   "github.repo.self_merge_allowed": ["iso27001", "soc2"],
@@ -128,7 +131,7 @@ export const CHECK_FRAMEWORK_MAP: Record<string, string[]> = {
   "lambda.function.no_dlq": ["iso27001", "soc2"],
   "lambda.function.public_url": ["iso27001", "soc2"],
   "rds.instance.no_automated_backup": ["cis_aws_l1", "iso27001", "soc2"],
-  "rds.instance.no_deletion_protection": ["iso27001", "soc2"],
+  "rds.instance.no_deletion_protection": ["iso27001"],
   "rds.instance.no_encryption": ["cis_aws_l1", "iso27001", "soc2"],
   "rds.instance.no_multi_az": ["iso27001"],
   "rds.instance.publicly_accessible": ["cis_aws_l1", "iso27001", "soc2"],
@@ -146,4 +149,3 @@ export const CHECK_FRAMEWORK_MAP: Record<string, string[]> = {
   "ssm.parameter.plaintext_secret": ["iso27001", "soc2"],
   "vpc.flow_logs.not_enabled": ["cis_aws_l1", "iso27001", "soc2"],
 };
-

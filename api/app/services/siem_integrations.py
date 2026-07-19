@@ -80,17 +80,37 @@ def verify_siem_connection(vendor: str, cfg: dict[str, Any]) -> dict[str, Any]:
 
 
 def sync_summary(vendor: str, cfg: dict[str, Any]) -> dict[str, Any]:
+    from app.services.operational_capability import grade_siem_from_config
+
     key = vendor.lower()
+    extras: dict[str, Any] = {}
     if key == "splunk":
         count = _splunk_signal_count(cfg)
+        # This query proves log ingestion only. It does not inspect Splunk ES
+        # correlation searches, notable events, or alert health.
+        extras.update(
+            {
+                "logging_event_count": count,
+                "security_signal_count": 0,
+                "security_rules_enabled": False,
+                "ingestion_fresh": count > 0,
+                "security_detection_unassessed": True,
+            }
+        )
     elif key == "datadog":
-        count = _datadog_signal_count(cfg)
+        count, extras = _datadog_signal_detail(cfg)
     elif key == "elastic":
-        count = _elastic_signal_count(cfg)
+        count, extras = _elastic_signal_detail(cfg)
     else:
         raise ValueError(f"Unsupported SIEM vendor: {vendor}")
     now = datetime.now(timezone.utc).isoformat()
-    return {"signal_count": count, "last_synced_at": now}
+    merged = {**cfg, "signal_count": count, "last_synced_at": now, **extras}
+    return {
+        "signal_count": count,
+        "last_synced_at": now,
+        **extras,
+        "capability_evidence": grade_siem_from_config(key, merged),
+    }
 
 
 def _test_splunk(cfg: dict[str, Any]) -> dict[str, Any]:
@@ -151,6 +171,11 @@ def _test_datadog(cfg: dict[str, Any]) -> dict[str, Any]:
 
 
 def _datadog_signal_count(cfg: dict[str, Any]) -> int:
+    count, _ = _datadog_signal_detail(cfg)
+    return count
+
+
+def _datadog_signal_detail(cfg: dict[str, Any]) -> tuple[int, dict[str, Any]]:
     site = normalize_datadog_site(cfg.get("site") or "datadoghq.com")
     headers = {"DD-API-KEY": cfg["api_key"], "DD-APPLICATION-KEY": cfg["app_key"]}
     with httpx.Client(timeout=60.0) as client:
@@ -162,7 +187,16 @@ def _datadog_signal_count(cfg: dict[str, Any]) -> int:
     if resp.status_code >= 400:
         raise ValueError(f"Datadog sync error {resp.status_code}")
     monitors = resp.json() if isinstance(resp.json(), list) else []
-    return sum(1 for m in monitors if (m.get("overall_state") or "").upper() in {"ALERT", "WARN"})
+    alerted = [m for m in monitors if (m.get("overall_state") or "").upper() in {"ALERT", "WARN"}]
+    return len(alerted), {
+        "monitor_count": len(monitors),
+        # /api/v1/monitor returns general monitors, not Cloud SIEM rules.
+        "security_rules_enabled": False,
+        "security_signal_count": 0,
+        "logging_event_count": len(monitors),
+        "security_detection_unassessed": True,
+        "ingestion_fresh": len(alerted) > 0 or len(monitors) > 0,
+    }
 
 
 def _test_elastic(cfg: dict[str, Any]) -> dict[str, Any]:
@@ -181,6 +215,11 @@ def _test_elastic(cfg: dict[str, Any]) -> dict[str, Any]:
 
 
 def _elastic_signal_count(cfg: dict[str, Any]) -> int:
+    count, _ = _elastic_signal_detail(cfg)
+    return count
+
+
+def _elastic_signal_detail(cfg: dict[str, Any]) -> tuple[int, dict[str, Any]]:
     cluster = normalize_api_base_url(cfg.get("cluster_url") or "")
     headers = {"Authorization": f"ApiKey {cfg['api_key']}", "Content-Type": "application/json"}
     body = {
@@ -194,7 +233,17 @@ def _elastic_signal_count(cfg: dict[str, Any]) -> int:
             json=body,
         )
     if resp.status_code == 404:
-        return 0
+        return 0, {"has_security_index": False, "ingestion_fresh": False}
     if resp.status_code >= 400:
         raise ValueError(f"Elastic sync error {resp.status_code}")
-    return int(resp.json().get("hits", {}).get("total", {}).get("value", 0))
+    count = int(resp.json().get("hits", {}).get("total", {}).get("value", 0))
+    return count, {
+        "has_security_index": True,
+        # A populated Security alert index is direct detection activity. An
+        # empty index alone does not prove rules are enabled and healthy.
+        "security_rules_enabled": count > 0,
+        "security_signal_count": count,
+        "logging_event_count": count,
+        "ingestion_fresh": count > 0,
+        "high_signals": count,
+    }

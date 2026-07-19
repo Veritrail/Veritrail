@@ -13,7 +13,6 @@
   "lambda.function.deprecated_runtime": "extended",
   "rds.instance.no_deletion_protection": "extended",
   "rds.instance.no_multi_az": "extended",
-  "dynamodb.table.no_pitr": "extended",
   "ec2.ami.aged": "extended",
   "aws.config.rules_non_compliant": "extended",
   "iam.access_inventory_gap": "extended",

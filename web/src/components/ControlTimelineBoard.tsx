@@ -9,6 +9,7 @@ import {
   type ControlTimelineRow,
 } from "../lib/apiSchemas";
 import { compareControlIds, controlFamily, isHiddenComplianceFamily } from "../lib/controlFamilies";
+import { collapseFindingLifecycles } from "../lib/controlHistory";
 import { findingsHrefForCheckIds } from "../hooks/useConnectedAccountOptions";
 
 /** Drill-down payload from GET /v1/controls/{id}/history (loose parse). */
@@ -19,6 +20,9 @@ const controlHistoryDrillSchema = z
         z.object({
           timestamp: z.string(),
           type: z.string(),
+          finding_id: z.string().optional(),
+          finding_status: z.string().optional(),
+          affects_control_status: z.boolean().optional(),
           detail: z.string().optional(),
           check_id: z.string().optional(),
         }),
@@ -53,12 +57,18 @@ function drillTypeLabel(type: string): string {
     case "finding_detected":
     case "finding_opened":
       return "Detected";
+    case "finding_open":
+      return "Open now";
     case "finding_resolved":
       return "Resolved";
     case "finding_reopened":
       return "Reopened";
     case "finding_excepted":
       return "Exception";
+    case "finding_snoozed":
+      return "Snoozed";
+    case "finding_ignored":
+      return "Ignored";
     case "scan_completed":
       return "Scan";
     default:
@@ -74,7 +84,7 @@ function rowSummary(row: ControlTimelineRow): {
   if (row.current_status === "fail") {
     const parts = [
       row.failing_since ? `since ${formatDay(row.failing_since)}` : null,
-      row.open_finding_count > 0 ? `${row.open_finding_count} open` : null,
+      row.open_finding_count > 0 ? `${row.open_finding_count} open now` : null,
     ].filter(Boolean);
     return { label: "Failing", meta: parts.join(" · ") || null, tone: "fail" };
   }
@@ -123,12 +133,14 @@ function ControlDrilldown({
   framework,
   days,
   checkIds,
+  openFindingCount,
 }: {
   controlId: string;
   accountId: string;
   framework: string;
   days: number;
   checkIds: string[];
+  openFindingCount: number;
 }) {
   const drillQ = useQuery({
     queryKey: ["control-history-drill", accountId, framework, controlId, days],
@@ -142,21 +154,7 @@ function ControlDrilldown({
 
   const events = useMemo(() => {
     const rows = drillQ.data?.events ?? [];
-    // Newest first; scans are context noise here — keep finding-state changes.
-    // The API emits both finding_detected (first_seen) and finding_opened
-    // (FindingEvent) for the same moment — keep one per timestamp+detail.
-    const seen = new Set<string>();
-    return rows
-      .filter((event) => {
-        if (!event.type.startsWith("finding_")) return false;
-        const key = `${event.timestamp}|${event.detail ?? ""}`;
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      })
-      .slice()
-      .reverse()
-      .slice(0, 12);
+    return collapseFindingLifecycles(rows);
   }, [drillQ.data]);
 
   // Pin the link to this board's account scope: the shared helper guesses a
@@ -174,6 +172,10 @@ function ControlDrilldown({
 
   return (
     <div className="history-controls__drill">
+      <div className="history-controls__drill-heading">
+        <strong>Finding history</strong>
+        <span>{openFindingCount} open now · last {days} days</span>
+      </div>
       {drillQ.isLoading ? (
         <p className="history-controls__drill-empty">Loading events…</p>
       ) : events.length === 0 ? (
@@ -183,7 +185,7 @@ function ControlDrilldown({
       ) : (
         <ul className="history-controls__drill-list">
           {events.map((event, index) => (
-            <li key={`${event.timestamp}-${event.type}-${index}`}>
+            <li key={event.finding_id ?? `${event.timestamp}-${event.type}-${index}`}>
               <span className="history-controls__drill-time">{formatEventTime(event.timestamp)}</span>
               <span className={`history-controls__drill-type is-${event.type.replace("finding_", "")}`}>
                 {drillTypeLabel(event.type)}
@@ -382,19 +384,11 @@ export function ControlTimelineBoard({
                             </span>
                           );
                         }
-                        const fromPass = change.direction === "regressed";
                         return (
-                          <span className="history-controls__transition">
-                            <span className={`history-controls__transition-state is-${fromPass ? "pass" : "fail"}`}>
-                              <i aria-hidden />
-                              {fromPass ? "Passing" : "Failing"}
-                            </span>
-                            <span className="history-controls__transition-arrow" aria-hidden>→</span>
-                            <span className={`history-controls__transition-state is-${fromPass ? "fail" : "pass"}`}>
-                              <i aria-hidden />
-                              {fromPass ? "Failing" : "Passing"}
-                            </span>
-                            <span className="history-controls__transition-date">{formatDay(change.at)}</span>
+                          <span
+                            className={`history-controls__steady history-controls__steady--${change.direction}`}
+                          >
+                            {change.direction === "regressed" ? "Regressed" : "Recovered"} · {formatDay(change.at)}
                           </span>
                         );
                       })()}
@@ -413,6 +407,7 @@ export function ControlTimelineBoard({
                         framework={framework}
                         days={days}
                         checkIds={row.check_ids}
+                        openFindingCount={row.open_finding_count}
                       />
                     </div>
                   ) : null}

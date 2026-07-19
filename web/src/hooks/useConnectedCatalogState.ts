@@ -73,9 +73,21 @@ export function useConnectedCatalogState() {
     queryKey: ["siem-integration", "datadog"],
     queryFn: () => api("/v1/integrations/siem/datadog", { schema: scannerIntegrationSchema }),
   });
+  const elasticSiem = useQuery({
+    queryKey: ["siem-integration", "elastic"],
+    queryFn: () => api("/v1/integrations/siem/elastic", { schema: scannerIntegrationSchema }),
+  });
   const pagerduty = useQuery({
     queryKey: ["pagerduty-integration"],
     queryFn: () => api("/v1/integrations/pagerduty", { schema: scannerIntegrationSchema }),
+  });
+  const crowdstrike = useQuery({
+    queryKey: ["edr-integration", "crowdstrike"],
+    queryFn: () => api("/v1/integrations/edr/crowdstrike", { schema: scannerIntegrationSchema }),
+  });
+  const sentinelone = useQuery({
+    queryKey: ["edr-integration", "sentinelone"],
+    queryFn: () => api("/v1/integrations/edr/sentinelone", { schema: scannerIntegrationSchema }),
   });
 
   const accountsList = cloudAccounts.data ?? [];
@@ -95,7 +107,10 @@ export function useConnectedCatalogState() {
   const jiraConnected = !!jira.data?.connected;
   const splunkConnected = !!splunkSiem.data?.connected;
   const datadogConnected = !!datadogSiem.data?.connected;
+  const elasticConnected = !!elasticSiem.data?.connected;
   const pagerdutyConnected = !!pagerduty.data?.connected;
+  const crowdstrikeConnected = !!crowdstrike.data?.connected;
+  const sentineloneConnected = !!sentinelone.data?.connected;
   const snykConnected = !!snykScanner.data?.connected;
   const wizConnected = !!wizScanner.data?.connected;
   const tenableConnected = !!tenableScanner.data?.connected;
@@ -115,7 +130,10 @@ export function useConnectedCatalogState() {
     jiraConnected,
     splunkConnected,
     datadogConnected,
+    elasticConnected,
     pagerdutyConnected,
+    crowdstrikeConnected,
+    sentineloneConnected,
     connectedScanners: {
       snyk: snykConnected,
       wiz: wizConnected,
@@ -140,7 +158,10 @@ export function useConnectedCatalogState() {
       jiraConnected,
       splunkConnected,
       datadogConnected,
+      elasticConnected,
       pagerdutyConnected,
+      crowdstrikeConnected,
+      sentineloneConnected,
       snykConnected,
       wizConnected,
       tenableConnected,
@@ -169,6 +190,9 @@ export function useConnectedCatalogState() {
       jira.isLoading ||
       splunkSiem.isLoading ||
       datadogSiem.isLoading ||
-      pagerduty.isLoading,
+      elasticSiem.isLoading ||
+      pagerduty.isLoading ||
+      crowdstrike.isLoading ||
+      sentinelone.isLoading,
   };
 }

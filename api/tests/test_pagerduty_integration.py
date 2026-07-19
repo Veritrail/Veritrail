@@ -32,12 +32,18 @@ def test_sync_summary_counts_services_and_open_incidents():
     client = MagicMock()
     client.get.side_effect = [
         _response(200, {"services": [{"id": "S1"}, {"id": "S2"}], "more": False}),
-        _response(200, {"incidents": [{"id": "I1"}], "more": False}),
+        _response(200, {"schedules": [{"id": "SCH1"}], "more": False}),
+        _response(200, {"escalation_policies": [{"id": "E1"}], "more": False}),
+        _response(200, {"incidents": [{"id": "I1"}], "more": False}),  # open
+        _response(200, {"incidents": [], "more": False}),  # acknowledged
+        _response(200, {"incidents": [{"id": "R1"}], "more": False}),  # resolved 7d
     ]
     client_context = MagicMock()
     client_context.__enter__.return_value = client
     with patch("app.services.pagerduty_integration.httpx.Client", return_value=client_context):
         summary = sync_summary({"api_token": "pd-token"})
     assert summary["service_count"] == 2
+    assert summary["schedule_count"] == 1
     assert summary["open_incident_count"] == 1
     assert summary["last_synced_at"]
+    assert summary["capability_evidence"][0]["capability"] == "incident_operations"

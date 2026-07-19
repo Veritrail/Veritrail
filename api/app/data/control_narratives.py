@@ -78,8 +78,7 @@ NARRATIVES: dict[str, str] = {
     ),
     "CC7.5": (
         "Veritrail supports recovery-readiness aspects of CC7.5 by collecting evidence of configured "
-        "AWS Backup plans, RDS automated backup retention, DynamoDB point-in-time recovery, and RDS "
-        "deletion protection as a preventive safeguard. "
+        "AWS Backup plans, RDS automated backup retention, and DynamoDB point-in-time recovery. "
         "Evidence is collected at each scan and retained for the audit period; successful restore "
         "testing is not inferred from configuration — DR test records are attached as external evidence."
     ),
@@ -392,7 +391,7 @@ SHORT_ANSWERS: dict[str, str] = {
     "CC6.8": "Veritrail supports threat-detection aspects of CC6.8 with GuardDuty, Security Hub, IMDSv2, and VPC flow log checks.",
     "CC7.1": "Veritrail supports configuration-change detection aspects of CC7.1 via CloudTrail, AWS Config, certificate and runtime hygiene signals.",
     "CC7.2": "Veritrail supports security-monitoring aspects of CC7.2 by verifying CloudTrail, Config rules, GuardDuty findings, and Security Hub status each scan.",
-    "CC7.5": "Veritrail supports recovery-readiness aspects of CC7.5 with AWS Backup, RDS backup, DynamoDB PITR, and deletion-protection configuration evidence collected each scan.",
+    "CC7.5": "Veritrail supports recovery-readiness aspects of CC7.5 with AWS Backup, RDS automated backups, and DynamoDB point-in-time recovery evidence collected each scan.",
     "CC8.1": "Veritrail supports change-authorization aspects of CC8.1 with SCM branch protection and review evidence from GitHub/GitLab plus CloudTrail write events.",
     "CIS 1.5": "Root account MFA is verified from the IAM account summary at each scan.",
     "CIS 1.8": "IAM password policy minimum length and complexity are verified each scan.",

@@ -147,6 +147,7 @@ type CompositeControlRow = {
     code_scanning_enabled_repos: number;
     secret_scanning_enabled_repos: number;
     repos_with_security_gaps: number;
+    capability_rollup?: string;
   } | null;
   scanning_attestation?: {
     declared: boolean;
@@ -156,6 +157,24 @@ type CompositeControlRow = {
     set_at: string | null;
   } | null;
   scanning_attestable_checks?: string[];
+  capability_lanes?: {
+    rollup: string;
+    repos_total: number;
+    repos_eligible: number;
+    connected_providers: string[];
+    generated_at: string;
+    scope_summary?: string;
+    lanes: {
+      capability: string;
+      label: string;
+      status: string;
+      providers: string[];
+      coverage: { eligible: number; assessed: number; excluded: number };
+      open_findings: { critical: number; high: number; medium: number; low: number };
+      limitations: string[];
+      action: string | null;
+    }[];
+  } | null;
   evidence_integrations?: {
     type: string;
     label: string;
@@ -2553,6 +2572,70 @@ function ControlDetailSection({
   );
 }
 
+const CAPABILITY_LANE_STATUS_LABEL: Record<string, string> = {
+  covered: "Covered",
+  partial: "Partial",
+  not_covered: "Not covered",
+  stale: "Stale",
+  not_applicable: "Not applicable",
+  unknown: "Unknown",
+};
+
+/** Lane-level coverage behind Vulnerability Management / Secure SDLC rollups. */
+function CapabilityLanesPanel({ ctrl }: { ctrl: CompositeControlRow }) {
+  const lanes = ctrl.capability_lanes;
+  if (!lanes?.lanes?.length) return null;
+  const denom =
+    lanes.scope_summary ?? (lanes.repos_eligible > 0
+      ? `${lanes.repos_eligible} in-scope repositor${lanes.repos_eligible === 1 ? "y" : "ies"}`
+      : "No in-scope repositories yet");
+
+  return (
+    <ControlDetailSection title="Capability coverage" panel>
+      <p className="capability-lanes__summary">
+        {denom}
+        {lanes.rollup ? (
+          <>
+            {" "}
+            · rollup: <strong>{lanes.rollup.replace(/_/g, " ")}</strong>
+          </>
+        ) : null}
+      </p>
+      <ul className="capability-lanes">
+        {lanes.lanes.map((lane) => {
+          const openSevere =
+            (lane.open_findings?.critical ?? 0) + (lane.open_findings?.high ?? 0);
+          return (
+            <li key={lane.capability} className={`capability-lanes__row is-${lane.status}`}>
+              <div className="capability-lanes__main">
+                <span className="capability-lanes__label">{lane.label}</span>
+                <span className={`capability-lanes__status is-${lane.status}`}>
+                  {CAPABILITY_LANE_STATUS_LABEL[lane.status] ?? lane.status}
+                </span>
+              </div>
+              <div className="capability-lanes__meta">
+                <span>
+                  {lane.coverage.assessed}/{lane.coverage.eligible} assessed
+                </span>
+                {lane.providers.length > 0 ? (
+                  <span>{lane.providers.join(", ")}</span>
+                ) : (
+                  <span>No qualifying provider</span>
+                )}
+                {openSevere > 0 ? <span>{openSevere} critical/high open</span> : null}
+              </div>
+              {lane.action ? <p className="capability-lanes__action">{lane.action}</p> : null}
+              {lane.limitations?.length ? (
+                <p className="capability-lanes__limit">{lane.limitations[0].replace(/_/g, " ")}</p>
+              ) : null}
+            </li>
+          );
+        })}
+      </ul>
+    </ControlDetailSection>
+  );
+}
+
 /**
  * Declare an external code/dependency/secret scanner (Snyk, Semgrep, etc.).
  * When declared, the scanning-family findings are cleared from Secure SDLC
@@ -3256,6 +3339,8 @@ function buildCompositeTabs({
           {displayStatus === "needs_evidence" && isExternalOnly ? (
             <CoverageGapExplainer absenceChecks={absenceChecks} compositeId={ctrl.id} />
           ) : null}
+
+          {ctrl.capability_lanes ? <CapabilityLanesPanel ctrl={ctrl} /> : null}
 
           <ControlDetailSection title="Blocking gaps">
             {isExternalOnly ? (

@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, UniqueConstraint, func
-from sqlalchemy.dialects.postgresql import JSON, UUID
+from sqlalchemy.dialects.postgresql import JSON, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.db import Base
@@ -447,6 +447,9 @@ class InspectorAccountStatus(Base):
     ecr_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     ec2_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     lambda_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    lambda_code_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    code_repository_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    evidence_json: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

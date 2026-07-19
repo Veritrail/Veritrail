@@ -97,8 +97,11 @@ const ADDITIONAL_GROUPS: { key: string; title: string; checkIds: string[]; searc
     title: "Security scanning not enabled in CI",
     checkIds: [
       "github.repo.dependabot_disabled",
+      "github.repo.dependabot_inactive",
       "github.repo.code_scanning_disabled",
+      "github.repo.code_scanning_inactive",
       "github.repo.secret_scanning_disabled",
+      "github.repo.secret_scanning_inactive",
       "gitlab.repo.sast_disabled",
       "gitlab.repo.dependency_scanning_disabled",
       "gitlab.repo.container_scanning_disabled",

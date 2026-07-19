@@ -1,4 +1,4 @@
-"""Collect Microsoft Defender secure score and pricing tier."""
+"""Collect Microsoft Defender for Cloud plans, secure score, and finding depth."""
 from __future__ import annotations
 
 import uuid
@@ -34,13 +34,66 @@ def collect_defender(db: Session, subscription: AzureSubscription) -> int:
 
     pricing_tier = None
     defender_enabled = False
+    plans: dict[str, dict] = {}
     for row in pricing:
         props = row.get("properties") or {}
-        tier = props.get("pricingTier")
+        tier = props.get("pricingTier") or props.get("pricingTier")
+        name = str(row.get("name") or "unknown")
+        extensions = props.get("extensions") or []
+        enabled = bool(tier and str(tier).lower() != "free")
         if tier:
             pricing_tier = tier
-        if tier and tier.lower() != "free":
+        if enabled:
             defender_enabled = True
+        plans[name] = {
+            "pricing_tier": tier,
+            "enabled": enabled,
+            "extensions": [
+                {
+                    "name": ext.get("name"),
+                    "isEnabled": ext.get("isEnabled"),
+                }
+                for ext in extensions
+                if isinstance(ext, dict)
+            ][:20],
+        }
+
+    # Soft-collect assessments / sub-assessments for vuln-like recommendations.
+    findings = {"critical": 0, "high": 0, "medium": 0, "low": 0, "assessment_count": 0}
+    limitations: list[str] = []
+    try:
+        assessments, a_status = client._request_soft(
+            "GET",
+            f"/subscriptions/{subscription.subscription_id}/providers/Microsoft.Security/"
+            f"assessments?api-version=2021-06-01&$top=100",
+        )
+    except Exception:  # noqa: BLE001
+        assessments, a_status = {}, 500
+        limitations.append("assessments_collect_failed")
+    if a_status and a_status >= 400:
+        limitations.append(f"assessments_api_status_{a_status}")
+    else:
+        for item in (assessments or {}).get("value") or []:
+            findings["assessment_count"] += 1
+            props = item.get("properties") or {}
+            status_obj = props.get("status") or {}
+            code = str(status_obj.get("code") or "").lower()
+            severity = str(
+                (props.get("metadata") or {}).get("severity")
+                or status_obj.get("severity")
+                or ""
+            ).lower()
+            if code in {"unhealthy", "nothealthy"}:
+                if severity in findings:
+                    findings[severity] += 1
+                else:
+                    findings["medium"] += 1
+
+    evidence = {
+        "plans": plans,
+        "limitations": limitations,
+        **findings,
+    }
 
     stmt = pg_insert(AzureDefenderStatus).values(
         id=uuid.uuid5(uuid.NAMESPACE_URL, f"{subscription.id}:defender"),
@@ -48,6 +101,7 @@ def collect_defender(db: Session, subscription: AzureSubscription) -> int:
         secure_score=secure_score,
         pricing_tier=pricing_tier,
         defender_enabled=defender_enabled,
+        evidence_json=evidence,
         last_seen=_now(),
     ).on_conflict_do_update(
         index_elements=["azure_subscription_id"],
@@ -55,6 +109,7 @@ def collect_defender(db: Session, subscription: AzureSubscription) -> int:
             "secure_score": secure_score,
             "pricing_tier": pricing_tier,
             "defender_enabled": defender_enabled,
+            "evidence_json": evidence,
             "last_seen": _now(),
         },
     )
@@ -63,5 +118,6 @@ def collect_defender(db: Session, subscription: AzureSubscription) -> int:
         "collect_azure_defender.done",
         subscription_id=subscription.subscription_id,
         defender_enabled=defender_enabled,
+        plans=list(plans.keys()),
     )
     return 1

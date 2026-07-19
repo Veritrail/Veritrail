@@ -24,6 +24,7 @@ class GitLabSyncStats:
     repo_protections: int = 0
     pull_requests: int = 0
     ci_pipelines: int = 0
+    security_findings: int = 0
 
 
 def provider_config(provider: IdentityProvider) -> dict[str, Any]:
@@ -232,56 +233,27 @@ def _collect_protected_environments(
     return envs
 
 
-_SECURITY_JOB_PATTERNS: dict[str, tuple[str, ...]] = {
-    "sast": ("sast", "semgrep"),
-    "dependency_scanning": ("dependency_scanning", "dependency-scanning", "gemnasium", "dependency"),
-    "container_scanning": ("container_scanning", "container-scanning", "container scanning"),
-}
-
-
 def _collect_security_features(
     client: httpx.Client,
     api_base: str,
     project_id: int,
     default_branch: str | None,
-) -> dict[str, bool | None]:
-    """Metadata-only GitLab CI security scan job detection from recent pipelines."""
-    features: dict[str, bool | None] = {
-        "sast": None,
-        "dependency_scanning": None,
-        "container_scanning": None,
-    }
-    params: dict[str, Any] = {"per_page": 10, "order_by": "id", "sort": "desc"}
-    if default_branch:
-        params["ref"] = default_branch
+    *,
+    project_path: str | None = None,
+) -> tuple[dict[str, Any], list, set[str]]:
+    """GitLab CI security scanners + vulnerability report evidence (Phase 1).
 
-    resp = client.get(f"{api_base}/projects/{project_id}/pipelines", params=params)
-    if resp.status_code in (403, 404) or not resp.is_success:
-        return features
+    Returns (security_features, finding drafts, collected alert check IDs).
+    """
+    from app.services.gitlab_security_evidence import collect_gitlab_security_evidence
 
-    pipelines = resp.json()
-    if not pipelines:
-        return features
-
-    for pipeline in pipelines[:5]:
-        pid = pipeline.get("id")
-        if not pid:
-            continue
-        jobs_resp = client.get(f"{api_base}/projects/{project_id}/pipelines/{pid}/jobs")
-        if jobs_resp.status_code != 200:
-            continue
-        for job in jobs_resp.json():
-            name = (job.get("name") or "").lower()
-            for feature, patterns in _SECURITY_JOB_PATTERNS.items():
-                if features[feature] is True:
-                    continue
-                if any(pattern in name for pattern in patterns):
-                    features[feature] = True
-
-    for feature in features:
-        if features[feature] is None:
-            features[feature] = False
-    return features
+    return collect_gitlab_security_evidence(
+        client,
+        api_base,
+        project_id,
+        default_branch,
+        project_path=project_path,
+    )
 
 
 def _collect_ci_pipelines(
@@ -359,6 +331,10 @@ def _sync_gitlab_with_token(
         raise ValueError("GitLab group or namespace is required")
 
     selected_repos = set(config.get("selected_repos") or [])
+    finding_drafts: list = []
+    # Same false-resolution guard as GitHub: intersect authoritative inventories
+    # across projects before auto-resolve.
+    finding_checks_collected: set[str] | None = None
 
     with httpx.Client(headers=_headers(token), timeout=20) as client:
         user_resp = client.get(f"{api}/user")
@@ -389,7 +365,19 @@ def _sync_gitlab_with_token(
                 default_branch = project.get("default_branch")
                 has_codeowners = _check_codeowners(client, api, project_id, default_branch)
                 protected_envs = _collect_protected_environments(client, api, project_id)
-                security_features = _collect_security_features(client, api, project_id, default_branch)
+                project_path = project.get("path_with_namespace") or str(project_id)
+                security_features, repo_findings, repo_collected = _collect_security_features(
+                    client,
+                    api,
+                    project_id,
+                    default_branch,
+                    project_path=project_path,
+                )
+                finding_drafts.extend(repo_findings)
+                if finding_checks_collected is None:
+                    finding_checks_collected = set(repo_collected)
+                else:
+                    finding_checks_collected &= repo_collected
                 repo = _upsert_repo(
                     db,
                     provider.id,
@@ -439,6 +427,20 @@ def _sync_gitlab_with_token(
     provider.status = "connected"
     provider.last_synced_at = now
     db.flush()
+
+    # Persist Vulnerability Report findings only for checks with authoritative
+    # inventory on every project (never resolve-by-absence on API denial).
+    from app.checks.persist import persist_org_findings
+
+    check_ids_run = finding_checks_collected if finding_checks_collected is not None else set()
+    opened, resolved = persist_org_findings(
+        db,
+        org_id=provider.org_id,
+        drafts=finding_drafts,
+        check_ids_run=check_ids_run,
+    )
+    stats.security_findings = len(finding_drafts)
+    _ = (opened, resolved)
 
     # Source control is org-level — grade Secure SDLC off this sync (see github_sync).
     from app.services.source_control_scan import run_source_control_checks

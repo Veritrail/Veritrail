@@ -76,11 +76,14 @@ export const CHECK_CONTROL_IDS_MAP: Record<string, CheckControlRef[]> = {
   "github.org.mfa_not_enforced": [{ framework: "iso27001", control_id: "A.9.4.2" }, { framework: "soc2", control_id: "CC6.2" }, { framework: "soc2", control_id: "CC6.6" }],
   "github.org.outside_collaborators": [{ framework: "iso27001", control_id: "A.9.2.2" }, { framework: "soc2", control_id: "CC6.2" }],
   "github.repo.code_scanning_disabled": [{ framework: "iso27001", control_id: "A.12.6.1" }, { framework: "soc2", control_id: "CC8.1" }],
+  "github.repo.code_scanning_inactive": [{ framework: "iso27001", control_id: "A.12.6.1" }, { framework: "soc2", control_id: "CC8.1" }],
   "github.repo.dependabot_disabled": [{ framework: "iso27001", control_id: "A.12.6.1" }, { framework: "soc2", control_id: "CC8.1" }],
+  "github.repo.dependabot_inactive": [{ framework: "iso27001", control_id: "A.12.6.1" }, { framework: "soc2", control_id: "CC8.1" }],
   "github.repo.insufficient_reviews": [{ framework: "iso27001", control_id: "A.12.1.2" }, { framework: "soc2", control_id: "CC6.6" }, { framework: "soc2", control_id: "CC8.1" }],
   "github.repo.no_branch_protection": [{ framework: "iso27001", control_id: "A.12.1.2" }, { framework: "soc2", control_id: "CC8.1" }],
   "github.repo.no_env_protection": [{ framework: "iso27001", control_id: "A.12.1.2" }, { framework: "soc2", control_id: "CC8.1" }],
   "github.repo.secret_scanning_disabled": [{ framework: "iso27001", control_id: "A.12.6.1" }, { framework: "soc2", control_id: "CC8.1" }],
+  "github.repo.secret_scanning_inactive": [{ framework: "iso27001", control_id: "A.12.6.1" }, { framework: "soc2", control_id: "CC8.1" }],
   "github.repo.security_status_checks_missing": [{ framework: "iso27001", control_id: "A.12.1.2" }, { framework: "soc2", control_id: "CC8.1" }],
   "github.repo.self_merge_allowed": [{ framework: "iso27001", control_id: "A.12.1.2" }, { framework: "soc2", control_id: "CC6.6" }, { framework: "soc2", control_id: "CC8.1" }],
   "gitlab.org.dormant_members": [{ framework: "iso27001", control_id: "A.9.2.1" }, { framework: "soc2", control_id: "CC6.1" }, { framework: "soc2", control_id: "CC6.3" }],
@@ -129,7 +132,7 @@ export const CHECK_CONTROL_IDS_MAP: Record<string, CheckControlRef[]> = {
   "lambda.function.no_dlq": [{ framework: "iso27001", control_id: "A.12.4.1" }, { framework: "soc2", control_id: "CC7.2" }],
   "lambda.function.public_url": [{ framework: "iso27001", control_id: "A.13.1.1" }, { framework: "soc2", control_id: "CC6.6" }],
   "rds.instance.no_automated_backup": [{ framework: "cis_aws_l1", control_id: "2.3.3" }, { framework: "iso27001", control_id: "A.12.3.1" }, { framework: "soc2", control_id: "CC7.5" }],
-  "rds.instance.no_deletion_protection": [{ framework: "iso27001", control_id: "A.12.3.1" }, { framework: "soc2", control_id: "CC7.5" }],
+  "rds.instance.no_deletion_protection": [{ framework: "iso27001", control_id: "A.12.3.1" }],
   "rds.instance.no_encryption": [{ framework: "cis_aws_l1", control_id: "2.3.1" }, { framework: "iso27001", control_id: "A.10.1.1" }, { framework: "soc2", control_id: "CC6.8" }],
   "rds.instance.no_multi_az": [{ framework: "iso27001", control_id: "A.17.2.1" }],
   "rds.instance.publicly_accessible": [{ framework: "cis_aws_l1", control_id: "2.3.2" }, { framework: "iso27001", control_id: "A.13.1.1" }, { framework: "soc2", control_id: "CC6.6" }],
@@ -147,4 +150,3 @@ export const CHECK_CONTROL_IDS_MAP: Record<string, CheckControlRef[]> = {
   "ssm.parameter.plaintext_secret": [{ framework: "iso27001", control_id: "A.9.2.4" }, { framework: "soc2", control_id: "CC6.2" }],
   "vpc.flow_logs.not_enabled": [{ framework: "cis_aws_l1", control_id: "4.3" }, { framework: "iso27001", control_id: "A.12.4.1" }, { framework: "iso27001", control_id: "A.13.1.1" }, { framework: "soc2", control_id: "CC7.2" }],
 };
-

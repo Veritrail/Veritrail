@@ -162,7 +162,8 @@ def sync_siem(
     set_provider_config(provider, cfg)
     provider.last_synced_at = datetime.fromisoformat(summary["last_synced_at"])
     db.commit()
-    return {"ok": True, **summary}
+    public = {k: v for k, v in summary.items() if k != "capability_evidence"}
+    return {"ok": True, **public}
 
 
 @router.delete("/siem/{vendor}", status_code=204)

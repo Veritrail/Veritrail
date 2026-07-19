@@ -15,6 +15,7 @@ from app.models.org_control_mapping import OrgControlMapping
 from app.models.control import Control, CheckControl
 from app.models.control_attestation import ControlAttestation
 from app.models.evidence_snapshot import EvidenceSnapshot
+from app.models.capability_coverage import CapabilityCoverageSnapshot
 from app.models.github import IdentityProvider, IdentityUser, Repo, RepoProtection, PullRequest, WorkflowRun, CiPipeline
 from app.models.cloudtrail import CloudTrailEvent
 from app.models.remediation_execution import RemediationExecution
@@ -67,6 +68,7 @@ __all__ = [
     "AccountGovernance", "IamServerCertificate",
     "Control", "CheckControl", "ControlAttestation", "OrgControlMapping",
     "EvidenceSnapshot",
+    "CapabilityCoverageSnapshot",
     "IdentityProvider", "IdentityUser", "Repo", "RepoProtection", "PullRequest",
     "WorkflowRun", "CiPipeline",
     "CloudTrailEvent",

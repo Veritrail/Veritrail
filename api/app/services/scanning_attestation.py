@@ -18,8 +18,11 @@ from typing import Any
 ATTESTABLE_SCANNING_CHECKS = frozenset(
     {
         "github.repo.code_scanning_disabled",
+        "github.repo.code_scanning_inactive",
         "github.repo.dependabot_disabled",
+        "github.repo.dependabot_inactive",
         "github.repo.secret_scanning_disabled",
+        "github.repo.secret_scanning_inactive",
         "gitlab.repo.sast_disabled",
         "gitlab.repo.dependency_scanning_disabled",
         "gitlab.repo.container_scanning_disabled",

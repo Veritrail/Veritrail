@@ -24,6 +24,7 @@ class GitHubSyncStats:
     repo_protections: int = 0
     pull_requests: int = 0
     workflow_runs: int = 0
+    security_alerts: int = 0
 
 
 def provider_config(provider: IdentityProvider) -> dict[str, Any]:
@@ -152,39 +153,18 @@ def _collect_team_memberships(client: httpx.Client, owner: str) -> dict[str, lis
     return login_to_teams
 
 
-def _collect_security_features(client: httpx.Client, owner: str, repo_name: str) -> dict[str, bool | None]:
-    """Metadata-only GitHub security feature flags (no source code read)."""
-    features: dict[str, bool | None] = {
-        "dependabot_alerts": None,
-        "code_scanning": None,
-        "secret_scanning": None,
-    }
+def _collect_security_features(
+    client: httpx.Client, owner: str, repo_name: str
+) -> tuple[dict[str, Any], list, set[str]]:
+    """Dependabot / CodeQL / secret-scanning enablement + alert activity (Phase 1).
 
-    dep_resp = client.get(f"{GITHUB_API}/repos/{owner}/{repo_name}/vulnerability-alerts")
-    if dep_resp.status_code == 204:
-        features["dependabot_alerts"] = True
-    elif dep_resp.status_code == 404:
-        features["dependabot_alerts"] = False
+    Third return value is the set of alert check IDs with an authoritative inventory
+    for this repo (safe to include in persist ``check_ids_run`` only after intersecting
+    across all repos in the sync).
+    """
+    from app.services.github_security_evidence import collect_github_security_evidence
 
-    code_resp = client.get(
-        f"{GITHUB_API}/repos/{owner}/{repo_name}/code-scanning/analyses",
-        params={"per_page": 1},
-    )
-    if code_resp.status_code == 200:
-        features["code_scanning"] = bool(code_resp.json())
-    elif code_resp.status_code == 404:
-        features["code_scanning"] = False
-
-    secret_resp = client.get(
-        f"{GITHUB_API}/repos/{owner}/{repo_name}/secret-scanning/alerts",
-        params={"per_page": 1},
-    )
-    if secret_resp.status_code == 200:
-        features["secret_scanning"] = True
-    elif secret_resp.status_code == 404:
-        features["secret_scanning"] = False
-
-    return features
+    return collect_github_security_evidence(client, owner, repo_name)
 
 
 def _collect_environments(client: httpx.Client, owner: str, repo_name: str) -> list[dict[str, Any]]:
@@ -358,6 +338,12 @@ def sync_github_provider(db: Session, provider: IdentityProvider, org_login: str
     selected_repos = set(config.get("selected_repos") or [])
 
     stats = GitHubSyncStats()
+    alert_drafts: list = []
+    # Alert checks are only auto-resolved when every synced repo produced an
+    # authoritative inventory for that check. Permission denied / unavailable
+    # must never resolve findings by absence (persist.py resolves missing keys
+    # for anything in check_ids_run).
+    alert_checks_collected: set[str] | None = None
     with httpx.Client(headers=_headers(token), timeout=20) as client:
         viewer = client.get(f"{GITHUB_API}/user")
         viewer.raise_for_status()
@@ -409,7 +395,14 @@ def sync_github_provider(db: Session, provider: IdentityProvider, org_login: str
                 owner_name, repo_name = gh_repo["full_name"].split("/", 1)
                 has_codeowners = _check_codeowners(client, owner_name, repo_name)
                 protected_envs = _collect_environments(client, owner_name, repo_name)
-                security_features = _collect_security_features(client, owner_name, repo_name)
+                security_features, repo_alert_drafts, repo_collected = _collect_security_features(
+                    client, owner_name, repo_name
+                )
+                alert_drafts.extend(repo_alert_drafts)
+                if alert_checks_collected is None:
+                    alert_checks_collected = set(repo_collected)
+                else:
+                    alert_checks_collected &= repo_collected
                 repo = _upsert_repo(
                     db,
                     provider.id,
@@ -463,6 +456,22 @@ def sync_github_provider(db: Session, provider: IdentityProvider, org_login: str
     provider.status = "connected"
     provider.last_synced_at = now
     db.flush()
+
+    # Persist provider-native security alerts as org-scoped findings.
+    # Only mark checks executed when collection succeeded on every repo;
+    # drafts still upsert even when check_ids_run is empty/partial.
+    from app.checks.persist import persist_org_findings
+
+    check_ids_run = alert_checks_collected if alert_checks_collected is not None else set()
+    opened, resolved = persist_org_findings(
+        db,
+        org_id=provider.org_id,
+        drafts=alert_drafts,
+        check_ids_run=check_ids_run,
+    )
+    stats.security_alerts = len(alert_drafts)
+    # persist_org_findings commits; continue with source-control grading.
+    _ = (opened, resolved)
 
     # Source control is org-level — grade Secure SDLC (and the source-control
     # part of Change Management) straight off this sync, not a cloud scan.

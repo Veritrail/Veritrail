@@ -4082,6 +4082,87 @@
   }
 }
 
+/* Provider-equivalent capability lanes (technical evidence coverage). */
+.capability-lanes__summary {
+  margin: 0 0 0.75rem;
+  font-size: 0.8125rem;
+  color: #4b5563;
+  line-height: 1.45;
+}
+
+.capability-lanes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.capability-lanes__row {
+  padding: 0.65rem 0.75rem;
+  border: 1px solid #e8eef4;
+  border-radius: 0.5rem;
+  background: #fff;
+}
+
+.capability-lanes__main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.capability-lanes__label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+.capability-lanes__status {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #6b7280;
+}
+
+.capability-lanes__status.is-covered {
+  color: #0f766e;
+}
+
+.capability-lanes__status.is-partial,
+.capability-lanes__status.is-stale {
+  color: #b45309;
+}
+
+.capability-lanes__status.is-not_covered,
+.capability-lanes__status.is-unknown {
+  color: #b91c1c;
+}
+
+.capability-lanes__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.85rem;
+  margin-top: 0.35rem;
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+.capability-lanes__action {
+  margin: 0.4rem 0 0;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #1f2937;
+}
+
+.capability-lanes__limit {
+  margin: 0.25rem 0 0;
+  font-size: 0.6875rem;
+  color: #9ca3af;
+}
+
 /* Secure SDLC — declare an external scanner (capability-level attestation). */
 .control-scan-attest {
   margin-top: 0.75rem;

@@ -73,6 +73,15 @@ export const INTEGRATION_CATALOG: CatalogCategory[] = [
     ],
   },
   {
+    id: "endpoint",
+    title: "Endpoint & workload agents",
+    blurb: "Managed-device coverage and sensor health for host/workload scanning evidence.",
+    entries: [
+      { key: "crowdstrike", brand: "crowdstrike", name: "CrowdStrike", description: "Device denominator, sensor health, and Spotlight findings.", tags: ["EDR", "Hosts", "Findings"], href: "/integrations/edr/crowdstrike" },
+      { key: "sentinelone", brand: "sentinelone", name: "SentinelOne", description: "Agent coverage, health, and threat findings.", tags: ["EDR", "Hosts", "Findings"], href: "/integrations/edr/sentinelone" },
+    ],
+  },
+  {
     id: "incident-workflow",
     title: "Incident workflow",
     blurb: "Read-only evidence of on-call services and open incidents.",
@@ -111,7 +120,10 @@ export type ConnectedCatalogState = {
   jiraConnected: boolean;
   splunkConnected: boolean;
   datadogConnected: boolean;
+  elasticConnected: boolean;
   pagerdutyConnected: boolean;
+  crowdstrikeConnected: boolean;
+  sentineloneConnected: boolean;
   connectedScanners: Partial<Record<"snyk" | "wiz" | "tenable" | "qualys" | "orca" | "aikido", boolean>>;
 };
 
@@ -126,7 +138,10 @@ export function connectedCatalogKeys(state: ConnectedCatalogState): ReadonlySet<
   if (state.jiraConnected) hidden.add("jira");
   if (state.splunkConnected) hidden.add("splunk");
   if (state.datadogConnected) hidden.add("datadog");
+  if (state.elasticConnected) hidden.add("elastic");
   if (state.pagerdutyConnected) hidden.add("pagerduty");
+  if (state.crowdstrikeConnected) hidden.add("crowdstrike");
+  if (state.sentineloneConnected) hidden.add("sentinelone");
   for (const [vendor, connected] of Object.entries(state.connectedScanners)) {
     if (connected) hidden.add(vendor);
   }

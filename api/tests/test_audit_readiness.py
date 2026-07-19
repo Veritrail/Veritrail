@@ -362,6 +362,10 @@ def test_dr_definition_is_restore_focused_and_excludes_multi_az():
     assert all(
         "rds.instance.no_multi_az" not in item["checks"] for item in playbook["items"]
     )
+    assert all(
+        "rds.instance.no_deletion_protection" not in item["checks"]
+        for item in playbook["items"]
+    )
     assert "accidentally deleted" in playbook["question"]
     assert "corrupted" in playbook["question"]
     assert "maliciously encrypted" in playbook["question"]
@@ -372,7 +376,7 @@ def test_dr_definition_is_restore_focused_and_excludes_multi_az():
     )
 
 
-def test_dr_orders_restore_mechanisms_before_deletion_prevention():
+def test_dr_contains_only_restore_mechanisms():
     checks = (
         ("rds.instance.no_automated_backup", "low"),
         ("dynamodb.table.no_pitr", "medium"),
@@ -416,11 +420,9 @@ def test_dr_orders_restore_mechanisms_before_deletion_prevention():
         "rds_backups",
         "dynamodb_recovery",
         "backup_coverage",
-        "rds_deletion_protection",
     ]
     assert all("multi_az" not in item["key"] for item in dr["items"])
     assert dr["additional_action_count"] == 0
-    assert "prevention, not a data restoration mechanism" in dr["items"][-1]["summary"]
 
 
 def test_dynamodb_pitr_action_requires_inventory_and_explicit_disabled_evidence():

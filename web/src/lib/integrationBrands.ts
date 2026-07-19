@@ -8,6 +8,8 @@ export type IntegrationBrandId =
   | "slack"
   | "jira"
   | "pagerduty"
+  | "crowdstrike"
+  | "sentinelone"
   | "azure-devops"
   | "datadog"
   | "gcp"
@@ -52,13 +54,18 @@ export const INTEGRATION_BRAND: Record<IntegrationBrandId, BrandAsset> = {
   github: { src: "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png" },
   gitlab: { src: "/integrations/gitlab.png", tileScale: 1.32, tilePadding: 4 },
   "google-workspace": { src: "https://www.google.com/favicon.ico" },
+  // Same-origin under /brand/ (edge-allowlisted) — official Entra ID color mark.
   entra: {
-    src: "/integrations/entra.png",
-    compactSrc: "/integrations/entra.png",
+    src: "/brand/entra.svg",
+    compactSrc: "/brand/entra.svg",
   },
   slack: { src: "https://a.slack-edge.com/80588/marketing/img/icons/icon_slack_hash_colored.png" },
-  jira: { src: "https://jira.atlassian.com/favicon.ico" },
-  pagerduty: { src: "https://www.pagerduty.com/favicon.ico" },
+  // Same-origin under /brand/ (edge-allowlisted) — avoids Atlassian favicon RTT delay.
+  jira: { src: "/brand/jira.svg" },
+  // Same-origin under /brand/ — simple-icons PagerDuty mark in official green.
+  pagerduty: { src: "/brand/pagerduty.svg" },
+  crowdstrike: { src: "/brand/crowdstrike.svg" },
+  sentinelone: { src: "/brand/sentinelone.svg" },
   "azure-devops": { src: "/integrations/azure-devops.png" },
   datadog: { src: "https://www.datadoghq.com/favicon.ico" },
   gcp: {
@@ -76,7 +83,7 @@ export const INTEGRATION_BRAND: Record<IntegrationBrandId, BrandAsset> = {
   splunk: { src: "/integrations/splunk.png", compactSrc: "/integrations/splunk.png" },
   elastic: { src: "https://www.elastic.co/favicon.ico" },
   vanta: { src: "/integrations/vanta.png", tileScale: 1.08, tilePadding: 6 },
-  drata: { src: "/integrations/drata.png", tileScale: 1.05, tilePadding: 4 },
-  secureframe: { src: "/integrations/secureframe.png", tileScale: 1.05 },
-  sprinto: { src: "/integrations/sprinto.png", tileScale: 1.05 },
+  drata: { src: "/brand/drata.svg", tileScale: 1.05, tilePadding: 4 },
+  secureframe: { src: "/brand/secureframe.svg", tileScale: 1.05 },
+  sprinto: { src: "/brand/sprinto.svg", tileScale: 1.05 },
 };

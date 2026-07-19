@@ -73,6 +73,7 @@ class GcpOsconfigVuln(Base):
     api_accessible: Mapped[bool] = mapped_column(Boolean, default=False)
     report_count: Mapped[int] = mapped_column(Integer, default=0)
     has_reports: Mapped[bool] = mapped_column(Boolean, default=False)
+    evidence_json: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
@@ -86,6 +87,7 @@ class GcpSecurityCommandCenter(Base):
     scc_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     active_finding_count: Mapped[int] = mapped_column(Integer, default=0)
     high_severity_count: Mapped[int] = mapped_column(Integer, default=0)
+    evidence_json: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

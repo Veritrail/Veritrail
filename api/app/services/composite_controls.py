@@ -39,6 +39,23 @@ from app.services.cross_account_coverage import (
 _DEFINITIONS_PATH = Path(__file__).parent.parent.parent / "data" / "composite_controls.json"
 
 
+def apply_capability_rollup(
+    status: str,
+    display_status: str,
+    capability_rollup: str | None,
+    *,
+    may_grade: bool,
+) -> tuple[str, str]:
+    """Combine legacy findings with authoritative capability coverage."""
+    if not may_grade or not capability_rollup:
+        return status, display_status
+    if capability_rollup == "action_needed":
+        return "fail", "failing"
+    if capability_rollup == "verified" and status == "no_data":
+        return "pass", "passing"
+    return status, display_status
+
+
 @lru_cache(maxsize=1)
 def composite_control_definitions() -> list[dict[str, Any]]:
     return json.loads(_DEFINITIONS_PATH.read_text())
@@ -558,6 +575,10 @@ def list_composite_controls(
 
     errors_by_check = {e["check_id"]: e for e in scan_check_errors}
     from app.services.sdlc_evidence import sdlc_insights_for_org
+    from app.services.capability_lane_coverage import (
+        build_capability_lane_coverage,
+        capability_lanes_for_composite,
+    )
 
     from app.services.org_control_mappings import effective_composite_check_ids, load_org_mapping_index
     from app.models.evidence_artifact import EvidenceArtifact
@@ -566,6 +587,7 @@ def list_composite_controls(
     from app.services.evidence_source_store import load_evidence_sources
 
     sdlc_insights = sdlc_insights_for_org(db, org_id)
+    lane_coverage = build_capability_lane_coverage(db, org_id)
     mapping_index = load_org_mapping_index(db, org_id)
     evidence_registry = load_evidence_sources(db, org_id)
     accepted_composite_ids = {
@@ -616,6 +638,21 @@ def list_composite_controls(
             coverage_override=coverage_overrides.get(entry["id"]),
             cross_account_verified=bool(cross_account_detail and cross_account_detail.get("verified")),
         )
+        capability_lanes = capability_lanes_for_composite(
+            db, org_id, entry["id"], precomputed=lane_coverage
+        )
+        capability_rollup = capability_lanes.get("rollup") if capability_lanes else None
+        capability_may_grade = not (
+            coverage_overrides.get(entry["id"])
+            or bool(cross_account_detail and cross_account_detail.get("verified"))
+            or display_status in {"externally_covered", "out_of_scope", "not_applicable"}
+        )
+        status, display_status = apply_capability_rollup(
+            status,
+            display_status,
+            capability_rollup,
+            may_grade=capability_may_grade,
+        )
         row: dict[str, Any] = {
                 "id": entry["id"],
                 "control_id": entry["control_id"],
@@ -645,9 +682,13 @@ def list_composite_controls(
                 "evidence_integrations": evidence_integrations_for_check_ids(
                     check_ids, integration_providers
                 ),
+                "capability_lanes": capability_lanes,
             }
         if entry["id"] == "secure_sdlc":
-            row["sdlc_insights"] = sdlc_insights
+            row["sdlc_insights"] = {
+                **sdlc_insights,
+                "capability_rollup": lane_coverage.get("secure_sdlc_rollup"),
+            }
             row["scanning_attestation"] = scanning_attestation
             row["scanning_attestable_checks"] = sorted(
                 cid for cid in check_ids if cid in ATTESTABLE_SCANNING_CHECKS
