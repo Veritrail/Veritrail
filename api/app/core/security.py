@@ -2,7 +2,8 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from jose import JWTError, jwt
+import jwt
+from jwt import PyJWTError as JWTError
 
 from app.core.config import get_settings
 
@@ -59,7 +60,6 @@ def issue_refresh_token(sub: str, org_id: str, *, remember_me: bool = False) -> 
 
 
 def decode_refresh_token(token: str) -> dict:
-    from jose import JWTError
     from fastapi import HTTPException, status
     try:
         payload = jwt.decode(token, settings.JWT_SECRET, algorithms=[settings.JWT_ALG])

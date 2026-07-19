@@ -51,7 +51,7 @@ def test_issue_token_has_scope():
     from app.core.security import issue_token
     org = _fake_uuid()
     tok = issue_token("user-1", org)
-    from jose import jwt
+    import jwt
     from app.core.config import get_settings
     payload = jwt.decode(tok, get_settings().JWT_SECRET, algorithms=[get_settings().JWT_ALG])
     assert payload["scope"] == "user"
@@ -62,7 +62,7 @@ def test_issue_auditor_token_has_auditor_scope(auditor_access_id):
     from app.core.security import issue_auditor_token
     org = _fake_uuid()
     tok = issue_auditor_token(auditor_access_id, org)
-    from jose import jwt
+    import jwt
     from app.core.config import get_settings
     payload = jwt.decode(tok, get_settings().JWT_SECRET, algorithms=[get_settings().JWT_ALG])
     assert payload["scope"] == "auditor"
@@ -91,7 +91,7 @@ def test_verify_auditor_token_valid(auditor_access, auditor_access_id):
 
     from app.routes.auditor import verify_auditor_token
     from app.core.config import get_settings
-    from jose import jwt
+    import jwt
 
     response = verify_auditor_token(access_token=auditor_access.access_token, db=db)
 

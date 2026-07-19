@@ -15,7 +15,7 @@ from urllib.parse import parse_qs, urlparse
 
 import pytest
 from fastapi.testclient import TestClient
-from jose import jwt
+import jwt
 
 from app.core import admin_sso
 from app.core.admin_sso import create_admin_sso_code
@@ -229,7 +229,7 @@ def test_exchange_returns_session_and_code_is_single_use(
     res = client.post("/v1/auth/google/admin-exchange", json={"code": code})
     assert res.status_code == 200
     token = res.json()["access_token"]
-    claims = jwt.get_unverified_claims(token)
+    claims = jwt.decode(token, options={"verify_signature": False})
     assert claims["sub"] == str(admin.id)
 
     # replay is rejected

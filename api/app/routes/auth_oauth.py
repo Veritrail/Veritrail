@@ -361,7 +361,7 @@ def google_callback(
         if state and state.startswith("link:"):
             link_token_val = state[5:]
             try:
-                from jose import jwt as _jwt
+                import jwt as _jwt
                 payload = _jwt.decode(link_token_val, settings.JWT_SECRET, algorithms=[settings.JWT_ALG])
                 user_id = payload["sub"]
             except Exception:
@@ -616,7 +616,7 @@ def github_callback(
             link_token_val = state[5:]
             try:
                 from app.core.security import get_settings as _gs
-                from jose import jwt as _jwt
+                import jwt as _jwt
                 s = get_settings()
                 payload = _jwt.decode(link_token_val, s.JWT_SECRET, algorithms=[s.JWT_ALG])
                 user_id = payload["sub"]
@@ -786,7 +786,7 @@ def gitlab_callback(
         if state and state.startswith("link:"):
             link_token_val = state[5:]
             try:
-                from jose import jwt as _jwt
+                import jwt as _jwt
                 payload = _jwt.decode(link_token_val, settings.JWT_SECRET, algorithms=[settings.JWT_ALG])
                 user_id = payload["sub"]
             except Exception:

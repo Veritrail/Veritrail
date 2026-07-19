@@ -7,7 +7,8 @@ from urllib.parse import urlencode
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import RedirectResponse
-from jose import JWTError, jwt
+import jwt
+from jwt import PyJWTError as JWTError
 from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -123,7 +124,7 @@ def is_github_integration_state(state: str | None) -> bool:
     if not state:
         return False
     try:
-        payload = jwt.get_unverified_claims(state)
+        payload = jwt.decode(state, options={"verify_signature": False})
     except JWTError:
         return False
     return payload.get("type") == "github_integration"

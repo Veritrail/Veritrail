@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from jose import jwt
+import jwt
 
 from app.core.auth_cookies import REFRESH_COOKIE, attach_refresh_cookie
 from app.core.config import get_settings

@@ -7,7 +7,8 @@ from urllib.parse import quote, urlencode
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import RedirectResponse
-from jose import JWTError, jwt
+import jwt
+from jwt import PyJWTError as JWTError
 from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
