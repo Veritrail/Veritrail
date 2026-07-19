@@ -71,6 +71,7 @@ export const meSchema = z.object({
   id: z.string(),
   email: z.string(),
   display_name: z.string(),
+  avatar_url: z.string().nullable().optional(),
   role: orgRole,
   evidence_role: evidenceRole,
   org_id: z.string(),
@@ -99,7 +100,6 @@ export const accountSchema = z
     status: z.string(),
     external_id: z.string().optional(),
     role_arn: z.string().nullable().optional(),
-    enable_advanced_policy_generation: z.boolean().optional(),
     last_scan_at: z.string().nullable().optional(),
   })
   .passthrough();
@@ -143,6 +143,17 @@ export const findingPageSchema = z.object({
 
 export type FindingPage = z.infer<typeof findingPageSchema>;
 
+export const findingSummarySchema = z.object({
+  total: z.number(),
+  by_status: z.record(z.string(), z.number()).default({}),
+  by_severity: z.record(z.string(), z.number()).default({}),
+  top_checks: z
+    .array(z.object({ check_id: z.string(), count: z.number() }).passthrough())
+    .default([]),
+});
+
+export type FindingSummary = z.infer<typeof findingSummarySchema>;
+
 export const trustCenterSettingsSchema = z.object({
   is_enabled: z.boolean(),
   subdomain_slug: z.string().nullable(),
@@ -184,6 +195,15 @@ export const evidenceExportSchema = z.object({
 
 export const evidenceExportListSchema = z.array(evidenceExportSchema);
 
+/** Public key for verifying pack_signature.json (GET /v1/meta/evidence-pack-signing-key). */
+export const signingKeySchema = z.object({
+  enabled: z.boolean(),
+  key_id: z.string(),
+  algorithm: z.string(),
+  public_key_base64: z.string().nullable(),
+});
+export type SigningKey = z.infer<typeof signingKeySchema>;
+
 export const scopedExportLinkSchema = z.object({
   export_id: z.string(),
   report_id: z.string().nullable(),
@@ -208,13 +228,6 @@ export const vaultShareSchema = z.object({
 });
 
 export const vaultShareListSchema = z.array(vaultShareSchema);
-
-export const findingSummarySchema = z.object({
-  total: z.number(),
-  by_status: z.record(z.string(), z.number()),
-  by_severity: z.record(z.string(), z.number()),
-  top_checks: z.array(z.object({ check_id: z.string(), count: z.number() })),
-});
 
 export const auditorInviteSchema = auditorAccessSchema.extend({
   email_sent: z.boolean().optional(),
@@ -255,6 +268,27 @@ export const settingsSchema = z
     })
     .optional()
     .default({ sso_required: false }),
+  scheduled_exports: z
+    .object({
+      enabled: z.boolean(),
+      framework: z.string(),
+      period_days: z.number(),
+      cadence: z.enum(["weekly", "monthly"]),
+      notify_email: z.boolean(),
+      last_run_at: z.string().nullable().optional(),
+      last_export_id: z.string().nullable().optional(),
+    })
+    .passthrough()
+    .optional()
+    .default({
+      enabled: false,
+      framework: "soc2",
+      period_days: 90,
+      cadence: "monthly",
+      notify_email: true,
+      last_run_at: null,
+      last_export_id: null,
+    }),
   scanning: z.object({
     enabled: z.boolean(),
     interval: z.enum(["daily", "weekly", "custom", "manual"]),
@@ -420,6 +454,7 @@ export const cloudAccountRowSchema = z.object({
   label: z.string(),
   status: z.string(),
   last_scan_at: z.string().nullable().default(null),
+  last_error: z.string().nullable().optional(),
   open_findings_count: z
     .number()
     .nullish()
@@ -532,11 +567,68 @@ export const controlListItemSchema = z
     status: z.string(),
     finding_count: z.number().default(0),
     check_ids: z.array(z.string()).default([]),
+    scanned_check_ids: z.array(z.string()).optional(),
     kind: z.string().optional(),
   })
   .passthrough();
 
 export const controlListSchema = z.array(controlListItemSchema);
+
+export const auditReadinessDomainSchema = z.object({
+  key: z.string(),
+  label: z.string(),
+  status: z.string(),
+  assertion_text: z.string(),
+  coverage_line: z.string(),
+  verified_phrases: z.array(z.string()),
+  gaps: z.array(z.record(z.string(), z.unknown())),
+  exceptions: z.array(z.record(z.string(), z.unknown())),
+  control_tags: z.array(z.string()),
+  evidence_refs: z.array(z.string()),
+  checks_total: z.number(),
+  checks_passing: z.number(),
+  scope_note: z.string().nullable().optional(),
+  temporal_sentence: z.string().nullable().optional(),
+  named_sources: z.array(z.string()).optional(),
+  check_ids: z.array(z.string()).optional(),
+});
+
+export const auditReadinessSchema = z.object({
+  framework: z.string(),
+  org_name: z.string(),
+  as_of: z.string(),
+  period_days: z.number(),
+  scope_label: z.string(),
+  playbooks: z.array(z.object({
+    key: z.string(),
+    label: z.string(),
+    question: z.string(),
+    outcome: z.string(),
+    status: z.enum(["verified", "action", "not_applicable", "not_assessed"]),
+    items: z.array(z.object({
+      key: z.string(),
+      check_ids: z.array(z.string()),
+      label: z.string(),
+      status: z.enum(["verified", "action", "not_applicable", "not_assessed"]),
+      summary: z.string(),
+      controls: z.array(z.string()),
+      sources: z.array(z.string()),
+      finding_count: z.number(),
+      exception_count: z.number(),
+      highest_severity: z.string().nullable(),
+      applicability_reason: z.string().nullable(),
+      action_kind: z.enum(["activate", "review"]).nullable(),
+      action_label: z.string().nullable(),
+      action_url: z.string().nullable(),
+      is_enablement: z.boolean(),
+      activation_label: z.string().nullable(),
+    })),
+    additional_action_count: z.number(),
+    controls: z.array(z.string()),
+    narrative_domain_keys: z.array(z.string()),
+  })),
+  domains: z.array(auditReadinessDomainSchema),
+});
 
 export const controlMappingItemSchema = z.object({
   framework: z.string(),
@@ -643,6 +735,35 @@ export const externalEvidenceArtifactSchema = z
 
 export const externalEvidenceListSchema = z.array(externalEvidenceArtifactSchema);
 
+export const controlTimelineSegmentSchema = z.object({
+  status: z.enum(["pass", "fail", "no_data"]),
+  from: z.string(),
+  to: z.string(),
+  duration_seconds: z.number(),
+});
+
+export const controlsHistorySummarySchema = z.object({
+  framework: z.string(),
+  period_days: z.number(),
+  from: z.string(),
+  to: z.string(),
+  controls: z.array(
+    z.object({
+      control_id: z.string(),
+      title: z.string(),
+      check_ids: z.array(z.string()).default([]),
+      current_status: z.enum(["pass", "fail", "no_data"]),
+      failing_since: z.string().nullable(),
+      days_failing: z.number().nullable(),
+      open_finding_count: z.number(),
+      segments: z.array(controlTimelineSegmentSchema).default([]),
+    }),
+  ),
+});
+
+export type ControlsHistorySummary = z.infer<typeof controlsHistorySummarySchema>;
+export type ControlTimelineRow = ControlsHistorySummary["controls"][number];
+
 export const complianceTimelineSchema = z
   .object({
     framework: z.string(),
@@ -689,98 +810,6 @@ export const jiraIntegrationSchema = z
   .passthrough();
 
 export type JiraIntegration = z.infer<typeof jiraIntegrationSchema>;
-
-/** GET/PUT /v1/integrations/okta — OktaProviderOut. */
-export const oktaIntegrationSchema = z
-  .object({
-    connected: z.boolean(),
-    status: z.string(),
-    org_url: z.string().nullable().optional(),
-    last_synced_at: z.string().nullable().optional(),
-    identity_users: z.number().default(0),
-    admin_users: z.number().default(0),
-    mfa_policy_enforced: z.boolean().nullable().optional(),
-    has_api_token: z.boolean().optional(),
-  })
-  .passthrough();
-
-export type OktaIntegration = z.infer<typeof oktaIntegrationSchema>;
-
-export const githubIssuesIntegrationSchema = z
-  .object({
-    connected: z.boolean(),
-    status: z.string().optional(),
-    owner: z.string().nullable().optional(),
-    repo: z.string().nullable().optional(),
-    labels: z.array(z.string()).optional(),
-    has_access_token: z.boolean().optional(),
-  })
-  .passthrough();
-
-export type GitHubIssuesIntegration = z.infer<typeof githubIssuesIntegrationSchema>;
-
-export const iacRepositoryIntegrationSchema = z
-  .object({
-    connected: z.boolean(),
-    status: z.string().optional(),
-    vcs_provider: z.enum(["github", "gitlab", "azure_devops", "codecommit"]).nullable().optional(),
-    uses_terragrunt: z.boolean().optional(),
-    repo_mode: z.enum(["single", "dual"]).optional(),
-    terraform_repo: z
-      .object({
-        vcs_provider: z.enum(["github", "gitlab", "azure_devops", "codecommit"]).optional(),
-        repo_ref: z.string(),
-        auth_method: z.string().nullable().optional(),
-        installation_id: z.string().nullable().optional(),
-        installation_account: z.string().nullable().optional(),
-        repository_id: z.string().nullable().optional(),
-        owner: z.string().nullable().optional(),
-        repo: z.string().nullable().optional(),
-        path: z.string().optional(),
-        has_access_token: z.boolean().optional(),
-        base_url: z.string().nullable().optional(),
-      })
-      .nullable()
-      .optional(),
-    terragrunt_repo: z
-      .object({
-        vcs_provider: z.enum(["github", "gitlab", "azure_devops", "codecommit"]).optional(),
-        repo_ref: z.string(),
-        auth_method: z.string().nullable().optional(),
-        installation_id: z.string().nullable().optional(),
-        installation_account: z.string().nullable().optional(),
-        repository_id: z.string().nullable().optional(),
-        owner: z.string().nullable().optional(),
-        repo: z.string().nullable().optional(),
-        path: z.string().optional(),
-        has_access_token: z.boolean().optional(),
-        base_url: z.string().nullable().optional(),
-      })
-      .nullable()
-      .optional(),
-    repo_ref: z.string().nullable().optional(),
-    owner: z.string().nullable().optional(),
-    repo: z.string().nullable().optional(),
-    terraform_path: z.string().optional(),
-    terragrunt_path: z.string().nullable().optional(),
-    paths_differ: z.boolean().optional(),
-    pr_path: z.string().nullable().optional(),
-    labels: z.array(z.string()).optional(),
-    has_access_token: z.boolean().optional(),
-    github_app_configured: z.boolean().optional(),
-    github_app_installed: z.boolean().optional(),
-    github_app_account: z.string().nullable().optional(),
-    github_app_installation_id: z.string().nullable().optional(),
-    github_app_manage_url: z.string().nullable().optional(),
-    github_app_repository_selection: z.string().nullable().optional(),
-    github_oauth_connected: z.boolean().optional(),
-    github_oauth_login: z.string().nullable().optional(),
-    remediation_available: z.boolean().optional(),
-    remediation_unavailable_reason: z.string().nullable().optional(),
-  })
-  .passthrough();
-
-export type IacRepositoryIntegration = z.infer<typeof iacRepositoryIntegrationSchema>;
 
 /** GET /v1/integrations/{github|gitlab|google-workspace|entra} — null when disconnected. */
 export const integrationStatusSchema = z
@@ -852,31 +881,6 @@ export const scannerIntegrationSchema = z
 
 export type ScannerIntegration = z.infer<typeof scannerIntegrationSchema>;
 
-export const remediationExecutionSchema = z
-  .object({
-    status: z.string(),
-    plan_id: z.string().optional(),
-    dispatched_at: z.string().nullable().optional(),
-    completed_at: z.string().nullable().optional(),
-    error: z.string().nullable().optional(),
-    result: z.record(z.string(), z.unknown()).nullable().optional(),
-    automation_execution_id: z.string().nullable().optional(),
-    ssm_status: z.string().nullable().optional(),
-    status_sync: z
-      .object({
-        polled: z.boolean().optional(),
-        ssm_status: z.string().nullable().optional(),
-        error: z.string().nullable().optional(),
-        region: z.string().nullable().optional(),
-      })
-      .passthrough()
-      .nullable()
-      .optional(),
-  })
-  .passthrough();
-
-export type RemediationExecution = z.infer<typeof remediationExecutionSchema>;
-
 export const accountTimelineSchema = z
   .object({
     events: z.array(z.record(z.string(), z.unknown())).default([]),
@@ -912,82 +916,17 @@ export const clientIpSchema = z
   })
   .passthrough();
 
-/** GET /v1/accounts/{id}/roles/policy-generation/status — CloudTrail policy-gen job. */
-export const policyGenerationStatusSchema = z
-  .object({
-    status: z.string().optional(),
-    job_id: z.string().optional(),
-    started_on: z.string().optional(),
-    completed_on: z.string().optional(),
-    region: z.string().optional(),
-    detail: z.string().optional(),
-  })
-  .passthrough();
-
-export type PolicyGenerationStatus = z.infer<typeof policyGenerationStatusSchema>;
 
 /** GET /v1/accounts/{id}/roles/generated-policy — least-privilege proposal. */
 export const generatedPolicySchema = z
   .object({
     has_inline_policies: z.boolean().optional(),
     confidence: z.enum(["high", "medium", "low"]).optional(),
-    improve_via_cloudtrail: z.boolean().optional(),
     observed_action_count: z.number().optional(),
     source_label: z.string().nullable().optional(),
     cleaned_policies: z.record(z.string(), z.unknown()).nullable().optional(),
     original_policies: z.record(z.string(), z.unknown()).nullable().optional(),
-    cloudtrail_analysis: z
-      .object({
-        ready: z.boolean(),
-        status: z.string(),
-        message: z.string().nullable().optional(),
-      })
-      .passthrough()
-      .optional(),
-    access_analyzer: z
-      .object({
-        available: z.boolean().optional(),
-        reason: z.string().nullable().optional(),
-      })
-      .passthrough()
-      .optional(),
   })
   .passthrough();
 
 export type GeneratedPolicyResponse = z.infer<typeof generatedPolicySchema>;
-
-/** GET /v1/findings/{id}/iac-snippets — Terraform / CLI remediation templates. */
-export const iacSnippetsSchema = z
-  .object({
-    iac_status: z.string(),
-    reason: z.string().optional(),
-    terraform: z.string().nullable().optional(),
-    cloudformation: z.string().nullable().optional(),
-    cli: z.array(z.string()).optional(),
-    hints: z.array(z.string()).optional(),
-    apply_paths: z.record(z.string(), z.unknown()).optional(),
-    ssm_remediation: z.record(z.string(), z.unknown()).optional(),
-  })
-  .passthrough();
-
-/** GET /v1/accounts/{id}/remediation-runner/status — SSM Automation readiness. */
-export const remediationRunnerStatusSchema = z
-  .object({
-    ready: z.boolean(),
-    automation_region: z.string().optional(),
-    resource_region: z.string().nullable().optional(),
-    blockers: z.array(z.string()).optional(),
-    warnings: z.array(z.string()).optional(),
-    hints: z.array(z.string()).optional(),
-    document: z
-      .object({
-        name: z.string().nullable().optional(),
-        exists: z.boolean().optional(),
-        status: z.string().nullable().optional(),
-      })
-      .passthrough()
-      .optional(),
-  })
-  .passthrough();
-
-export type RemediationRunnerStatus = z.infer<typeof remediationRunnerStatusSchema>;

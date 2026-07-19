@@ -14,7 +14,6 @@ from app.services.snyk_shaped_scanner import (
     fetch_snyk_findings,
 )
 from app.services.scanner_types import normalize_severity
-from app.checks.okta_org_mfa import CHECK_ID as OKTA_MFA_CHECK
 
 
 def test_scanner_types_for_new_vendors():
@@ -93,10 +92,6 @@ def test_snyk_verify_requires_org_id():
 def test_splunk_verify_requires_credentials():
     with pytest.raises(ValueError, match="base_url"):
         verify_siem_connection("splunk", {})
-
-
-def test_okta_mfa_check_id():
-    assert OKTA_MFA_CHECK == "okta.org.mfa_not_enforced"
 
 
 def test_datadog_verify_mock():

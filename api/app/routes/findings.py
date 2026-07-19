@@ -453,6 +453,7 @@ def list_findings(
     provider: Annotated[str | None, Query()] = None,
     limit: int = Query(default=100, ge=1, le=500),
     cursor: str | None = Query(default=None),
+    include_total: Annotated[bool, Query()] = True,
     p=Depends(current_principal),
     db: Session = Depends(get_db),
 ):
@@ -480,7 +481,12 @@ def list_findings(
         azure_subscription_id=az_uuid,
     )
 
-    total = db.scalar(select(func.count()).select_from(base_q.subquery()))
+    # Cursor walks skip COUNT — callers keep total from the first page.
+    total = (
+        db.scalar(select(func.count()).select_from(base_q.subquery())) or 0
+        if include_total
+        else 0
+    )
 
     q = base_q.order_by(Finding.risk_score.desc(), Finding.id.desc())
     if cursor:
@@ -641,152 +647,6 @@ def clear_remediation_ticket_link(
     db.commit()
     accounts, gcp_projects, azure_subscriptions = _scope_maps(db, f.org_id)
     return _to_out(f, accounts, gcp_projects, azure_subscriptions)
-
-
-@router.get("/{finding_id}/remediation-plan")
-def remediation_plan(finding_id: str, p=Depends(current_principal), db: Session = Depends(get_db)):
-    """Customer-hosted remediation plan preview (no execution)."""
-    from app.services.remediation_plan import build_remediation_plan
-
-    f = _get_owned(db, p, finding_id)
-    return build_remediation_plan(f)
-
-
-@router.get("/{finding_id}/iac-snippets")
-def iac_snippets(finding_id: str, p=Depends(current_principal), db: Session = Depends(get_db)):
-    """Deterministic Terraform / CLI snippets (Phase 1 — not automatic PR)."""
-    from app.services.iac_snippets import build_iac_remediation
-
-    f = _get_owned(db, p, finding_id)
-    return build_iac_remediation(db, f, uuid.UUID(p["org_id"]))
-
-
-class TerraformPrIn(BaseModel):
-    repo_full_name: str
-    file_path: str = "veritrail/remediation.tf"
-    base_branch: str | None = None
-
-
-@router.post("/{finding_id}/iac/terraform-pr")
-def create_terraform_pr_route(
-    finding_id: str,
-    body: TerraformPrIn,
-    _rbac: RequireEditor, p=Depends(current_principal),
-    db: Session = Depends(get_db),
-):
-    """Open a GitHub PR with repo-aware HCL patch + terraform validate."""
-    from app.services.terraform_pr import build_terraform_pr
-
-    f = _get_owned(db, p, finding_id)
-    try:
-        return build_terraform_pr(
-            db,
-            finding=f,
-            org_id=uuid.UUID(p["org_id"]),
-            repo_full_name=body.repo_full_name,
-            file_path=body.file_path,
-            base_branch=body.base_branch,
-        )
-    except ValueError as e:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e)) from e
-
-
-class TerraformRepoScanIn(BaseModel):
-    repo_full_name: str
-    base_branch: str | None = None
-
-
-@router.post("/{finding_id}/iac/repo-scan")
-def terraform_repo_scan(
-    finding_id: str,
-    body: TerraformRepoScanIn,
-    _rbac: RequireEditor, p=Depends(current_principal),
-    db: Session = Depends(get_db),
-):
-    """Scan connected repo .tf/.hcl for resources matching this finding."""
-    from app.services.terraform_pr import scan_repo_for_finding
-
-    f = _get_owned(db, p, finding_id)
-    try:
-        return scan_repo_for_finding(
-            db,
-            finding=f,
-            org_id=uuid.UUID(p["org_id"]),
-            repo_full_name=body.repo_full_name,
-            base_branch=body.base_branch,
-        )
-    except ValueError as e:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e)) from e
-
-
-@router.get("/{finding_id}/remediation-execution")
-def get_remediation_execution(finding_id: str, p=Depends(current_principal), db: Session = Depends(get_db)):
-    """Latest execution record for a finding (by most recent dispatch)."""
-    from sqlalchemy import select
-
-    from app.models.remediation_execution import RemediationExecution
-
-    from app.models import AwsAccount
-    from app.services.remediation_execution_sync import sync_remediation_execution_from_ssm
-
-    f = _get_owned(db, p, finding_id)
-    row = db.scalar(
-        select(RemediationExecution)
-        .where(RemediationExecution.finding_id == f.id)
-        .order_by(RemediationExecution.dispatched_at.desc())
-        .limit(1)
-    )
-    if not row:
-        return {"status": "none"}
-    acc = db.get(AwsAccount, row.account_id)
-    sync_meta: dict = {}
-    if acc and acc.role_arn:
-        row, sync_meta = sync_remediation_execution_from_ssm(db, row=row, account=acc)
-    result = row.result_json if isinstance(row.result_json, dict) else {}
-    return {
-        "plan_id": row.plan_id,
-        "status": row.status,
-        "dispatched_at": row.dispatched_at.isoformat() if row.dispatched_at else None,
-        "completed_at": row.completed_at.isoformat() if row.completed_at else None,
-        "result": row.result_json,
-        "error": row.error,
-        "automation_execution_id": result.get("automation_execution_id"),
-        "ssm_status": sync_meta.get("ssm_status") or result.get("ssm_status"),
-        "status_sync": sync_meta or None,
-    }
-
-
-class RemediationDispatchIn(BaseModel):
-    execute: bool = False
-    parameter_overrides: dict[str, str] | None = None
-
-
-@router.post("/{finding_id}/remediation/dispatch")
-def remediation_dispatch(
-    finding_id: str,
-    _rbac: RequireEditor,
-    body: RemediationDispatchIn = RemediationDispatchIn(),
-    p=Depends(current_principal),
-    db: Session = Depends(get_db),
-):
-    """Approve remediation plan; start SSM Automation only when body.execute is true."""
-    from app.services.remediation_dispatch import build_remediation_dispatch
-
-    from app.services.remediation_iam_policy_plan import IamPolicyRemediationNotReady
-
-    f = _get_owned(db, p, finding_id)
-    approved_by = p.get("sub") or p.get("email") or "unknown"
-    try:
-        return build_remediation_dispatch(
-            f,
-            approved_by=str(approved_by),
-            db=db,
-            org_id=uuid.UUID(p["org_id"]),
-            execute=body.execute,
-            parameter_overrides=body.parameter_overrides,
-        )
-    except IamPolicyRemediationNotReady as exc:
-        raise HTTPException(status.HTTP_409_CONFLICT, detail=exc.detail) from exc
 
 
 class TriageTriggerResponse(BaseModel):
@@ -951,6 +811,7 @@ class RecheckBatchIn(BaseModel):
 @router.post("/recheck-batch")
 def recheck_batch(body: RecheckBatchIn, _rbac: RequireEditor, p=Depends(current_principal), db: Session = Depends(get_db)):
     from app.services.fast_recheck import try_fast_findings_recheck_batch
+    from app.services.org_finding_recheck import try_org_finding_recheck
     from app.worker.tasks import recheck_finding
 
     if not body.finding_ids:
@@ -959,21 +820,46 @@ def recheck_batch(body: RecheckBatchIn, _rbac: RequireEditor, p=Depends(current_
     findings: list[Finding] = []
     acc: AwsAccount | None = None
     check_id: str | None = None
+    org_scoped = False
     for fid in body.finding_ids[:50]:
         f = _get_owned(db, p, fid)
         if check_id is None:
             check_id = f.check_id
         elif f.check_id != check_id:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "all findings must share the same check_id")
+        if f.account_id is None and (
+            f.check_id.startswith("github.") or f.check_id.startswith("gitlab.")
+        ):
+            org_scoped = True
+        elif org_scoped:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                "cannot mix org-scoped source-control findings with cloud account findings",
+            )
         if acc is None:
             acc = db.get(AwsAccount, f.account_id)
-            if not acc:
+            if not acc and not org_scoped:
                 raise HTTPException(status.HTTP_404_NOT_FOUND, "account not found")
         elif f.account_id != acc.id:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "all findings must belong to the same account")
         findings.append(f)
 
     actor = p.get("sub") or p.get("email") or "system"
+    if org_scoped:
+        results = []
+        for f in findings:
+            out = try_org_finding_recheck(db, finding=f, actor=str(actor))
+            if out is None:
+                raise HTTPException(status.HTTP_400_BAD_REQUEST, "expected org-scoped source-control finding")
+            results.append(
+                {
+                    "finding_id": str(f.id),
+                    "resolved": bool(out.get("resolved")),
+                    "error": out.get("error"),
+                }
+            )
+        return {"queued": False, "checked": True, "check_id": check_id, "results": results}
+
     fast = try_fast_findings_recheck_batch(db, account=acc, findings=findings, actor=str(actor))
     if fast is not None:
         return fast
@@ -985,14 +871,20 @@ def recheck_batch(body: RecheckBatchIn, _rbac: RequireEditor, p=Depends(current_
 @router.post("/{finding_id}/recheck")
 def recheck(finding_id: str, _rbac: RequireEditor, p=Depends(current_principal), db: Session = Depends(get_db)):
     from app.services.fast_finding_recheck import try_fast_finding_recheck
+    from app.services.org_finding_recheck import try_org_finding_recheck
     from app.worker.tasks import recheck_finding
 
     f = _get_owned(db, p, finding_id)
+    actor = p.get("sub") or p.get("email") or "system"
+
+    org_fast = try_org_finding_recheck(db, finding=f, actor=str(actor))
+    if org_fast is not None:
+        return org_fast
+
     acc = db.get(AwsAccount, f.account_id)
     if not acc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "account not found")
 
-    actor = p.get("sub") or p.get("email") or "system"
     fast = try_fast_finding_recheck(db, account=acc, finding=f, actor=str(actor))
     if fast.get("checked"):
         return fast

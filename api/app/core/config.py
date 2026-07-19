@@ -27,16 +27,9 @@ class Settings(BaseSettings):
 
     GOOGLE_CLIENT_ID: str = ""
     GOOGLE_CLIENT_SECRET: str = ""
-    # If set, only emails from this domain are accepted via Google OAuth (login + link).
-    GOOGLE_ALLOWED_DOMAIN: str = ""
     GITHUB_CLIENT_ID: str = ""
     GITHUB_CLIENT_SECRET: str = ""
     GITHUB_INTEGRATION_CALLBACK_PATH: str = "/v1/auth/github/callback"
-    # GitHub App for least-privilege IaC repository access. The GitHub App setup URL should
-    # point to {API_PUBLIC_URL}/v1/integrations/iac-repository/github-app/setup.
-    GITHUB_APP_ID: str = ""
-    GITHUB_APP_SLUG: str = ""
-    GITHUB_APP_PRIVATE_KEY: str = ""
     # Shared secret for verifying inbound GitHub webhook signatures (X-Hub-Signature-256) on the
     # IaC PR/push scan trigger. Empty => the webhook endpoint rejects everything (fail closed).
     GITHUB_WEBHOOK_SECRET: str = ""
@@ -103,20 +96,9 @@ class Settings(BaseSettings):
     # Legacy split-stack policy-gen role (pre-unified connector); derive_advanced_role_arn maps these.
     CFN_POLICY_GENERATION_ROLE_NAME: str = "VeritrailPolicyGenerationRole"
     CFN_SCANNER_ROLE_NAME_LEGACY: str = "VeritrailReadOnlyScannerRole"
-    CFN_REMEDIATION_AUTOMATION_ROLE_NAME: str = "VeritrailRemediationAutomationRole"
-    CFN_REMEDIATION_TEMPLATE_URL: str = (
-        "https://amzn-s3-veritrail.s3.us-east-1.amazonaws.com/infra/2026.06/veritrail-remediation-ssm.yaml"
-    )
-    CFN_REMEDIATION_SSM_TEMPLATE_URL: str = (
-        "https://amzn-s3-veritrail.s3.us-east-1.amazonaws.com/infra/2026.06/veritrail-remediation-ssm.yaml"
-    )
 
     # CloudFormation console deep links (customer deploys connector stack).
     CFN_CONSOLE_REGION: str = "us-east-1"
-    # Customer remediation automation home region.
-    REMEDIATION_AUTOMATION_REGION: str = "us-east-1"
-    REMEDIATION_SSM_DOCUMENT_NAME: str = "Veritrail-RemediationPlanExecutor"
-    REMEDIATION_PLAN_TTL_MINUTES: int = 60
 
     # When True (default) hitting /v1/auth/{github,gitlab,google} *without*
     # a link_token creates a new user+org if no existing user matches the
@@ -124,6 +106,26 @@ class Settings(BaseSettings):
     # once you have paying customers — prevents accidental fragmentation
     # when a user signs in via a personal IdP under a different email).
     ALLOW_SSO_SIGNUP: bool = True
+
+    # Where marketing-site "request access" submissions are delivered.
+    ACCESS_REQUEST_EMAIL: str = "support@veritrail.io"
+    # Extra CORS origins for public endpoints hit from the static marketing
+    # site (comma-separated). Appended to CORS_ORIGINS/FRONTEND_URL.
+    MARKETING_CORS_ORIGINS: str = "https://veritrail.io,https://www.veritrail.io"
+
+    # Comma-separated emails allowed to use the read-only platform-admin
+    # dashboard (/v1/platform-admin + /admin in the web app). Empty = nobody.
+    PLATFORM_ADMIN_EMAILS: str = ""
+
+    # Platform-admin dashboard hostname (e.g. admin.veritrail.io). Read from the
+    # same env var the nginx bootstrap uses. Enables "Sign in with Google" on
+    # the admin origin (one-time code handoff); empty disables admin SSO.
+    ADMIN_DOMAIN: str = ""
+
+    @property
+    def admin_url(self) -> str:
+        domain = self.ADMIN_DOMAIN.strip()
+        return f"https://{domain}" if domain else ""
 
     # Optional Ed25519 seed (32 bytes, base64) to sign evidence pack checksum manifests.
     # Generate: python -c "import base64,os; print(base64.urlsafe_b64encode(os.urandom(32)).decode())"
@@ -154,11 +156,6 @@ class Settings(BaseSettings):
     EVIDENCE_CLAMAV_PORT: int = 3310
     # When true, uploads are rejected until ClamAV returns clean (no dev skip on scan failure).
     EVIDENCE_UPLOAD_QUARANTINE_ENABLED: bool = False
-
-    # Go HCL patch binary (repo-aware Terraform PRs). Default: /usr/local/bin/hclpatch
-    HCLPATCH_BIN: str = "/usr/local/bin/hclpatch"
-    # Skip terraform fmt/validate when binary missing (dev only).
-    TERRAFORM_VALIDATE_SKIP: bool = False
 
     # AI-assisted finding triage.
     AI_TRIAGE_ENABLED: bool = False

@@ -14,7 +14,7 @@ from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 
 from app.checks.persist import persist_org_findings
-from app.checks.registry import source_control_checks_for
+from app.checks.registry import INTEGRATION_SYNC_PREFIXES, source_control_checks_for
 from app.models import Finding
 
 
@@ -27,15 +27,42 @@ def org_source_control_condition():
     )
 
 
-def with_source_control_for_audit(account_condition):
-    """OR an account-scoped condition with org-level source-control findings —
-    for COMPLIANCE/AUDIT contexts ONLY (evidence pack, control grading), where
-    Secure SDLC is an org-level control that must appear regardless of account.
+def org_integration_condition():
+    """SQLAlchemy predicate for org-level identity integration findings."""
+    return and_(
+        Finding.account_id.is_(None),
+        or_(*(Finding.check_id.like(f"{prefix}%") for prefix in INTEGRATION_SYNC_PREFIXES)),
+    )
 
-    Do NOT use in operational Findings/export/account views: source control is
-    not tied to a cloud account and must not surface under account selection.
+
+def with_source_control_for_audit(account_condition, *, org_id: uuid.UUID):
+    """OR an account-scoped condition with org-level source-control + identity
+    integration findings — for COMPLIANCE/AUDIT contexts ONLY (evidence pack,
+    control grading).
+
+    Do NOT use in operational Findings/export/account views: these org-level
+    domains must not surface under cloud account selection.
     """
-    return or_(account_condition, org_source_control_condition())
+    return and_(
+        Finding.org_id == org_id,
+        or_(account_condition, org_source_control_condition(), org_integration_condition()),
+    )
+
+
+def resolve_source_control_findings_on_disconnect(
+    db: Session, org_id: uuid.UUID, provider_type: str
+) -> int:
+    """Resolve open org-scoped findings for a disconnected git provider."""
+    check_ids_run = {mod.CHECK_ID for mod in source_control_checks_for(provider_type)}
+    if not check_ids_run:
+        return 0
+    _, resolved = persist_org_findings(
+        db,
+        org_id=org_id,
+        drafts=[],
+        check_ids_run=check_ids_run,
+    )
+    return resolved
 
 
 def run_source_control_checks(db: Session, org_id: uuid.UUID, provider_type: str) -> dict[str, int]:

@@ -58,10 +58,9 @@ Hygiene findings are optional and disabled by default.
 
 * Cross-account IAM role assumption with ExternalId
 * Read-only AWS permissions for the core scanner
-* Optional customer-approved analysis and remediation via SSM Automation
 * Production control plane on Hetzner/VPS can use Vault PKI + IAM Roles Anywhere instead of static AWS keys
 
-The core scanner cannot modify customer resources. Remediation requires customer-owned automation and explicit approval.
+Veritrail is scanning-only and never modifies customer environments. Remediation guidance shown with findings is informational; "Verify fix" is a read-only re-check after you apply a fix yourself.
 
 ## Platform
 

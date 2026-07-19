@@ -79,7 +79,7 @@ export const CATEGORY_INTAKE: Record<string, CategoryIntakeConfig> = {
     wizardLead:
       "Upload evidence of access reviews or identity governance outside native AWS IAM reports, or remediate IAM findings in AWS.",
     toolLabel: "Identity provider or review tool",
-    toolPlaceholder: "e.g. Okta, Entra ID, Google Workspace, SailPoint",
+    toolPlaceholder: "e.g. Entra ID, Google Workspace, SailPoint",
     useToolPicker: false,
     scopeLabel: "Population reviewed",
     scopePlaceholder: "e.g. All production users, privileged access",

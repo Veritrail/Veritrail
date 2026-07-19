@@ -1,5 +1,25 @@
 import { forwardRef, type ReactNode } from "react";
 
+/** Static selector-card shell for header segmented toggles (View, etc.). */
+export function HeaderSegmentCard({
+  label,
+  children,
+  className = "",
+}: {
+  label: string;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={["selector-card selector-card--segment shrink-0", className].filter(Boolean).join(" ")}>
+      <span className="selector-card__body">
+        <span className="selector-card__label">{label}</span>
+        <span className="selector-card__segment">{children}</span>
+      </span>
+    </div>
+  );
+}
+
 export type SelectorCardIconTone = "account" | "period" | "framework" | "group" | "neutral";
 
 function FilterChevron({ open }: { open: boolean }) {
@@ -20,7 +40,7 @@ function FilterChevron({ open }: { open: boolean }) {
 }
 
 export type SelectorCardProps = {
-  icon: ReactNode;
+  icon?: ReactNode;
   label: string;
   value: string;
   open?: boolean;
@@ -45,7 +65,9 @@ export const SelectorCard = forwardRef<HTMLButtonElement, SelectorCardProps>(fun
         .join(" ")}
       {...props}
     >
-      <span className={`selector-card__icon-box selector-card__icon-box--${iconTone}`}>{icon}</span>
+      {icon ? (
+        <span className={`selector-card__icon-box selector-card__icon-box--${iconTone}`}>{icon}</span>
+      ) : null}
       <span className="selector-card__body">
         <span className="selector-card__label">{label}</span>
         <span className="selector-card__value">{value}</span>

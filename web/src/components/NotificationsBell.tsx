@@ -3,16 +3,15 @@ import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import {
   useRecheckNotifications,
-  type CloudTrailNotification,
   type NotificationItem,
 } from "../context/RecheckNotificationsContext";
-import { friendlyPolicyGenerationError } from "../lib/policyGenerationErrors";
 import {
   friendlyScanFailureMessage,
   scanFailureNotificationTitle,
   scanFailureUserAction,
 } from "../lib/scanFailureMessages";
 import { checkLabels } from "../data/checkLabels";
+import { findingScopeProvider, verifyFixOutcomeCopy } from "../lib/findingDisplay";
 
 function formatWhen(ts: number): string {
   const sec = Math.round((Date.now() - ts) / 1000);
@@ -24,35 +23,20 @@ function formatWhen(ts: number): string {
   return new Date(ts).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 }
 
-function cloudTrailTitle(item: CloudTrailNotification): string {
-  if (item.status === "running") return "CloudTrail Analyzes running";
-  if (item.status === "succeeded") return "CloudTrail Analyzes complete";
-  return "CloudTrail Analyzes failed";
-}
-
-function cloudTrailBody(item: CloudTrailNotification): string {
-  if (item.message) return friendlyPolicyGenerationError(item.message);
-  if (item.status === "running") return "~15 min · resource ARNs · IAM unchanged until you apply";
-  if (item.status === "succeeded") return "Rebuild suggestion to apply resource ARNs.";
-  return "Could not complete analysis for this role.";
-}
-
 function itemStyles(item: NotificationItem): string {
   if (item.kind === "scan_failure") return "border-red-100 bg-red-50/90";
-  if (item.kind === "cloudtrail") {
-    if (item.status === "running") return "border-indigo-100 bg-indigo-50/80";
-    if (item.status === "succeeded") return "border-emerald-100 bg-emerald-50/90";
-    return "border-amber-100 bg-amber-50/90";
-  }
-  return item.status === "verified" ? "border-emerald-100 bg-emerald-50/90" : "border-amber-100 bg-amber-50/90";
+  if (item.status === "verified") return "border-emerald-100 bg-emerald-50/90";
+  if (item.status === "error") return "border-red-100 bg-red-50/90";
+  return "border-amber-100 bg-amber-50/90";
 }
 
 function itemTitle(item: NotificationItem): string {
   if (item.kind === "scan_failure") {
     return scanFailureNotificationTitle(item.accountLabel, item.provider);
   }
-  if (item.kind === "cloudtrail") return cloudTrailTitle(item);
-  return item.status === "verified" ? "Verified" : "Still open";
+  if (item.status === "verified") return "Verified";
+  if (item.status === "error") return "Verify couldn't complete";
+  return "Still open";
 }
 
 function itemBody(item: NotificationItem): string {
@@ -62,36 +46,32 @@ function itemBody(item: NotificationItem): string {
       accountLabel: item.accountLabel,
     });
   }
-  if (item.kind === "cloudtrail") return cloudTrailBody(item);
-  return item.status === "verified"
-    ? "Re-check passed — finding resolved."
-    : "Verify finished — issue still detected.";
+  // Remaining kind is verify (NotificationItem is exhaustive).
+  const provider = findingScopeProvider({ check_id: item.checkId });
+  if (item.status === "verified") return "Re-check passed — finding resolved.";
+  if (item.status === "error") return verifyFixOutcomeCopy(provider, "error").body;
+  return verifyFixOutcomeCopy(provider, "unchanged").body;
 }
 
 function itemSubtitle(item: NotificationItem): string {
   if (item.kind === "scan_failure") return scanFailureUserAction(item.provider);
-  if (item.kind === "cloudtrail") return item.roleLabel;
   return checkLabels[item.checkId] ?? item.checkId;
 }
 
 function titleColor(item: NotificationItem): string {
   if (item.kind === "scan_failure") return "text-red-950";
-  if (item.kind === "cloudtrail") {
-    if (item.status === "running") return "text-indigo-950";
-    if (item.status === "succeeded") return "text-emerald-950";
-    return "text-amber-950";
-  }
-  return item.status === "verified" ? "text-emerald-950" : "text-amber-950";
+  if (item.status === "verified") return "text-emerald-950";
+  if (item.status === "error") return "text-red-950";
+  return "text-amber-950";
 }
 
 function isNotificationError(item: NotificationItem): boolean {
   if (item.kind === "scan_failure") return true;
-  return item.kind === "cloudtrail" && item.status === "failed";
+  return item.kind === "verify" && item.status === "error";
 }
 
 function isNotificationSuccess(item: NotificationItem): boolean {
-  if (item.kind === "verify" && item.status === "verified") return true;
-  return item.kind === "cloudtrail" && item.status === "succeeded";
+  return item.kind === "verify" && item.status === "verified";
 }
 
 type BellTone = "error" | "success" | "neutral";
@@ -122,7 +102,6 @@ export default function NotificationsBell() {
   const [panelPos, setPanelPos] = useState<{ top: number; right: number } | null>(null);
   const {
     pendingRecheck,
-    pendingCloudTrail,
     notificationHistory,
     notificationCount,
     dismissNotification,
@@ -165,17 +144,12 @@ export default function NotificationsBell() {
     navigate(`/findings?finding=${encodeURIComponent(findingId)}`);
   }
 
-  const historyVisible = notificationHistory.filter(
-    (h) =>
-      !(
-        h.kind === "cloudtrail" &&
-        h.status === "running" &&
-        pendingCloudTrail?.notificationId === h.id
-      ),
-  );
+  const historyVisible = notificationHistory;
 
-  const hasItems = pendingRecheck || pendingCloudTrail || historyVisible.length > 0;
-  const bellTone = bellToneFromHistory(historyVisible);
+  const hasItems = pendingRecheck || historyVisible.length > 0;
+  const unreadHistory = historyVisible.filter((h) => !h.readAt);
+  const bellTone =
+    notificationCount > 0 ? bellToneFromHistory(unreadHistory) : "neutral";
   const panel =
     open && panelPos
       ? createPortal(
@@ -220,26 +194,6 @@ export default function NotificationsBell() {
                   </button>
                 </div>
               )}
-              {pendingCloudTrail && (
-                <div className="mb-3 rounded-lg border border-indigo-100 bg-indigo-50/80 px-4 py-3.5">
-                  <div className="flex items-start gap-2.5">
-                    <Spinner />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold text-indigo-950">CloudTrail Analyzes</p>
-                      <p className="mt-1.5 text-sm leading-relaxed text-indigo-900/85">
-                        ~15 min · checking AWS job status
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => viewFinding(pendingCloudTrail.findingId)}
-                    className="mt-3 text-sm font-semibold text-indigo-700 hover:text-indigo-900"
-                  >
-                    View finding
-                  </button>
-                </div>
-              )}
               {historyVisible.map((item) => (
                 <NotificationRow
                   key={item.id}
@@ -247,7 +201,7 @@ export default function NotificationsBell() {
                   onView={() => {
                     if (item.kind === "scan_failure") {
                       setOpen(false);
-                      navigate("/accounts");
+                      navigate("/home");
                       return;
                     }
                     viewFinding(item.findingId);
@@ -322,7 +276,7 @@ function NotificationRow({
       <div className="mt-3 flex flex-wrap items-center gap-4">
         {item.kind === "scan_failure" ? (
           <button type="button" onClick={onView} className="text-sm font-semibold text-zinc-800 underline hover:text-zinc-950">
-            Open Accounts
+            Open Home
           </button>
         ) : (
           <button type="button" onClick={onView} className="text-sm font-semibold text-zinc-800 underline hover:text-zinc-950">

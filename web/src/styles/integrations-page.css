@@ -15,9 +15,11 @@
   gap: 1rem;
   width: 100%;
   min-width: 0;
-  /* Match workspace-page: fill the viewport content column on short pages so
-     margin-top: auto pins recommended integrations to the visual bottom. */
-  min-height: calc(100vh - 4rem);
+  /* Fill via Layout/ProductShell flex chain — avoid calc(100vh) here; it sits
+     below the app header + content padding and forced ~2–3rem of extra scroll.
+     margin-top: auto on .integrations-recommended pins the section; parent
+     .veritrail-app-content pb-8 matches sidebar dock clearance. */
+  min-height: 0;
   padding-bottom: 0;
   /* Connected-table scroll cap: header + exactly 7 data rows before overflow-y kicks in.
      Icon is 48px inline (IntegrationBrandIcon size={48}); name+badge stack beside it
@@ -49,7 +51,7 @@
   flex: 0 0 auto;
   flex-direction: column;
   gap: 0;
-  /* Keep scroll inside the connected table so KPI + recommended stay visible. */
+  /* Keep scroll inside the connected table so recommended stays visible. */
   overflow: hidden;
 }
 
@@ -86,124 +88,6 @@
   outline: none;
   border-color: var(--vt-teal, #5eead4);
   box-shadow: 0 0 0 3px rgb(13 148 136 / 0.12);
-}
-
-/* Integrations hub KPI strip — scoped overrides for workspace-summary metrics.
-   Avoids the mid-width 2×2 squeeze and horizontal scroll; keeps label + value
-   on one row so cells stay readable in narrow viewports. */
-.integrations-page .integrations-kpi-strip {
-  --integrations-kpi-cell-min-height: 4.75rem;
-}
-
-.integrations-page .integrations-kpi-strip .workspace-summary__cell {
-  min-height: var(--integrations-kpi-cell-min-height);
-}
-
-/* Narrow: single column, no horizontal scroll; label + value share one row */
-@media (max-width: 899.98px) {
-  .integrations-page .integrations-kpi-strip.workspace-summary--metrics {
-    overflow: visible;
-    grid-auto-flow: row;
-    grid-auto-columns: unset;
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .integrations-page .integrations-kpi-strip .workspace-summary__cell {
-    border-right: 0;
-    border-bottom: 1px solid #eef2f6;
-  }
-
-  .integrations-page .integrations-kpi-strip .workspace-summary__cell:last-child {
-    border-bottom: 0;
-  }
-
-  .integrations-page .integrations-kpi-strip .workspace-summary__content {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-rows: auto auto;
-    align-items: baseline;
-    column-gap: 0.625rem;
-    row-gap: 0.125rem;
-  }
-
-  .integrations-page .integrations-kpi-strip .workspace-summary__heading {
-    grid-column: 1;
-    grid-row: 1;
-    margin: 0;
-  }
-
-  .integrations-page .integrations-kpi-strip .workspace-summary__status {
-    grid-column: 2;
-    grid-row: 1;
-    margin-top: 0;
-    white-space: nowrap;
-  }
-
-  .integrations-page .integrations-kpi-strip .workspace-summary__detail {
-    grid-column: 1 / -1;
-    grid-row: 2;
-    margin-top: 0;
-    -webkit-line-clamp: 1;
-  }
-}
-
-/* Mid width: two columns with min cell width; same compact text row */
-@media (min-width: 900px) and (max-width: 1359.98px) {
-  .integrations-page .integrations-kpi-strip.workspace-summary--metrics {
-    grid-template-columns: repeat(2, minmax(15rem, 1fr));
-  }
-
-  .integrations-page .integrations-kpi-strip .workspace-summary__cell:nth-child(odd):not(:last-child) {
-    border-right: 1px solid #eef2f6;
-  }
-
-  .integrations-page .integrations-kpi-strip .workspace-summary__cell:nth-child(even) {
-    border-right: 0;
-  }
-
-  .integrations-page .integrations-kpi-strip .workspace-summary__cell:nth-last-child(-n + 2) {
-    border-bottom: 0;
-  }
-
-  .integrations-page .integrations-kpi-strip .workspace-summary__content {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-rows: auto auto;
-    align-items: baseline;
-    column-gap: 0.625rem;
-    row-gap: 0.125rem;
-  }
-
-  .integrations-page .integrations-kpi-strip .workspace-summary__heading {
-    grid-column: 1;
-    grid-row: 1;
-    margin: 0;
-  }
-
-  .integrations-page .integrations-kpi-strip .workspace-summary__status {
-    grid-column: 2;
-    grid-row: 1;
-    margin-top: 0;
-    white-space: nowrap;
-  }
-
-  .integrations-page .integrations-kpi-strip .workspace-summary__detail {
-    grid-column: 1 / -1;
-    grid-row: 2;
-    margin-top: 0;
-    -webkit-line-clamp: 1;
-  }
-}
-
-/* Very narrow: hide sub-label to reduce vertical stack */
-@media (max-width: 479.98px) {
-  .integrations-page .integrations-kpi-strip .workspace-summary__content {
-    grid-template-rows: auto;
-  }
-
-  .integrations-page .integrations-kpi-strip .workspace-summary__detail {
-    display: none;
-  }
 }
 
 .integrations-summary {
@@ -277,14 +161,16 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   border: 1px solid var(--integrations-border);
-  border-radius: 0.75rem;
+  border-radius: 0.875rem;
   background: var(--integrations-surface);
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  box-shadow: var(--vt-shadow-card, 0 1px 2px rgba(15, 23, 42, 0.04));
+  -webkit-overflow-scrolling: touch;
+  scrollbar-gutter: stable;
 }
 
 .integrations-table {
   width: 100%;
-  min-width: 56rem;
+  min-width: 72rem;
   border-collapse: collapse;
   font-size: 0.8125rem;
 }
@@ -308,6 +194,11 @@
 
 .integrations-table tbody tr {
   border-bottom: 1px solid #f1f5f9;
+  transition: background 0.12s ease;
+}
+
+.integrations-table tbody tr:hover {
+  background: #fafbfc;
 }
 
 .integrations-table tbody tr:last-child {
@@ -419,28 +310,32 @@
 
 .integrations-table th:nth-child(6),
 .integrations-table td:nth-child(6) {
-  /* Capabilities: reserve width for 2–3 pills on one row at hub table widths. */
-  min-width: 15rem;
+  min-width: 18rem;
+  max-width: 22rem;
 }
 
 .integrations-capabilities {
   display: flex;
   flex-flow: row wrap;
-  align-items: center;
+  align-items: flex-start;
   align-content: flex-start;
-  gap: 0.4375rem;
+  gap: 0.375rem;
   min-width: 0;
 }
 
 .integrations-capability {
-  flex: 0 0 auto;
-  padding: 0.25rem 0.5rem;
-  border-radius: 0.4375rem;
-  font-size: 0.75rem;
+  flex: 0 1 auto;
+  max-width: 100%;
+  padding: 0.25rem 0.5625rem;
+  border-radius: 999px;
+  font-size: 0.6875rem;
   font-weight: 600;
-  color: #2563eb;
-  background: #eff6ff;
-  white-space: nowrap;
+  color: #0f766e;
+  background: #ecfdf5;
+  box-shadow: inset 0 0 0 1px #a7f3d0;
+  white-space: normal;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
 }
 
 .integrations-table__actions {
@@ -501,8 +396,8 @@
    Width vars must stay in sync with exploreVisibleCount() in Integrations.tsx. */
 .integrations-explore-strip {
   --integrations-explore-strip-gap: 0.75rem;
-  /* Matches .integrations-explore-grid minmax(21rem, …) minimum column width. */
-  --integrations-explore-card-width: 21rem;
+  /* Wide enough for a full one-line benefit next to the 40px icon + Connect. */
+  --integrations-explore-card-width: 24rem;
   --integrations-catalog-card-width: 17rem;
 
   display: flex;
@@ -531,18 +426,22 @@
   min-height: 4.75rem;
   padding: 0.875rem 1rem;
   border: 1px solid var(--integrations-border);
-  border-radius: 0.625rem;
+  border-radius: 0.75rem;
   background: var(--integrations-surface);
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.integrations-explore-card:hover {
+  border-color: #cbd5e1;
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.04),
+    0 14px 28px -24px rgba(15, 23, 42, 0.35);
+  transform: translateY(-1px);
 }
 
 .integrations-explore-card__icon {
   flex-shrink: 0;
-  opacity: 1;
-  filter: none;
-}
-
-.integrations-explore-card--coming-soon .integrations-explore-card__icon {
   opacity: 1;
   filter: none;
 }
@@ -554,7 +453,7 @@
 
 .integrations-explore-card__name {
   font-size: 0.875rem;
-  font-weight: 700;
+  font-weight: 600;
   color: #0f172a;
   line-height: 1.25;
   overflow: hidden;
@@ -563,10 +462,14 @@
 }
 
 .integrations-explore-card__desc {
-  margin-top: 0.125rem;
+  margin-top: 0.1875rem;
   font-size: 0.8125rem;
   color: var(--integrations-muted);
   line-height: 1.4;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+  overflow: hidden;
 }
 
 .integrations-connect-btn {
@@ -574,16 +477,20 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  min-width: 6.5rem;
-  padding: 0.5625rem 1.125rem;
+  min-width: 5.5rem;
+  padding: 0.5rem 0.875rem;
   border: 1px solid #e2e8f0;
-  border-radius: 0.5rem;
-  font-size: 0.875rem;
+  border-radius: 9999px;
+  font-size: 0.8125rem;
   font-weight: 600;
+  line-height: 1.25;
   color: #334155;
   background: #fff;
+  text-decoration: none;
+  cursor: pointer;
+  user-select: none;
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
-  transition: border-color 0.15s, background 0.15s;
+  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
 }
 
 .integrations-connect-btn:hover:not(:disabled) {
@@ -594,19 +501,6 @@
 .integrations-connect-btn:disabled {
   cursor: not-allowed;
   opacity: 0.55;
-}
-
-.integrations-explore-card--coming-soon {
-  border-style: dashed;
-}
-
-.integrations-connect-btn--coming-soon {
-  cursor: not-allowed;
-  border-color: #e4e4e7;
-  background: #fafafa;
-  color: #a1a1aa;
-  opacity: 1;
-  box-shadow: none;
 }
 
 @media (max-width: 640px) {
@@ -732,53 +626,57 @@
 
 .integration-catalog__grid {
   /* auto-fill + min column width: reflow by container width (sidebar open),
-     not viewport — prevents 4-column squeeze that truncates titles to one letter.
-     21rem min fits icon + copy + Connect and three tag pills on one row. */
-  --integration-catalog-card-min: 21rem;
+     not viewport — prevents 4-column squeeze that truncates titles to one letter. */
+  --integration-catalog-card-min: 20rem;
   grid-template-columns: repeat(auto-fill, minmax(var(--integration-catalog-card-min), 1fr));
-  gap: 14px;
+  gap: 0.75rem;
+  align-items: stretch;
 }
 
+/* Catalog tile: header row (icon + name + one-line benefit + action on the
+   right, vertically centered), then a dedicated full-width tag row pinned to
+   the bottom. Tags never share a row with the button, so they only wrap when
+   genuinely out of space and card heights stay stable on resize. */
 .integrations-explore-card.integration-catalog-card {
+  display: flex;
   flex-direction: column;
   align-items: stretch;
+  gap: 0.75rem;
   width: 100%;
-}
-
-.integration-catalog-card {
-  gap: 0.875rem;
-  min-width: var(--integration-catalog-card-min, 21rem);
-  min-height: 8.25rem;
+  min-width: 0;
+  min-height: 7.5rem;
   border-color: #e2e8f0;
   border-radius: 0.75rem;
-  padding: 1.375rem 1.5rem;
-  transition:
-    border-color 0.15s ease,
-    box-shadow 0.15s ease,
-    transform 0.15s ease;
+  padding: 1.125rem 1.25rem 1rem;
 }
 
-.integration-catalog-card__main {
+.integration-catalog-card__top {
   display: flex;
-  align-items: flex-start;
-  gap: 1.125rem;
+  align-items: center;
+  gap: 0.875rem;
   min-width: 0;
-  flex: 1;
+}
+
+.integration-catalog-card__foot {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  margin-top: auto;
+  min-width: 0;
 }
 
 .integration-catalog-card__body {
-  flex: 1 1 0%;
+  flex: 1 1 auto;
   min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
-  padding-top: 0.125rem;
 }
 
 .integration-catalog-card__name {
   margin: 0;
   font-size: 0.9375rem;
-  font-weight: 700;
+  font-weight: 600;
   line-height: 1.3;
   letter-spacing: -0.01em;
   color: #0f172a;
@@ -789,40 +687,53 @@
 
 .integration-catalog-card__desc {
   margin: 0;
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 400;
-  line-height: 1.35;
-  color: #53657d;
-  overflow-wrap: normal;
-  word-break: normal;
-}
-
-.integration-catalog-card:hover {
-  border-color: #cbd5e1;
-  box-shadow:
-    0 1px 2px rgba(15, 23, 42, 0.04),
-    0 14px 28px -24px rgba(15, 23, 42, 0.35);
-  transform: translateY(-1px);
+  line-height: 1.4;
+  color: #64748b;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+  overflow: hidden;
 }
 
 .integration-catalog-card__icon {
-  width: 3.25rem;
-  height: 3.25rem;
+  flex-shrink: 0;
+  width: 2.5rem;
+  height: 2.5rem;
+}
+
+.integration-catalog-card__soon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  min-width: 6.5rem;
+  min-height: 2.25rem;
+  padding: 0.5rem 1rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 9999px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.25;
+  color: #94a3b8;
+  background: #f8fafc;
+  cursor: not-allowed;
+  user-select: none;
+  white-space: nowrap;
 }
 
 .integration-catalog-card .integrations-connect-btn {
   flex-shrink: 0;
   min-width: 6.5rem;
-  height: 37px;
-  padding: 0 19px;
-  border-radius: 9px;
+  min-height: 2.25rem;
+  padding: 0.5rem 1rem;
   font-size: 0.8125rem;
-  font-weight: 650;
+  font-weight: 600;
   color: #13233a;
   background: #fff;
   border: 1px solid #d8e0eb;
   box-shadow: none;
-  margin-top: 0.125rem;
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 
@@ -835,29 +746,51 @@
   display: flex;
   flex-flow: row wrap;
   align-items: center;
-  align-content: flex-start;
-  align-self: stretch;
-  box-sizing: border-box;
-  gap: 0.4375rem;
+  gap: 0.375rem;
   width: 100%;
-  margin: 0;
-  margin-top: auto;
-  padding-top: 0.125rem;
+  min-width: 0;
 }
 
 .integration-catalog-card__tag {
   display: inline-flex;
   align-items: center;
   flex: 0 0 auto;
-  padding: 0.25rem 0.625rem;
+  padding: 0.1875rem 0.5rem;
   border-radius: 9999px;
-  font-size: 0.6875rem;
+  font-size: 0.625rem;
   font-weight: 600;
   line-height: 1.2;
   letter-spacing: 0.01em;
   color: #475569;
   background: #f1f5f9;
   white-space: nowrap;
+}
+
+/* Coming soon: quieter surface, no lift — still full-color brand icon so the
+   tile reads premium rather than disabled. */
+.integration-catalog-card--soon {
+  background: #fcfdfe;
+  border-color: #e8edf3;
+}
+
+.integration-catalog-card--soon:hover {
+  border-color: #dbe3ec;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  transform: none;
+}
+
+.integration-catalog-card--soon .integration-catalog-card__name,
+.integration-catalog-card--soon .integration-catalog-card__desc {
+  color: #475569;
+}
+
+.integration-catalog-card--soon .integration-catalog-card__name {
+  color: #334155;
+}
+
+.integration-catalog-card--soon .integration-catalog-card__tag {
+  color: #64748b;
+  background: #f6f8fa;
 }
 
 .integration-catalog__empty {
@@ -875,20 +808,6 @@
   .integration-catalog__grid {
     grid-template-columns: minmax(0, 1fr);
   }
-
-  .integration-catalog-card {
-    min-width: 0;
-    align-items: stretch;
-  }
-
-  .integration-catalog-card__main {
-    flex-wrap: wrap;
-    align-items: flex-start;
-  }
-
-  .integration-catalog-card .integrations-connect-btn {
-    width: 100%;
-  }
 }
 
 /* ── Recommended integrations (inline featured set + catalog link) ────── */
@@ -899,8 +818,9 @@
   flex-direction: column;
   gap: 1rem;
   margin-top: auto;
-  margin-bottom: 2.5rem;
-  padding-top: 1.25rem;
+  margin-bottom: 0;
+  padding-top: 1.5rem;
+  scroll-margin-top: 1rem;
   border-top: 1px solid var(--integrations-border);
 }
 
@@ -925,17 +845,20 @@
   min-height: 4.75rem;
   padding: 0.875rem 1rem;
   border: 1px dashed var(--integrations-catalog-border, #d7deea);
-  border-radius: 0.625rem;
+  border-radius: 0.75rem;
   background: var(--integrations-catalog-bg, #fbfcff);
   color: #111827;
   text-decoration: none;
-  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
 }
 
 .integrations-catalog-card:hover {
   background: var(--integrations-catalog-bg-hover, #f7faff);
   border-color: var(--integrations-catalog-border-hover, #b8c6dc);
-  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.06);
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.04),
+    0 14px 28px -24px rgba(15, 23, 42, 0.35);
+  transform: translateY(-1px);
 }
 
 .integrations-catalog-card:focus-visible {
@@ -966,7 +889,7 @@
 
 .integrations-catalog-card__name {
   font-size: 0.875rem;
-  font-weight: 700;
+  font-weight: 600;
   color: #0f172a;
   line-height: 1.25;
 }
@@ -976,5 +899,181 @@
   font-size: 0.8125rem;
   color: var(--integrations-muted);
   line-height: 1.4;
+}
+
+.integrations-troubleshoot-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #fecaca;
+  border-radius: 0.5rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #b91c1c;
+  background: #fef2f2;
+}
+
+.integrations-troubleshoot-btn:hover {
+  background: #fee2e2;
+}
+
+.integrations-troubleshoot-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  justify-content: flex-end;
+  background: rgb(15 23 42 / 0.35);
+}
+
+.integrations-troubleshoot-panel {
+  width: min(28rem, 100vw);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  box-shadow: -8px 0 32px rgb(15 23 42 / 0.12);
+}
+
+.integrations-troubleshoot-panel__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.integrations-troubleshoot-panel__eyebrow {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.integrations-troubleshoot-panel__title {
+  margin: 0.25rem 0 0;
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.integrations-troubleshoot-panel__meta {
+  margin: 0.25rem 0 0;
+  font-size: 0.8125rem;
+  color: #94a3b8;
+}
+
+.integrations-troubleshoot-panel__close {
+  border: none;
+  background: transparent;
+  font-size: 1.5rem;
+  line-height: 1;
+  color: #94a3b8;
+  cursor: pointer;
+}
+
+.integrations-troubleshoot-panel__body {
+  flex: 1;
+  overflow: auto;
+  padding: 1.25rem 1.5rem;
+}
+
+.integrations-troubleshoot-panel__facts {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0 0 1.25rem;
+}
+
+.integrations-troubleshoot-panel__facts dt {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.integrations-troubleshoot-panel__facts dd {
+  margin: 0.125rem 0 0;
+  font-size: 0.9375rem;
+  color: #0f172a;
+}
+
+.integrations-troubleshoot-panel__alert {
+  padding: 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+}
+
+.integrations-troubleshoot-panel__alert-title {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: #991b1b;
+}
+
+.integrations-troubleshoot-panel__alert-fix,
+.integrations-troubleshoot-panel__alert-detail {
+  margin: 0.5rem 0 0;
+  font-size: 0.875rem;
+  color: #7f1d1d;
+  line-height: 1.45;
+}
+
+.integrations-troubleshoot-panel__muted {
+  margin: 0;
+  font-size: 0.875rem;
+  color: #64748b;
+  line-height: 1.45;
+}
+
+.integrations-troubleshoot-panel__error {
+  margin: 1rem 0 0;
+  font-size: 0.875rem;
+  color: #b91c1c;
+}
+
+.integrations-troubleshoot-panel__success {
+  margin: 1rem 0 0;
+  font-size: 0.875rem;
+  color: #047857;
+}
+
+.integrations-troubleshoot-panel__foot {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem 1.5rem 1.5rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.integrations-troubleshoot-panel__primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.625rem 1rem;
+  border: none;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #fff;
+  background: #0f766e;
+  cursor: pointer;
+}
+
+.integrations-troubleshoot-panel__primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.integrations-troubleshoot-panel__secondary {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #0f766e;
+  text-align: center;
 }
 

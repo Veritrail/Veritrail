@@ -66,6 +66,15 @@ DEFAULT_SETTINGS: dict = {
     "security": {
         "sso_required": False,
     },
+    "scheduled_exports": {
+        "enabled": False,
+        "framework": "soc2",
+        "period_days": 90,
+        "cadence": "monthly",  # weekly | monthly
+        "notify_email": True,
+        "last_run_at": None,
+        "last_export_id": None,
+    },
 }
 
 
@@ -76,6 +85,10 @@ def _merged(stored: dict) -> dict:
     merged["notifications"] = {**DEFAULT_SETTINGS["notifications"], **stored.get("notifications", {})}
     merged["features"] = {**DEFAULT_SETTINGS["features"], **stored.get("features", {})}
     merged["security"] = {**DEFAULT_SETTINGS["security"], **stored.get("security", {})}
+    merged["scheduled_exports"] = {
+        **DEFAULT_SETTINGS["scheduled_exports"],
+        **(stored.get("scheduled_exports") or {}),
+    }
     return merged
 
 
@@ -185,6 +198,21 @@ class ScanningIn(BaseModel):
         return v
 
 
+class ScheduledExportsIn(BaseModel):
+    enabled: bool = False
+    framework: Literal["soc2", "cis_aws_l1", "iso27001"] = "soc2"
+    period_days: int = 90
+    cadence: Literal["weekly", "monthly"] = "monthly"
+    notify_email: bool = True
+
+    @field_validator("period_days")
+    @classmethod
+    def validate_period(cls, v: int) -> int:
+        if v < 7 or v > 365:
+            raise ValueError("period_days must be 7-365")
+        return v
+
+
 class ScanStatusOut(BaseModel):
     account_connected: bool
     last_scan_at: str | None
@@ -199,6 +227,7 @@ class SettingsPatch(BaseModel):
     notifications: NotificationsIn | None = None
     features: FeaturesIn | None = None
     security: SecurityIn | None = None
+    scheduled_exports: ScheduledExportsIn | None = None
     evidence_sources: EvidenceSourcesIn | None = None
     coverage_overrides: CoverageOverridesIn | None = None
     cross_account_coverage: CrossAccountCoverageIn | None = None
@@ -225,6 +254,7 @@ class SettingsOut(BaseModel):
     notifications: dict
     features: dict
     security: dict
+    scheduled_exports: dict = {}
     evidence_source_categories: list[EvidenceSourceCategoryOut] = []
     custom_evidence_categories: list[dict[str, str]] = []
     scan_status: ScanStatusOut
@@ -343,6 +373,17 @@ def patch_settings(body: SettingsPatch, _rbac: RequireAdmin, p=Depends(current_p
         security["sso_required"] = body.security.sso_required
         current["security"] = security
 
+    if body.scheduled_exports is not None:
+        prev = dict(current.get("scheduled_exports") or {})
+        incoming = body.scheduled_exports.model_dump()
+        # Preserve worker-managed bookkeeping fields.
+        incoming["last_run_at"] = prev.get("last_run_at")
+        incoming["last_export_id"] = prev.get("last_export_id")
+        current["scheduled_exports"] = {
+            **DEFAULT_SETTINGS["scheduled_exports"],
+            **incoming,
+        }
+
     if body.evidence_sources is not None:
         patches = {k: v.model_dump() for k, v in body.evidence_sources.entries.items()}
         apply_evidence_source_updates(db, org.id, patches, user_id=p.get("sub"))
@@ -405,6 +446,7 @@ def patch_settings(body: SettingsPatch, _rbac: RequireAdmin, p=Depends(current_p
             ("scanning", body.scanning),
             ("notifications", body.notifications),
             ("features", body.features),
+            ("scheduled_exports", body.scheduled_exports),
             ("evidence_sources", body.evidence_sources),
             ("coverage_overrides", body.coverage_overrides),
             ("cross_account_coverage", body.cross_account_coverage),

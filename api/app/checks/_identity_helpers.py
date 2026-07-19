@@ -59,8 +59,6 @@ def _source_label(provider: IdentityProvider) -> str:
         return cfg.get("domain") or cfg.get("admin_email") or "google_workspace"
     if provider.type == "entra_id":
         return cfg.get("tenant_id") or cfg.get("admin_email") or "entra"
-    if provider.type == "okta":
-        return cfg.get("org_url") or "okta"
     if provider.type == "intune":
         return cfg.get("tenant_id") or "intune"
     if provider.type == "jamf":

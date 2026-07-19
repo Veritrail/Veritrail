@@ -1,7 +1,10 @@
 import { useMemo } from "react";
-import { Link } from "react-router-dom";
 
-import { IntegrationBrandIcon } from "../components/IntegrationsUi";
+import {
+  IntegrationBrandIcon,
+  IntegrationCatalogComingSoonButton,
+  IntegrationCatalogConnectLink,
+} from "../components/IntegrationsUi";
 import { useConnectedCatalogState } from "../hooks/useConnectedCatalogState";
 import {
   filterCatalogForDisplay,
@@ -59,35 +62,33 @@ export default function IntegrationCatalog() {
                   return (
                     <article
                       key={entry.key}
-                      className={`integrations-explore-card integration-catalog-card${isComingSoon ? " integrations-explore-card--coming-soon" : ""}`}
+                      className={`integrations-explore-card integration-catalog-card${isComingSoon ? " integration-catalog-card--soon" : ""}`}
                     >
-                      <div className="integration-catalog-card__main">
+                      <div className="integration-catalog-card__top">
                         <IntegrationBrandIcon
                           brand={entry.brand}
-                          size={52}
+                          size={40}
                           variant="plain"
-                          className="integrations-explore-card__icon integration-catalog-card__icon"
+                          className="integration-catalog-card__icon"
                         />
                         <div className="integration-catalog-card__body">
                           <div className="integration-catalog-card__name">{entry.name}</div>
                           <p className="integration-catalog-card__desc">{entry.description}</p>
                         </div>
                         {isComingSoon ? (
-                          <button type="button" className="integrations-connect-btn integrations-connect-btn--coming-soon" disabled>
-                            Coming soon
-                          </button>
+                          <IntegrationCatalogComingSoonButton />
                         ) : (
-                          <Link to={entry.href!} className="integrations-connect-btn">
-                            Connect
-                          </Link>
+                          <IntegrationCatalogConnectLink href={entry.href!} />
                         )}
                       </div>
-                      <div className="integration-catalog-card__tags" aria-label={`${entry.name} categories`}>
-                        {entry.tags.map((tag) => (
-                          <span key={tag} className="integration-catalog-card__tag">
-                            {tag}
-                          </span>
-                        ))}
+                      <div className="integration-catalog-card__foot">
+                        <div className="integration-catalog-card__tags" aria-label={`${entry.name} categories`}>
+                          {entry.tags.map((tag) => (
+                            <span key={tag} className="integration-catalog-card__tag">
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
                       </div>
                     </article>
                   );

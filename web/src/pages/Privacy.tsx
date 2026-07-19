@@ -1,8 +1,8 @@
 import { LegalSection, LegalShell } from "../components/LegalShell";
 
 const ENTITY = "Veritrail";
-const CONTACT_EMAIL = "privacy@veritrail.io";
-const UPDATED = "July 4, 2026";
+const CONTACT_EMAIL = "support@veritrail.io";
+const UPDATED = "July 11, 2026";
 
 export default function Privacy() {
   return (
@@ -12,7 +12,7 @@ export default function Privacy() {
         service, why we collect it, how we protect it, and the choices you have. Veritrail is a read-only compliance-evidence
         tool for engineering teams: it connects to your cloud providers (AWS, Google Cloud, Azure) and developer tools
         (such as GitHub, GitLab, identity providers, and vulnerability scanners) to collect configuration evidence and map
-        it to compliance frameworks.
+        it to compliance frameworks. Veritrail never modifies your environments.
       </p>
 
       <LegalSection heading="Information we collect">
@@ -31,7 +31,7 @@ export default function Privacy() {
             connect each provider — for example an AWS account ID with an IAM role ARN and external ID, a Google Cloud
             workload-identity or service-account configuration, an Azure subscription and app registration, and the OAuth
             tokens or API keys for developer tools you connect (such as GitHub, GitLab, Google Workspace, Microsoft Entra
-            ID, Okta, Jira, and vulnerability scanners). These connection secrets are encrypted at rest.
+            ID, Jira, and vulnerability scanners). These connection secrets are encrypted at rest.
           </li>
           <li>
             <strong>Scan results (configuration metadata).</strong> Using the read-only access you authorize, Veritrail
@@ -62,10 +62,11 @@ export default function Privacy() {
         </p>
       </LegalSection>
 
-      <LegalSection heading="How we store and protect it">
+      <LegalSection heading="Where and how we store it">
         <p>
-          Data is encrypted in transit (TLS) and sensitive connection details (role ARN, external ID) are encrypted at
-          rest. Access is restricted to the systems and personnel that need it to run the service.
+          Application data and evidence data are hosted on Hetzner infrastructure in the European Union. Data is
+          encrypted in transit (TLS) and sensitive connection details (role ARN, external ID) are encrypted at rest.
+          Access is restricted to the systems and personnel that need it to run the service.
         </p>
       </LegalSection>
 
@@ -80,17 +81,20 @@ export default function Privacy() {
 
       <LegalSection heading="Who we share it with">
         <p>
-          We do not sell your data. We share it only with service providers that help us run Veritrail, under contract and
-          only as needed:
+          We do not sell your data. We share it only with service providers (subprocessors) that help us run Veritrail,
+          under contract and only as needed:
         </p>
         <ul className="list-disc space-y-1.5 pl-5">
-          <li><strong>Cloud hosting / infrastructure</strong> — to operate the application and database.</li>
+          <li><strong>Cloud hosting / infrastructure</strong> — Hetzner (EU) hosts the application and database.</li>
           <li>
             <strong>The providers you connect</strong> — Veritrail uses the read-only access <em>you</em> authorize to
             reach your cloud accounts (AWS, Google Cloud, Azure) and developer tools (such as GitHub, GitLab, identity
             providers, ticketing, and scanners). We only access what you connect.
           </li>
-          <li><strong>Email delivery</strong> — to send digests, invitations, and alerts you opt into.</li>
+          <li>
+            <strong>Email delivery</strong> — a transactional email (SMTP) provider, used to send digests, invitations,
+            and alerts you opt into.
+          </li>
         </ul>
         <p>We may also disclose data if required by law or to protect our rights and users.</p>
       </LegalSection>
@@ -105,7 +109,7 @@ export default function Privacy() {
       </LegalSection>
 
       <LegalSection heading="Children">
-        <p>Veritrail is a business tool and is not directed to anyone under 16. We do not knowingly collect their data.</p>
+        <p>Veritrail is a business tool for organizations and isn't intended for anyone under 16. We don't direct our services to children or knowingly collect their personal data. If we learn we've done so, we'll delete it.</p>
       </LegalSection>
 
       <LegalSection heading="Changes to this policy">

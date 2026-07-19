@@ -178,6 +178,133 @@ def build_control_history(
     }
 
 
+def _segments_for_control(
+    check_ids: list[str],
+    mapped_findings: list[Finding],
+    events_by_finding: dict,
+    scan_runs: list[ScanRun],
+    since: datetime,
+    now: datetime,
+) -> list[dict[str, Any]]:
+    """Status segments for one control, from preloaded account data."""
+    boundaries: set[datetime] = {since, now}
+    for run in scan_runs:
+        boundaries.add(run.finished_at or run.started_at)
+    for f in mapped_findings:
+        if f.first_seen >= since:
+            boundaries.add(f.first_seen)
+        if f.resolved_at and f.resolved_at >= since:
+            boundaries.add(f.resolved_at)
+
+    sorted_bounds = sorted(boundaries)
+    # Accumulate as (status, start, end) tuples; serialize once at the end.
+    spans: list[tuple[str, datetime, datetime]] = []
+    for i, start in enumerate(sorted_bounds[:-1]):
+        end = sorted_bounds[i + 1]
+        if end <= start:
+            continue
+        mid = start + (end - start) / 2
+        has_scan = any(
+            (r.finished_at or r.started_at) <= mid and r.status == "ok"
+            for r in scan_runs
+        )
+        status = _control_status_at(check_ids, mapped_findings, mid, has_scan, events_by_finding)
+        if spans and spans[-1][0] == status:
+            spans[-1] = (status, spans[-1][1], end)
+        else:
+            spans.append((status, start, end))
+
+    return [
+        {
+            "status": status,
+            "from": start.isoformat(),
+            "to": end.isoformat(),
+            "duration_seconds": int((end - start).total_seconds()),
+        }
+        for status, start, end in spans
+    ]
+
+
+def build_framework_history(
+    db: Session,
+    account_id: uuid.UUID,
+    framework: str,
+    days: int = 90,
+) -> dict[str, Any]:
+    """Per-control pass/fail segments for every control in a framework.
+
+    Loads account findings, finding events, and scan runs once, then computes
+    each control's timeline from the shared data — unlike calling
+    ``build_control_history`` per control, which would reload everything N times.
+    """
+    controls = db.scalars(
+        select(Control).where(Control.framework == framework).order_by(Control.control_id)
+    ).all()
+    now = datetime.now(timezone.utc)
+    since = now - timedelta(days=days)
+    base: dict[str, Any] = {
+        "framework": framework,
+        "period_days": days,
+        "from": since.isoformat(),
+        "to": now.isoformat(),
+        "controls": [],
+    }
+    if not controls:
+        return base
+
+    mappings = db.execute(
+        select(CheckControl.control_id, CheckControl.check_id).where(
+            CheckControl.control_id.in_([c.id for c in controls])
+        )
+    ).all()
+    checks_by_control: dict[uuid.UUID, list[str]] = {}
+    for control_pk, check_id in mappings:
+        checks_by_control.setdefault(control_pk, []).append(check_id)
+
+    all_check_ids = {cid for ids in checks_by_control.values() for cid in ids}
+    findings = db.scalars(select(Finding).where(Finding.account_id == account_id)).all()
+    findings_by_check: dict[str, list[Finding]] = {}
+    for f in findings:
+        if f.check_id in all_check_ids:
+            findings_by_check.setdefault(f.check_id, []).append(f)
+
+    events_by_finding = load_events_by_finding(
+        db, [f.id for fs in findings_by_check.values() for f in fs]
+    )
+    scan_runs = db.scalars(
+        select(ScanRun)
+        .where(ScanRun.account_id == account_id, ScanRun.started_at >= since)
+        .order_by(ScanRun.started_at.asc())
+    ).all()
+    any_ok_scan = any(r.status == "ok" for r in scan_runs)
+
+    for ctrl in controls:
+        check_ids = checks_by_control.get(ctrl.id, [])
+        mapped = [f for cid in check_ids for f in findings_by_check.get(cid, [])]
+        current_status = _control_status_at(
+            check_ids, mapped, now, any_ok_scan, events_by_finding
+        )
+        open_findings = [
+            f for f in mapped
+            if finding_open_for_control(f, finding_state_at(f, now, events_by_finding.get(f.id)))
+        ]
+        failing_since = min((f.first_seen for f in open_findings), default=None)
+        base["controls"].append({
+            "control_id": ctrl.control_id,
+            "title": ctrl.title,
+            "check_ids": check_ids,
+            "current_status": current_status,
+            "failing_since": failing_since.isoformat() if failing_since else None,
+            "days_failing": max(0, (now - failing_since).days) if failing_since else None,
+            "open_finding_count": len(open_findings),
+            "segments": _segments_for_control(
+                check_ids, mapped, events_by_finding, scan_runs, since, now
+            ),
+        })
+
+    return base
+
+
 def build_compliance_timeline(
     db: Session,
     account_id: uuid.UUID,

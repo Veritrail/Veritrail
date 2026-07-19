@@ -73,7 +73,8 @@ export const remediationSummaries: Record<string, RemediationSummary> = {
   },
   "iam.role.unused_services_90d": {
     impact: "Role has permissions to unused services.",
-    risk: "Extra services widen compromise impact.",
+    risk:
+      "These roles can access AWS services with no observed activity during the last 90 days. Review and remove permissions that are no longer required to reduce the impact of compromised credentials.",
     fix: "Remove unused service statements from policies.",
   },
   "iam.role.trust_wildcard": {

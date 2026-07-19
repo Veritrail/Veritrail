@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { formatServiceLastUsed } from "../lib/blastRadiusDisplay";
 import { allCategories, isSensitiveService, serviceCategory } from "../lib/awsServiceCatalog";
+import { formatIamServiceDisplayName } from "../lib/findingDisplay";
 
 export type ServiceAccessItem = {
   name: string;
@@ -29,7 +30,9 @@ function ExplorerRow({ item }: { item: ServiceAccessItem }) {
   return (
     <div className="flex items-center justify-between gap-3 border-b border-zinc-100/80 px-4 py-2 last:border-0">
       <div className="flex min-w-0 items-center gap-2">
-        <span className="truncate font-mono text-[12px] text-zinc-800">{item.name}</span>
+        <span className="truncate text-[12px] font-medium text-zinc-800">
+          {formatIamServiceDisplayName(item.name)}
+        </span>
         {item.service_only_signal && (
           <span
             className="shrink-0 rounded bg-sky-100/90 px-1 py-px text-[9px] font-semibold uppercase tracking-wide text-sky-900"

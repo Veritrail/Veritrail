@@ -68,7 +68,7 @@ function genericScanFailureMessage(provider: ScanProvider, accountLabel?: string
   const conn = providerShortLabel(provider) ?? "cloud";
   return (
     `The scan${scanFailureAccountPhrase(accountLabel)} did not finish successfully. ` +
-    `Verify your ${conn} connection on Accounts, then run a scan from Findings.`
+    `Verify your ${conn} connection on Home, then run a scan from Findings.`
   );
 }
 
@@ -195,7 +195,7 @@ export function friendlyScanFailureMessage(
       lower.includes("token has expired") ||
       (lower.includes("credentials") && lower.includes("expired"))
     ) {
-      return `The AWS session used for scanning${accountPhrase} has expired. Reconnect your account on Accounts, then run a new scan.`;
+      return `The AWS session used for scanning${accountPhrase} has expired. Reconnect your account on Home, then run a new scan.`;
     }
 
     if (
@@ -206,14 +206,14 @@ export function friendlyScanFailureMessage(
     ) {
       return (
         `Veritrail could not read your AWS account${accountPhrase} because the connector role is missing permissions or trust. ` +
-        "Open Accounts, verify the connector, and update CloudFormation if prompted."
+        "Open Home, verify the connector, and update CloudFormation if prompted."
       );
     }
 
     if (lower.includes("assumerole") || lower.includes("externalid") || lower.includes("trust")) {
       return (
         `Veritrail could not assume the read-only role in your AWS account${accountPhrase}. ` +
-        "Check that the CloudFormation stack is still deployed and that the role ARN on Accounts matches your account."
+        "Check that the CloudFormation stack is still deployed and that the role ARN on Home matches your account."
       );
     }
 
@@ -224,7 +224,7 @@ export function friendlyScanFailureMessage(
     if (lower.includes("no credentials") || lower.includes("unable to locate credentials")) {
       return (
         `No valid AWS credentials were available for this scan${accountPhrase}. ` +
-        "Reconnect the account on Accounts or confirm your deployment has access to assume the customer role."
+        "Reconnect the account on Home or confirm your deployment has access to assume the customer role."
       );
     }
 
@@ -238,7 +238,7 @@ export function friendlyScanFailureMessage(
     }
 
     if (lower.includes("region") && lower.includes("invalid")) {
-      return `The scan${accountPhrase} ran in a region Veritrail does not support for this account. Check the account region on Accounts and try again.`;
+      return `The scan${accountPhrase} ran in a region Veritrail does not support for this account. Check the account region on Home and try again.`;
     }
   }
 
@@ -271,7 +271,7 @@ export function friendlyScanFailureMessage(
   }
 
   if (lower.includes("timeout") || lower.includes("timed out")) {
-    return `The scan${accountPhrase} took too long and stopped. Try again in a few minutes; if it keeps failing, check your ${conn} connector on Accounts.`;
+    return `The scan${accountPhrase} took too long and stopped. Try again in a few minutes; if it keeps failing, check your ${conn} connector on Home.`;
   }
 
   // Long stack traces / Python tracebacks — never show verbatim.
@@ -288,7 +288,7 @@ export function friendlyScanFailureMessage(
 
 export function scanFailureUserAction(provider?: string | null): string {
   const label = providerShortLabel(provider) ?? "cloud";
-  return `Open Accounts to verify your ${label} connector, then run a scan from Findings.`;
+  return `Open Home to verify your ${label} connector, then run a scan from Findings.`;
 }
 
 /** @deprecated Use scanFailureUserAction(provider) for cloud-aware copy. */
@@ -300,53 +300,127 @@ export type ScanFailureInfo = { title: string; fix: string };
  * Same classification as friendlyScanFailureMessage, but returns a short
  * reason title + one-line fix for the credential alert (instead of a paragraph).
  */
-export function classifyScanFailure(raw: string): ScanFailureInfo {
+export function classifyScanFailure(raw: string, providerHint?: string | null): ScanFailureInfo {
   const lower = raw.toLowerCase();
+  const provider = resolveScanFailureProvider(raw, providerHint);
 
-  if (
-    lower.includes("tokenretrieval") ||
-    lower.includes("retrieving token from sso") ||
-    (lower.includes("sso") && (lower.includes("profile") || lower.includes("token") || lower.includes("session")))
-  ) {
-    return { title: "AWS session expired", fix: "Run aws sso login for the tied profile, or reconnect the account, then re-check." };
+  if (provider === "gcp") {
+    if (
+      lower.includes("permission denied") ||
+      lower.includes("403") ||
+      (lower.includes("googleapis") && lower.includes("denied"))
+    ) {
+      return {
+        title: "Scanner service account missing permissions",
+        fix: "Re-run the gcloud setup on the GCP integration page, then verify and scan again.",
+      };
+    }
+    if (lower.includes("impersonat") || lower.includes("tokencreator")) {
+      return {
+        title: "Couldn't impersonate the scanner service account",
+        fix: "Confirm TokenCreator is granted to the Veritrail connection account, then verify again.",
+      };
+    }
+    if (lower.includes("throttl") || lower.includes("rate exceeded") || lower.includes("quota")) {
+      return { title: "GCP rate-limited the scan", fix: "Wait a few minutes, then run a scan again." };
+    }
+    if (
+      lower.includes("connection") ||
+      lower.includes("network") ||
+      lower.includes("could not connect") ||
+      lower.includes("name or service not known")
+    ) {
+      return { title: "Couldn't reach Google Cloud", fix: "Check your network is up, then run a scan again." };
+    }
   }
-  if (
-    lower.includes("expiredtoken") ||
-    lower.includes("token has expired") ||
-    (lower.includes("credentials") && lower.includes("expired"))
-  ) {
-    return { title: "AWS session expired", fix: "Reconnect the account, then run a new scan." };
+
+  if (provider === "azure") {
+    if (lower.includes("unauthorized") || lower.includes("invalid_client") || lower.includes("aadsts")) {
+      return {
+        title: "Azure app credentials invalid",
+        fix: "Confirm the client secret on the Azure integration page, then verify again.",
+      };
+    }
+    if (lower.includes("access denied") || lower.includes("authorizationfailed")) {
+      return {
+        title: "App is missing Reader or Security Reader",
+        fix: "Update role assignments on the subscription, then verify and scan again.",
+      };
+    }
+    if (lower.includes("throttl") || lower.includes("rate exceeded") || lower.includes("too many requests")) {
+      return { title: "Azure rate-limited the scan", fix: "Wait a few minutes, then run a scan again." };
+    }
+    if (
+      lower.includes("connection") ||
+      lower.includes("network") ||
+      lower.includes("could not connect") ||
+      lower.includes("name or service not known")
+    ) {
+      return { title: "Couldn't reach Azure", fix: "Check your network is up, then run a scan again." };
+    }
   }
-  if (
-    lower.includes("accessdenied") ||
-    lower.includes("not authorized") ||
-    lower.includes("unauthorized") ||
-    lower.includes("is not authorized to perform")
-  ) {
-    return { title: "Connector role is missing permissions", fix: "Verify the connector and re-deploy the CloudFormation stack if prompted." };
+
+  if (provider === "aws") {
+    if (
+      lower.includes("tokenretrieval") ||
+      lower.includes("retrieving token from sso") ||
+      (lower.includes("sso") && (lower.includes("profile") || lower.includes("token") || lower.includes("session")))
+    ) {
+      return {
+        title: "AWS session expired",
+        fix: "Run aws sso login for the tied profile, or reconnect the account, then re-check.",
+      };
+    }
+    if (
+      lower.includes("expiredtoken") ||
+      lower.includes("token has expired") ||
+      (lower.includes("credentials") && lower.includes("expired"))
+    ) {
+      return { title: "AWS session expired", fix: "Reconnect the account, then run a new scan." };
+    }
+    if (
+      lower.includes("accessdenied") ||
+      lower.includes("not authorized") ||
+      lower.includes("unauthorized") ||
+      lower.includes("is not authorized to perform")
+    ) {
+      return {
+        title: "Connector role is missing permissions",
+        fix: "Verify the connector and re-deploy the CloudFormation stack if prompted.",
+      };
+    }
+    if (lower.includes("assumerole") || lower.includes("externalid") || lower.includes("trust")) {
+      return {
+        title: "Couldn't assume the connector role",
+        fix: "Check the CloudFormation stack is deployed and the role ARN matches this account.",
+      };
+    }
+    if (lower.includes("throttl") || lower.includes("rate exceeded") || lower.includes("too many requests")) {
+      return { title: "AWS rate-limited the scan", fix: "Wait a few minutes, then run a scan again." };
+    }
+    if (lower.includes("no credentials") || lower.includes("unable to locate credentials")) {
+      return {
+        title: "No AWS credentials available",
+        fix: "Reconnect the account, or confirm the deployment can assume the customer role.",
+      };
+    }
+    if (
+      lower.includes("connection") ||
+      lower.includes("network") ||
+      lower.includes("could not connect") ||
+      lower.includes("name or service not known")
+    ) {
+      return { title: "Couldn't reach AWS", fix: "Check your network is up, then run a scan again." };
+    }
+    if (lower.includes("region") && lower.includes("invalid")) {
+      return { title: "Unsupported region", fix: "Check the account region on Home, then try again." };
+    }
   }
-  if (lower.includes("assumerole") || lower.includes("externalid") || lower.includes("trust")) {
-    return { title: "Couldn't assume the connector role", fix: "Check the CloudFormation stack is deployed and the role ARN matches this account." };
-  }
-  if (lower.includes("throttl") || lower.includes("rate exceeded") || lower.includes("too many requests")) {
-    return { title: "AWS rate-limited the scan", fix: "Wait a few minutes, then run a scan again." };
-  }
+
   if (lower.includes("timeout") || lower.includes("timed out")) {
     return { title: "Scan timed out", fix: "Try again shortly; if it persists, check connector health." };
   }
-  if (lower.includes("no credentials") || lower.includes("unable to locate credentials")) {
-    return { title: "No AWS credentials available", fix: "Reconnect the account, or confirm the deployment can assume the customer role." };
-  }
-  if (
-    lower.includes("connection") ||
-    lower.includes("network") ||
-    lower.includes("could not connect") ||
-    lower.includes("name or service not known")
-  ) {
-    return { title: "Couldn't reach AWS", fix: "Check your network is up, then run a scan again." };
-  }
-  if (lower.includes("region") && lower.includes("invalid")) {
-    return { title: "Unsupported region", fix: "Check the account region on Accounts, then try again." };
-  }
-  return { title: "Scan didn't finish", fix: "Verify your AWS connection, then run a scan again." };
+
+  const conn = providerShortLabel(provider) ?? "cloud";
+  return { title: "Scan didn't finish", fix: `Verify your ${conn} connection, then run a scan again.` };
 }

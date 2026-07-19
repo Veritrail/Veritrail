@@ -3,7 +3,10 @@
  * Detailed overrides below; all other checks with remediationSummaries fall back automatically.
  */
 import { complianceCopyForCheck, scanDescriptionForCheck } from "./checkComplianceCopy";
-import { remediationSummaries } from "./remediationSummaries";
+import {
+  remediationSummaries,
+  remediationSummaryFor,
+} from "./remediationSummaries";
 
 export type CheckDocumentation = {
   whatWeCheck: string;
@@ -117,6 +120,39 @@ export function documentationForCheck(checkId: string): CheckDocumentation | nul
   if (base.compliance) return base;
   const compliance = complianceCopyForCheck(checkId);
   return compliance ? { ...base, compliance } : base;
+}
+
+function normalizedSentence(value: string | null | undefined): string | null {
+  const sentence = value?.trim();
+  if (!sentence) return null;
+  return /[.!?]$/.test(sentence) ? sentence : `${sentence}.`;
+}
+
+/**
+ * Full-width Resources-card explanation. Keep this separate from the compact
+ * per-resource reason shown in the table: this copy explains the check itself,
+ * while each row identifies the evidence specific to that resource.
+ */
+export function recommendedActionExplanationForCheck(checkId: string): string {
+  const documentation = documentationForCheck(checkId);
+  const summary = remediationSummaryFor(checkId);
+  const detection = normalizedSentence(documentation?.compliance?.auditNarrative);
+  const consequence = normalizedSentence(
+    documentation?.overview?.exposure ?? documentation?.whyShown ?? summary.risk,
+  );
+
+  if (!detection) {
+    return [
+      normalizedSentence(summary.impact),
+      consequence,
+    ].filter((part): part is string => Boolean(part)).join(" ");
+  }
+
+  if (!consequence || detection.toLocaleLowerCase().includes(consequence.toLocaleLowerCase())) {
+    return detection;
+  }
+
+  return `${detection} ${consequence}`;
 }
 
 export function allDocumentedCheckIds(): string[] {

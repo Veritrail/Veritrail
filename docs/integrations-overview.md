@@ -20,9 +20,8 @@ Veritrail connects to cloud providers, identity directories, code hosts, vulnera
 |---|---|---|
 | **Google Workspace** | MFA enforcement, inactive users, admin review (CC6) | OAuth (Admin SDK read-only) |
 | **Microsoft Entra ID** | MFA posture, stale users, privileged roles (CC6) | OAuth (Microsoft Graph) |
-| **Okta** | Directory sync, MFA policy posture, admin access-review findings | Org URL + SSWS API token (`OKTA_ORG_URL` / token in provider config) |
 
-Okta sync: `PUT /v1/integrations/okta`, `POST /v1/integrations/okta/sync`. Identity checks: `okta.org.mfa_not_enforced`, `okta.user.inactive_90d`, `okta.admin.unreviewed`. Included in `access_review_summary.json`.
+Entra sync: `PUT /v1/integrations/entra`, `POST /v1/integrations/entra/sync`. Google Workspace sync: `PUT /v1/integrations/google-workspace`, `POST /v1/integrations/google-workspace/sync`. Identity checks: `entra.org.mfa_not_enforced`, `google_workspace.org.mfa_not_enforced`, and related admin/inactive-user checks. Included in `access_review_summary.json`.
 
 ## Source control & SDLC
 
@@ -74,3 +73,17 @@ All ticketing integrations populate `remediation_ticket_key` / `remediation_tick
 
 - [multi-cloud-collectors.md](./multi-cloud-collectors.md) — GCP/Azure collectors, normalization APIs, composite mapping
 - [external-evidence.md](./external-evidence.md) — uploaded proof, coverage dashboard, evidence lifecycle
+
+## Coverage boundary (July 2026 scope decision)
+
+**Full per-control contract: [coverage-boundaries.md](./coverage-boundaries.md) — the
+authoritative verified / not-verified table.**
+
+Veritrail shows only what it can collect: technical cloud, code, and identity evidence.
+**Endpoint security / EDR, MDM enrollment, HR & security training, and vendor risk** are not
+displayed as controls — they cannot be verified by any Veritrail integration and belong to the
+customer's GRC platform (Vanta, Drata, etc.), which Veritrail feeds. The backend composite rows
+for these areas are retained so previously uploaded evidence keeps its reference, but they are
+hidden from the Compliance view. Device *encryption* remains covered via the Intune/Jamf sync
+checks under Identity Governance. Program-level criteria (CC1–CC5, CC9) are excluded on the
+same principle. The Compliance page states this boundary in a scope note.

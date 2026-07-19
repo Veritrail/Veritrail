@@ -1171,3 +1171,116 @@ def run_azure_scan(subscription_id: str) -> dict:
         raise
     finally:
         db.close()
+
+
+def _scheduled_export_due(cfg: dict, now: datetime) -> bool:
+    last = cfg.get("last_run_at")
+    if not last:
+        return True
+    try:
+        last_dt = datetime.fromisoformat(str(last).replace("Z", "+00:00"))
+    except ValueError:
+        return True
+    if last_dt.tzinfo is None:
+        last_dt = last_dt.replace(tzinfo=timezone.utc)
+    cadence = cfg.get("cadence") or "monthly"
+    interval = timedelta(days=7) if cadence == "weekly" else timedelta(days=28)
+    return now - last_dt >= interval
+
+
+@celery_app.task(name="app.worker.tasks.scheduled_evidence_exports")
+def scheduled_evidence_exports() -> dict:
+    """Daily check: build evidence packs for orgs with scheduled_exports.enabled."""
+    from app.routes.settings import DEFAULT_SETTINGS
+    from app.services.evidence_export_persist import build_and_persist_evidence_pack
+    from app.services.mail import send_mail
+
+    db = SessionLocal()
+    ran = 0
+    skipped = 0
+    errors = 0
+    now = datetime.now(timezone.utc)
+    try:
+        orgs = db.scalars(select(Org)).all()
+        for org in orgs:
+            org_settings = dict(org.settings or {})
+            cfg = {
+                **DEFAULT_SETTINGS["scheduled_exports"],
+                **(org_settings.get("scheduled_exports") or {}),
+            }
+            if not cfg.get("enabled"):
+                skipped += 1
+                continue
+            if not _scheduled_export_due(cfg, now):
+                skipped += 1
+                continue
+
+            framework = cfg.get("framework") or "soc2"
+            if framework not in ("soc2", "cis_aws_l1", "iso27001"):
+                framework = "soc2"
+            try:
+                period_days = int(cfg.get("period_days") or 90)
+            except (TypeError, ValueError):
+                period_days = 90
+            period_days = max(7, min(365, period_days))
+
+            accounts = db.scalars(
+                select(AwsAccount).where(
+                    AwsAccount.org_id == org.id,
+                    AwsAccount.status == "connected",
+                )
+            ).all()
+            if not accounts:
+                skipped += 1
+                continue
+
+            last_export_id: str | None = None
+            try:
+                for acc in accounts:
+                    row, _pack = build_and_persist_evidence_pack(
+                        db,
+                        org_id=org.id,
+                        account_id=acc.id,
+                        framework=framework,
+                        period_days=period_days,
+                        as_of=now,
+                        created_by=None,
+                    )
+                    last_export_id = str(row.id)
+
+                cfg["last_run_at"] = now.isoformat()
+                cfg["last_export_id"] = last_export_id
+                org_settings["scheduled_exports"] = cfg
+                org.settings = org_settings
+                db.add(org)
+                db.commit()
+                ran += 1
+
+                if cfg.get("notify_email", True):
+                    digest_email = (org_settings.get("notifications") or {}).get("digest_email")
+                    recipients = (
+                        [digest_email]
+                        if digest_email
+                        else [
+                            u.email
+                            for u in db.scalars(select(User).where(User.org_id == org.id)).all()
+                            if u.email
+                        ]
+                    )
+                    subject = f"Veritrail scheduled evidence export ({framework})"
+                    text = (
+                        f"A scheduled {framework} evidence pack was generated for "
+                        f"{len(accounts)} account(s) (period {period_days} days).\n"
+                        f"Export id: {last_export_id or 'n/a'}\n"
+                    )
+                    for email in recipients[:5]:
+                        send_mail(to=email, subject=subject, text=text)
+            except Exception:
+                db.rollback()
+                errors += 1
+                log.exception("scheduled_evidence_exports.org_failed", org_id=str(org.id))
+
+        log.info("scheduled_evidence_exports.done", ran=ran, skipped=skipped, errors=errors)
+        return {"ran": ran, "skipped": skipped, "errors": errors}
+    finally:
+        db.close()

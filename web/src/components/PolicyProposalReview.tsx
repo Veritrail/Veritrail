@@ -16,15 +16,6 @@ export type GeneratedPolicySnapshot = {
   observed_action_count?: number;
   used_actions?: string[];
   confidence?: "high" | "medium" | "low";
-  access_analyzer?: {
-    available?: boolean;
-    reason?: string | null;
-    job_id?: string | null;
-    completed_on?: string | null;
-    has_concrete_resources?: boolean;
-    placeholder_resources_ignored?: number;
-    placeholder_resources?: string[];
-  };
 };
 
 const CONFIDENCE_PILL: Record<string, string> = {
@@ -94,7 +85,7 @@ export function PolicyProposalReviewLayout({
   const observed =
     data.observed_action_count ??
     (data.used_actions?.filter((a) => !a.endsWith(":*") && a !== "*").length ?? 0);
-  const hasConcreteResources = data.access_analyzer?.has_concrete_resources ?? cov.resources;
+  const hasConcreteResources = cov.resources;
 
   const confidenceBadge = data.confidence ? (
     <span
@@ -248,7 +239,7 @@ export function PolicyProposalReviewLayout({
 
       <ProposalCard
         title="Validate"
-        subtitle="CloudTrail checks resource ARNs from recorded usage"
+        subtitle="Scoped from IAM last-accessed data — review before you apply"
         icon={
           <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75} aria-hidden>

@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type WheelEvent } from "react";
 import { createPortal } from "react-dom";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { api, formatApiError, isSessionStaleError, logout } from "../api";
 import {
   accountListSchema,
@@ -14,6 +14,8 @@ import {
   settingsSchema,
 } from "../lib/apiSchemas";
 import { fetchAllFindings } from "../lib/fetchAllFindings";
+import { findingScopeProvider } from "../lib/findingDisplay";
+import { serviceForCheck } from "../data/awsServiceMeta";
 import {
   delta7d,
   deltaImproved,
@@ -23,12 +25,10 @@ import {
   type BetterWhen,
   valueAtOrBeforeDaysAgo,
 } from "../lib/accountMetricDeltas";
-import type { ComplianceHistoryResponse } from "../lib/complianceHistory";
+import type { ComplianceHistoryResponse, HistoryEvent } from "../lib/complianceHistory";
+import { historyDetailLine, historyTypeDisplay } from "../lib/historyEvidence";
 import { controlPostureScore } from "../lib/controlPostureScore";
 import { DeploymentParametersCard } from "../components/accountOnboardingUI";
-import {
-  ADVANCED_POLICY_RAW_ACTIONS,
-} from "../data/capabilityCopy";
 import {
   parseCfnLaunchMeta,
   resolveDeployArtifacts,
@@ -38,14 +38,13 @@ import { isValidIamRoleArn, sanitizeIamRoleArnInput } from "../lib/awsArn";
 import {
   DEFAULT_REMEDIATION_MODULES,
   REMEDIATION_MODULE_SPECS,
-  allRemediationModulesEnabled,
-  anyRemediationEnabled,
-  countRemediationEnabled,
-  type RemediationModuleId,
   type RemediationModules,
 } from "../data/remediationModules";
 import ConfirmDialog from "../components/ConfirmDialog";
+import { OrgReadinessHome } from "../components/OrgReadinessHome";
+import { AccountReadinessOverview, scanRowToTimelineText } from "../components/AccountReadinessOverview";
 import { ProductShell } from "../components/ProductShell";
+import { HeaderSlot } from "../context/HeaderSlot";
 import { MetricHelpTip } from "../components/MetricHelpTip";
 import { SecurityScoreGauge } from "../components/SecurityScoreGauge";
 import { ConnectorUpdateModal } from "../components/ConnectorUpdateModal";
@@ -54,28 +53,32 @@ import { Select } from "../components/Select";
 import { AWS_LOGO_LIGHT } from "../lib/awsBrand";
 import { INTEGRATION_BRAND } from "../lib/integrationBrands";
 import { useAccountsPlanUsage } from "../hooks/useAccountsPlanUsage";
-import { isCloudAccountConnected } from "../hooks/useConnectedAccountOptions";
+import {
+  useConnectedAccountOptions,
+  isCloudAccountConnected,
+} from "../hooks/useConnectedAccountOptions";
+import { useSelectedAccountId } from "../hooks/useSelectedAccountId";
 import { useDebouncedCallback } from "../hooks/useDebouncedCallback";
 import { formatScanProgressDetailLabel, mapWorkerStepToUiPhase } from "../hooks/useScanProgress";
 import { useTriggeredScan } from "../hooks/useTriggeredScan";
 import { useTriggeredCloudScan, type ScanRunLatest } from "../hooks/useTriggeredCloudScan";
 import { IconShield } from "../components/IntegrationsUi";
-import { SeverityIndicator } from "../components/SeverityIndicator";
+import { AwsConnectFlow } from "../components/cloudConnect/AwsConnectFlow";
+import { AzureConnectFlow } from "../components/cloudConnect/AzureConnectFlow";
+import { CloudConnectOverlay } from "../components/cloudConnect/CloudConnectShell";
+import { GcpConnectFlow } from "../components/cloudConnect/GcpConnectFlow";
 import { isAccountConnected } from "../lib/accountConnection";
+import { buildRecommendedActions } from "../lib/accountPosture";
 import { classifyScanFailure, friendlyScanFailureMessage } from "../lib/scanFailureMessages";
 import {
   CONNECTOR_STACK_NAME,
   SCANNER_ROLE_NAME,
   scannerRoleArnExample,
 } from "../lib/connectionPosture";
-import { checkLabels } from "../data/checkLabels";
-import { findingDisplayGroupKey, findingGroupMeta } from "../data/findingGroups";
-import { SHOW_WRITE_REMEDIATION } from "../lib/productFlags";
 import "../styles/accounts-page.css";
 import "../styles/findings-v2.css";
 
 type ConnectionOptions = {
-  enable_advanced_policy_generation: boolean;
   remediation_modules: RemediationModules;
 };
 
@@ -86,10 +89,8 @@ type Account = {
   status: string;
   external_id: string;
   role_arn: string | null;
-  enable_advanced_policy_generation: boolean;
   remediation_modules: RemediationModules;
   remediation_modules_deployed: RemediationModules;
-  advanced_policy_generation_deployed: boolean;
   cfn_stack_name: string;
   cfn_launch_url: string;
   cfn_update_launch_url: string;
@@ -105,13 +106,11 @@ type Account = {
 };
 
 const DEFAULT_CONNECTION_OPTIONS: ConnectionOptions = {
-  enable_advanced_policy_generation: false,
   remediation_modules: { ...DEFAULT_REMEDIATION_MODULES },
 };
 
 function defaultOnboardingConnectionOptions(): ConnectionOptions {
   return {
-    enable_advanced_policy_generation: false,
     remediation_modules: { ...DEFAULT_REMEDIATION_MODULES },
   };
 }
@@ -130,16 +129,8 @@ function roleArnFieldValidation(
 
 function accountConnectionOptions(acc: Account): ConnectionOptions {
   return {
-    enable_advanced_policy_generation: acc.enable_advanced_policy_generation,
     remediation_modules: { ...DEFAULT_REMEDIATION_MODULES, ...acc.remediation_modules },
   };
-}
-
-function hasOptionalCapabilities(acc: Account): boolean {
-  return (
-    acc.enable_advanced_policy_generation ||
-    anyRemediationEnabled(acc.remediation_modules ?? DEFAULT_REMEDIATION_MODULES)
-  );
 }
 
 type PermissionVerifyRow = { action: string; granted: boolean };
@@ -299,7 +290,6 @@ function ModuleStatusBadge({
 const VERIFY_PROGRESS_STEPS = [
   "Assuming connector role…",
   "Reading IAM policies…",
-  "Checking SSM automation…",
 ] as const;
 
 function PermissionVerificationPanel({
@@ -390,17 +380,6 @@ function enforceDeployedCapabilityLocks(
   capabilityVerify: CapabilityVerifyResults | null,
   options: ConnectionOptions,
 ): ConnectionOptions {
-  let enableAdvanced = options.enable_advanced_policy_generation;
-  if (
-    !enableAdvanced &&
-    capabilityLockedInAws(
-      capabilityVerify?.advanced_policy_generation,
-      acc.advanced_policy_generation_deployed,
-    )
-  ) {
-    enableAdvanced = true;
-  }
-
   const remediation_modules = { ...options.remediation_modules };
   for (const spec of REMEDIATION_MODULE_SPECS) {
     if (
@@ -414,10 +393,7 @@ function enforceDeployedCapabilityLocks(
     }
   }
 
-  return {
-    enable_advanced_policy_generation: enableAdvanced,
-    remediation_modules,
-  };
+  return { remediation_modules };
 }
 
 function RemediationPermissionsBlock({
@@ -520,18 +496,15 @@ function CapabilityVerifiedMark({ className = "" }: { className?: string }) {
   );
 }
 
-function RemediationModuleChevron({ open }: { open: boolean }) {
+function ConnectorTemplateBadge({ version }: { version: string | null }) {
+  if (!version) return null;
   return (
-    <svg
-      className={`h-4 w-4 shrink-0 text-zinc-400 transition-transform ${open ? "rotate-180" : ""}`}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      viewBox="0 0 24 24"
-      aria-hidden
+    <span
+      className="inline-flex items-center rounded-full bg-sky-50 px-2.5 py-1 text-[11px] font-medium text-sky-800 ring-1 ring-sky-200/70"
+      title="Latest Veritrail connector CloudFormation template version"
     >
-      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-    </svg>
+      CFN v{version}
+    </span>
   );
 }
 
@@ -633,10 +606,10 @@ type Finding = {
   evidence?: Record<string, unknown>;
   severity: string;
   status: string;
+  first_seen?: string;
+  last_seen?: string;
 };
 
-const DETAIL_FINDINGS_GROUP_LIMIT = 8;
-const sevWeight: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3, info: 4 };
 
 type CloudAccountRow = {
   provider: string;
@@ -662,8 +635,6 @@ type AccountListRow =
   | { kind: "aws"; account: Account }
   | { kind: "cloud"; cloud: CloudAccountRow };
 
-type DetailTab = "overview" | "findings" | "scans" | "resources" | "settings";
-
 function accountListRowKey(row: AccountListRow): string {
   if (row.kind === "aws") return `aws:${row.account.id}`;
   return `cloud:${row.cloud.provider}:${row.cloud.id}`;
@@ -671,6 +642,36 @@ function accountListRowKey(row: AccountListRow): string {
 
 function parseAccountListRowKey(key: string, rows: AccountListRow[]): AccountListRow | null {
   return rows.find((row) => accountListRowKey(row) === key) ?? null;
+}
+
+function accountListRowFromId(id: string, rows: AccountListRow[]): AccountListRow | null {
+  if (!id) return null;
+  return (
+    rows.find((row) => (row.kind === "aws" ? row.account.id : row.cloud.id) === id) ?? null
+  );
+}
+
+function accountIdFromListRow(row: AccountListRow): string {
+  return row.kind === "aws" ? row.account.id : row.cloud.id;
+}
+
+function formatActivityAgo(iso: string): string {
+  const ms = Date.now() - new Date(iso).getTime();
+  if (!Number.isFinite(ms) || ms < 0) return "just now";
+  const mins = Math.floor(ms / 60_000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+function activityEventLabel(event: HistoryEvent): string {
+  const detail = historyDetailLine(event);
+  if (detail) return detail;
+  return historyTypeDisplay(event).label;
 }
 
 function cloudProviderLabel(provider: string): string {
@@ -713,6 +714,42 @@ function formatRelativeScanAgo(lastScanAt: string | null | undefined): string {
   const hrs = Math.floor(min / 60);
   if (hrs < 48) return `${hrs}h ago`;
   return `${Math.floor(hrs / 24)}d ago`;
+}
+
+function formatLastScanTimestamp(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+type AccountListSort = "last_scan" | "name";
+
+function lastScanMsForRow(row: AccountListRow): number {
+  const iso = row.kind === "aws" ? row.account.last_scan_at : row.cloud.last_scan_at;
+  if (!iso) return 0;
+  const t = new Date(iso).getTime();
+  return Number.isFinite(t) ? t : 0;
+}
+
+function rowDisplayName(row: AccountListRow): string {
+  return row.kind === "aws" ? row.account.label : row.cloud.label;
+}
+
+function sortAccountListRows(rows: AccountListRow[], sort: AccountListSort): AccountListRow[] {
+  const copy = [...rows];
+  if (sort === "name") {
+    copy.sort((a, b) => rowDisplayName(a).localeCompare(rowDisplayName(b)));
+    return copy;
+  }
+  copy.sort((a, b) => lastScanMsForRow(b) - lastScanMsForRow(a));
+  return copy;
 }
 
 function matchesAccountStatusFilter(acc: Account, filter: string): boolean {
@@ -810,7 +847,7 @@ function AccountsToolbar({
             type="search"
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
-            placeholder="Search by account name, ID, or provider…"
+            placeholder="Search by account name, ID, or provider..."
           />
         </label>
       </div>
@@ -882,10 +919,7 @@ function AccountsToolbar({
           title={addTitle}
           className="accounts-toolbar__add"
         >
-          <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24" aria-hidden>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-          </svg>
-          {adding ? "Adding…" : "Add account"}
+          {adding ? "Adding…" : "+ Add account"}
         </button>
       </div>
     </div>
@@ -910,14 +944,7 @@ function matchesCloudAccountSearch(cloud: CloudAccountRow, query: string): boole
 function matchesAccountSearch(acc: Account, query: string): boolean {
   const needle = query.trim().toLowerCase();
   if (!needle) return true;
-  const opts = accountConnectionOptions(acc);
-  const tags = [
-    "aws",
-    "amazon",
-    "core scanner",
-    opts.enable_advanced_policy_generation ? "policy generation" : "",
-    anyRemediationEnabled(opts.remediation_modules) ? "ssm remediation" : "",
-  ];
+  const tags = ["aws", "amazon", "core scanner"];
   const haystack = [acc.label, acc.account_id ?? "", acc.status, ...tags].join(" ").toLowerCase();
   return haystack.includes(needle);
 }
@@ -1092,9 +1119,9 @@ type RecentScanDisplayRow = {
 };
 
 function scanResourcesLabel(resources: number | null | undefined, hasScanned: boolean): string {
-  if (!hasScanned) return "— resources scanned";
+  if (!hasScanned) return "— resources";
   const count = resources ?? 0;
-  return `${count.toLocaleString()} resource${count === 1 ? "" : "s"} scanned`;
+  return `${count.toLocaleString()} resource${count === 1 ? "" : "s"}`;
 }
 
 function buildRecentScanRows(
@@ -1554,40 +1581,10 @@ const deploySecondaryBtn =
 const dangerGhostBtn =
   "inline-flex items-center gap-1.5 rounded-lg border border-transparent px-3 py-1.5 text-xs font-medium text-red-600 transition hover:border-red-200 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50";
 
-const ssmRemediationBadgeClass =
-  "rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-medium text-amber-800 ring-1 ring-amber-200/60";
-
-function ConnectorTemplateBadge({ version }: { version: string | null }) {
-  if (!version) return null;
-  return (
-    <span
-      className="inline-flex items-center rounded-full bg-sky-50 px-2.5 py-1 text-[11px] font-medium text-sky-800 ring-1 ring-sky-200/70"
-      title="Latest Veritrail connector CloudFormation template version"
-    >
-      CFN v{version}
-    </span>
-  );
-}
-
-function remediationBadgesCollapsed(
-  acc: Account,
-  modules: RemediationModules,
-  capabilityVerify?: CapabilityVerifyResults | null,
-): boolean {
-  if (!anyRemediationEnabled(modules)) return false;
-  if (allRemediationModulesEnabled(modules)) return true;
-  if (capabilityVerify?.ssm_remediation?.ready || capabilityVerify?.ssm_remediation?.deployed) {
-    return true;
-  }
-  const enabled = REMEDIATION_MODULE_SPECS.filter((m) => modules[m.id]);
-  const deployed = acc.remediation_modules_deployed ?? DEFAULT_REMEDIATION_MODULES;
-  return enabled.every((m) => deployed[m.id]);
-}
-
 function CapabilityBadges({
-  acc,
-  connectionOptions,
-  capabilityVerify,
+  acc: _acc,
+  connectionOptions: _connectionOptions,
+  capabilityVerify: _capabilityVerify,
   variant = "default",
 }: {
   acc: Account;
@@ -1596,17 +1593,6 @@ function CapabilityBadges({
   capabilityVerify?: CapabilityVerifyResults | null;
   variant?: "default" | "table";
 }) {
-  const connected = isAccountConnected(acc);
-  const opts = connectionOptions ?? accountConnectionOptions(acc);
-  const policyGenDeployed = acc.advanced_policy_generation_deployed ?? false;
-  const policyGenSelected =
-    (connected && acc.enable_advanced_policy_generation) ||
-    (!connected && opts.enable_advanced_policy_generation);
-  const remediationModules =
-    (connected ? acc.remediation_modules : opts.remediation_modules) ?? DEFAULT_REMEDIATION_MODULES;
-  const modulesDeployed = acc.remediation_modules_deployed ?? DEFAULT_REMEDIATION_MODULES;
-  const remediationEnabled = REMEDIATION_MODULE_SPECS.filter((m) => remediationModules[m.id]);
-  const ssmCollapsed = remediationBadgesCollapsed(acc, remediationModules, capabilityVerify);
   const wrapClass =
     variant === "table"
       ? "accounts-capability-badges"
@@ -1617,41 +1603,6 @@ function CapabilityBadges({
       <span className="shrink-0 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-800 ring-1 ring-emerald-200/60">
         Core scanner
       </span>
-      {(policyGenDeployed || policyGenSelected) && (
-        <span
-          className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium ring-1 ${
-            policyGenDeployed
-              ? "bg-sky-50 text-sky-800 ring-sky-200/60"
-              : "bg-sky-50/50 text-sky-700 ring-sky-200/40"
-          }`}
-        >
-          Policy gen
-        </span>
-      )}
-      {ssmCollapsed ? (
-        <span
-          className={`${ssmRemediationBadgeClass} shrink-0`}
-          title={remediationEnabled.map((m) => m.label).join(" · ")}
-        >
-          SSM remediation
-        </span>
-      ) : (
-        remediationEnabled.map((m) => {
-          const deployed = connected && modulesDeployed[m.id];
-          return (
-            <span
-              key={m.id}
-              className={`shrink-0 ${
-                deployed || !connected
-                  ? ssmRemediationBadgeClass
-                  : "rounded-full bg-amber-50/40 px-2.5 py-1 text-[11px] font-medium text-amber-800/70 ring-1 ring-amber-200/40"
-              }`}
-            >
-              {m.badgeLabel}
-            </span>
-          );
-        })
-      )}
     </div>
   );
 }
@@ -1679,19 +1630,17 @@ function ManageCapabilitiesPanel({
   capabilityVerify: CapabilityVerifyResults | null;
   verificationMeta: VerificationMeta | null;
 }) {
-  const optionalCapabilities = hasOptionalCapabilities(acc);
   const [deployTab, setDeployTab] = useState<DeployTab>("cli");
   const [cliExpanded, setCliExpanded] = useState(false);
   return (
     <div className="border-t border-zinc-200/60 bg-zinc-50/40 px-4 py-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-sm font-semibold text-zinc-900">Manage capabilities</p>
+          <p className="text-sm font-semibold text-zinc-900">Connector</p>
           <p className="mt-0.5 text-xs leading-relaxed text-zinc-500">
-            Choose optional features, then update your{" "}
+            The Veritrail connector is a single read-only role. Update your{" "}
             <span className="font-mono text-zinc-600">{acc.cfn_stack_name || CONNECTOR_STACK_NAME}</span>{" "}
-            stack in AWS. Core is read only; policy generation reads CloudTrail and starts
-            IAM policy-generation jobs (no resource changes); remediation adds scoped write.
+            stack in AWS to the latest template. It never modifies your resources.
           </p>
           <div className="mt-1.5 flex flex-wrap items-center gap-2">
             <ConnectorTemplateBadge version={acc.cfn_template_version} />
@@ -1699,23 +1648,6 @@ function ManageCapabilitiesPanel({
             <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-800 ring-1 ring-emerald-200/60">
               Core Scanner
             </span>
-            {draft.enable_advanced_policy_generation && (
-              <span className="rounded-full bg-sky-50 px-2.5 py-1 text-[11px] font-medium text-sky-800 ring-1 ring-sky-200/60">
-                Policy Generation
-              </span>
-            )}
-            {allRemediationModulesEnabled(draft.remediation_modules) ? (
-              <span className={ssmRemediationBadgeClass}>SSM remediation</span>
-            ) : (
-              REMEDIATION_MODULE_SPECS.filter((m) => draft.remediation_modules[m.id]).map((m) => (
-                <span
-                  key={m.id}
-                  className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-medium text-amber-900 ring-1 ring-amber-200/60"
-                >
-                  {m.badgeLabel}
-                </span>
-              ))
-            )}
           </div>
         </div>
         <button type="button" onClick={onClose} className="text-xs font-medium text-zinc-500 hover:text-zinc-800">
@@ -1734,20 +1666,6 @@ function ManageCapabilitiesPanel({
             Read-only cloud evidence for SOC 2 / CIS / ISO mappings. Cannot modify your resources.
           </p>
         </div>
-
-        <AdvancedPolicyGenerationCard
-          enabled={draft.enable_advanced_policy_generation}
-          onChange={(v) => onDraftChange({ ...draft, enable_advanced_policy_generation: v })}
-          verify={capabilityVerify?.advanced_policy_generation}
-          deployedFallback={acc.advanced_policy_generation_deployed}
-        />
-
-        <RemediationAutomationSection
-          modules={draft.remediation_modules}
-          onChange={(remediation_modules) => onDraftChange({ ...draft, remediation_modules })}
-          modulesDeployed={acc.remediation_modules_deployed}
-          moduleVerify={capabilityVerify?.remediation_modules}
-        />
       </div>
 
       {saveError && (
@@ -1765,15 +1683,6 @@ function ManageCapabilitiesPanel({
           onCliExpandedChange={setCliExpanded}
           deployOptions={draft}
         />
-        {acc.status === "connected" && optionalCapabilities && (
-          <PermissionVerificationPanel
-            onVerify={onVerifyCapabilities}
-            verifying={verifyingCapabilities}
-            feedback={verifyFeedback}
-            verificationMeta={verificationMeta}
-            showButton
-          />
-        )}
       </div>
     </div>
   );
@@ -1792,15 +1701,18 @@ function ConnectionCapabilitiesPicker({
   acc?: Account;
   capabilityVerify?: CapabilityVerifyResults | null;
 }) {
-  const modulesDeployed = acc?.remediation_modules_deployed ?? DEFAULT_REMEDIATION_MODULES;
-  const advancedDeployed = acc?.advanced_policy_generation_deployed ?? false;
+  void value;
+  void onChange;
+  void disabled;
+  void acc;
+  void capabilityVerify;
 
   return (
     <div className="space-y-3">
       <div>
         <p className="text-sm font-semibold text-zinc-900">Connection mode</p>
         <p className="mt-0.5 text-xs leading-relaxed text-zinc-500">
-          Start read-only. Enable optional capabilities only when you need them.
+          The Veritrail connector is read-only — it collects evidence and never modifies your resources.
         </p>
       </div>
 
@@ -1818,362 +1730,6 @@ function ConnectionCapabilitiesPicker({
           </div>
         </div>
       </div>
-
-      <AdvancedPolicyGenerationCard
-        enabled={value.enable_advanced_policy_generation}
-        onChange={(v) => onChange({ ...value, enable_advanced_policy_generation: v })}
-        disabled={disabled}
-        verify={capabilityVerify?.advanced_policy_generation}
-        deployedFallback={advancedDeployed}
-      />
-
-      {SHOW_WRITE_REMEDIATION ? (
-        <RemediationAutomationSection
-          modules={value.remediation_modules}
-          onChange={(remediation_modules) => onChange({ ...value, remediation_modules })}
-          disabled={disabled}
-          modulesDeployed={modulesDeployed}
-          moduleVerify={capabilityVerify?.remediation_modules}
-        />
-      ) : null}
-    </div>
-  );
-}
-
-function AdvancedPolicyGenerationCard({
-  enabled,
-  onChange,
-  disabled,
-  verify,
-  deployedFallback,
-  compact = false,
-}: {
-  enabled: boolean;
-  onChange: (v: boolean) => void;
-  disabled?: boolean;
-  verify?: ModuleVerifyResult;
-  deployedFallback?: boolean;
-  compact?: boolean;
-}) {
-  const locked = capabilityLockedInAws(verify, Boolean(deployedFallback));
-  const checked = locked ? true : enabled;
-  const inputDisabled = disabled || locked;
-
-  const body = (
-    <>
-      {locked ? (
-        <CapabilityVerifiedMark />
-      ) : (
-        <input
-          type="checkbox"
-          className="mt-0.5 shrink-0 rounded border-zinc-300 text-teal-600 focus:ring-teal-500/30"
-          checked={checked}
-          disabled={inputDisabled}
-          aria-label="Enable Advanced IAM policy generation"
-          onChange={(e) => onChange(e.target.checked)}
-        />
-      )}
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <p className="text-sm font-medium leading-snug text-zinc-900">Advanced IAM policy generation</p>
-          <CapabilityAccessBadge kind="read-analysis" />
-        </div>
-        <p className="mt-0.5 text-xs leading-relaxed text-zinc-500">
-          Uses IAM Access Analyzer to generate least-privilege policy recommendations from CloudTrail and IAM
-          last-accessed data.
-        </p>
-        {!compact && (
-          <>
-            {checked && (
-              <div className="mt-2">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
-                  Required permissions
-                </p>
-                <div className="mt-2">
-                  <RemediationPermissionsBlock
-                    permissions={ADVANCED_POLICY_RAW_ACTIONS}
-                    verifyRows={verify?.permissions}
-                  />
-                </div>
-              </div>
-            )}
-          </>
-        )}
-      </div>
-    </>
-  );
-
-  if (compact) {
-    return (
-      <label
-        className={`flex items-start gap-2.5 py-4 ${
-          inputDisabled && !locked ? "cursor-not-allowed opacity-60" : locked ? "cursor-default" : "cursor-pointer"
-        }`}
-      >
-        {body}
-      </label>
-    );
-  }
-
-  return (
-    <div
-      className={`overflow-hidden rounded-lg border border-l-4 transition-colors ${
-        locked
-          ? "border-l-emerald-500 border-emerald-200/60 bg-emerald-50/30 shadow-sm shadow-zinc-950/[0.02]"
-          : checked
-            ? "border-l-teal-500 border-teal-200/60 bg-teal-50/30 shadow-sm shadow-zinc-950/[0.03]"
-            : "border-l-transparent border-zinc-200/60 bg-zinc-50/30"
-      } ${inputDisabled && !locked ? "opacity-60" : ""}`}
-    >
-      <div className="px-2.5 py-2.5">
-        <div className="flex items-start gap-2.5">{body}</div>
-      </div>
-    </div>
-  );
-}
-
-function RemediationAutomationSection({
-  modules,
-  onChange,
-  disabled,
-  modulesDeployed,
-  moduleVerify,
-  compact = false,
-}: {
-  modules: RemediationModules;
-  onChange: (next: RemediationModules) => void;
-  disabled?: boolean;
-  modulesDeployed: RemediationModules;
-  moduleVerify?: Record<string, ModuleVerifyResult>;
-  compact?: boolean;
-}) {
-  const anyEnabled = anyRemediationEnabled(modules);
-  const [sectionOpen, setSectionOpen] = useState(anyEnabled);
-  const [openModuleId, setOpenModuleId] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (anyEnabled) setSectionOpen(true);
-  }, [anyEnabled]);
-
-  const handleMasterToggle = (checked: boolean) => {
-    if (!checked) {
-      const next = { ...DEFAULT_REMEDIATION_MODULES };
-      for (const spec of REMEDIATION_MODULE_SPECS) {
-        const modVerify = moduleVerify?.[spec.id];
-        const deployed = Boolean(modulesDeployed[spec.id]);
-        if (capabilityLockedInAws(modVerify, deployed)) {
-          next[spec.id] = true;
-        }
-      }
-      onChange(next);
-      if (!anyRemediationEnabled(next)) {
-        setSectionOpen(false);
-        setOpenModuleId(null);
-      }
-      return;
-    }
-    setSectionOpen(true);
-  };
-
-  const toggleModuleDetails = (moduleId: string) => {
-    setOpenModuleId((current) => (current === moduleId ? null : moduleId));
-  };
-
-  if (compact) {
-    return (
-      <div className={`py-4 ${disabled ? "opacity-60" : ""}`}>
-        <label className={`flex items-start gap-3 ${disabled ? "cursor-not-allowed" : "cursor-pointer"}`}>
-          <input
-            type="checkbox"
-            className="mt-0.5 rounded border-zinc-300 text-teal-600 focus:ring-teal-500/30"
-            checked={sectionOpen}
-            disabled={disabled}
-            onChange={(e) => handleMasterToggle(e.target.checked)}
-          />
-          <span className="min-w-0 flex-1">
-            <span className="flex flex-wrap items-center gap-2">
-              <span className="text-sm font-medium text-zinc-900">SSM remediation</span>
-              {anyEnabled && <CapabilityAccessBadge kind="scoped-write" />}
-            </span>
-            <p className="mt-0.5 text-xs leading-relaxed text-zinc-500">
-              Run approved fixes through scoped automation. Enable only the modules you need.
-            </p>
-          </span>
-        </label>
-        {sectionOpen && (
-          <ul className="mt-3 ml-7 space-y-2">
-            {REMEDIATION_MODULE_SPECS.map((spec) => (
-              <li key={spec.id}>
-                {(() => {
-                  const analysisOnly = !spec.runnerSupported;
-                  const checked = analysisOnly ? false : modules[spec.id];
-                  return (
-                <label
-                  className={`flex items-center gap-2 text-sm ${
-                    disabled || analysisOnly ? "cursor-not-allowed opacity-60" : "cursor-pointer"
-                  }`}
-                >
-                  <input
-                    type="checkbox"
-                    className="rounded border-zinc-300 text-teal-600 focus:ring-teal-500/30"
-                    checked={checked}
-                    disabled={disabled || analysisOnly}
-                    onChange={(e) => onChange({ ...modules, [spec.id]: e.target.checked })}
-                  />
-                  <span className="text-zinc-800">{spec.label}</span>
-                  {analysisOnly && (
-                    <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-semibold text-zinc-500">
-                      Analysis only
-                    </span>
-                  )}
-                </label>
-                  );
-                })()}
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    );
-  }
-
-  return (
-    <div
-      className={`rounded-lg border px-3 py-2.5 transition-colors ${
-        sectionOpen ? "border-zinc-200/80 bg-zinc-50/40" : "border-zinc-200/60 bg-white"
-      } ${disabled ? "opacity-60" : ""}`}
-    >
-      <label className={`flex items-start gap-3 ${disabled ? "cursor-not-allowed" : "cursor-pointer"}`}>
-        <input
-          type="checkbox"
-          className="mt-0.5 rounded border-zinc-300 text-teal-600 focus:ring-teal-500/30"
-          checked={sectionOpen}
-          disabled={disabled}
-          onChange={(e) => handleMasterToggle(e.target.checked)}
-        />
-        <span className="min-w-0 flex-1">
-          <span className="text-sm font-medium text-zinc-900">SSM remediation</span>
-          <p className="mt-1 text-xs leading-relaxed text-zinc-500">
-            Approved fixes run via SSM Automation under your VeritrailRemediationRole. Each module adds scoped
-            permissions only.
-          </p>
-        </span>
-      </label>
-
-      {sectionOpen && (
-        <div className="mt-3 ml-7 space-y-2">
-          {REMEDIATION_MODULE_SPECS.map((spec) => {
-            const selected = modules[spec.id];
-            const detailsOpen = openModuleId === spec.id;
-            const verify = moduleVerify?.[spec.id];
-            const deployed = Boolean(modulesDeployed[spec.id]);
-            const locked = capabilityLockedInAws(verify, deployed);
-            const analysisOnly = !spec.runnerSupported;
-            const moduleChecked = locked ? true : analysisOnly ? false : selected;
-            const moduleDisabled = disabled || locked || analysisOnly;
-
-            return (
-              <div
-                key={spec.id}
-                className={`overflow-hidden rounded-lg border border-l-4 transition-colors ${
-                  locked
-                    ? "border-l-emerald-500 border-emerald-200/60 bg-emerald-50/30 shadow-sm shadow-zinc-950/[0.02]"
-                    : moduleChecked
-                      ? "border-l-teal-500 border-teal-200/60 bg-teal-50/30 shadow-sm shadow-zinc-950/[0.04]"
-                      : "border-l-transparent border-zinc-200/50 bg-zinc-50/25 opacity-80"
-                }`}
-              >
-                <div className="flex items-start gap-2.5 px-2.5 py-2.5">
-                  {locked ? (
-                    <CapabilityVerifiedMark />
-                  ) : (
-                    <input
-                      type="checkbox"
-                      className="mt-0.5 shrink-0 rounded border-zinc-300 text-teal-600 focus:ring-teal-500/30"
-                      checked={moduleChecked}
-                      disabled={moduleDisabled}
-                      aria-label={`Enable ${spec.label}`}
-                      onChange={(e) =>
-                        onChange({ ...modules, [spec.id]: e.target.checked })
-                      }
-                    />
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-start gap-2">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="text-sm font-medium leading-snug text-zinc-900">{spec.label}</p>
-                          {analysisOnly ? (
-                            <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-semibold text-zinc-500">
-                              Analysis only
-                            </span>
-                          ) : (
-                            <CapabilityAccessBadge kind="scoped-write" />
-                          )}
-                        </div>
-                        <p className="mt-0.5 text-xs leading-relaxed text-zinc-500">{spec.summary}</p>
-                      </div>
-                      <button
-                        type="button"
-                        disabled={disabled}
-                        onClick={() => toggleModuleDetails(spec.id)}
-                        className="-mr-0.5 shrink-0 rounded-md p-1 text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-600 disabled:opacity-50"
-                        aria-expanded={detailsOpen}
-                        aria-label={detailsOpen ? `Hide ${spec.label} details` : `Show ${spec.label} details`}
-                      >
-                        <RemediationModuleChevron open={detailsOpen} />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {detailsOpen && (
-                  <div className="space-y-4 border-t border-zinc-100 bg-zinc-50/50 px-3 py-3">
-                    <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
-                        What Veritrail can do
-                      </p>
-                      <ul className="mt-1 space-y-0.5">
-                        {spec.bullets.map((b) => (
-                          <li key={b} className="flex gap-1.5 text-xs leading-snug text-zinc-600">
-                            <span className="text-zinc-400" aria-hidden>
-                              •
-                            </span>
-                            {b}
-                          </li>
-                        ))}
-                      </ul>
-                      {spec.runnerSupported && verify?.runner_ready === false && (
-                        <p className="mt-2 text-[11px] leading-relaxed font-medium text-amber-800">
-                          SSM document not ready. Use{" "}
-                          <span className="font-semibold">Manage capabilities → Update CloudFormation</span>{" "}
-                          on stack{" "}
-                          <span className="font-mono">{CONNECTOR_STACK_NAME}</span> with this module
-                          enabled — not a blank stack update with only the SSM YAML.
-                        </p>
-                      )}
-                    </div>
-
-                    {!analysisOnly && (
-                      <div>
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
-                          Permissions added to VeritrailRemediationRole
-                        </p>
-                        <div className="mt-2">
-                          <RemediationPermissionsBlock
-                            permissions={spec.permissions}
-                            verifyRows={verify?.permissions}
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
     </div>
   );
 }
@@ -2405,43 +1961,14 @@ function terraformForConnection(acc: Account, connectionOptions: ConnectionOptio
   const veritrailPrincipalArnVar = trustPrincipalArn
     ? `variable "veritrail_principal_arn" {\n  description = "AWS principal ARN that Veritrail uses to assume the connector role. Confirm this in your Veritrail deployment settings before applying."\n  type        = string\n  default     = ${hclString(trustPrincipalArn)}\n}`
     : `variable "veritrail_principal_arn" {\n  description = "AWS principal ARN that Veritrail uses to assume the connector role. Confirm this in your Veritrail deployment settings before applying."\n  type        = string\n}`;
-  const remediationSelected = anyRemediationEnabled(connectionOptions.remediation_modules);
-  const selectedRemediationStatements = REMEDIATION_MODULE_SPECS.filter(
-    (spec) => connectionOptions.remediation_modules[spec.id],
-  ).map((spec) => REMEDIATION_MODULE_STATEMENTS[spec.id]);
-  const scannerStatements = [
-    ...CORE_SCANNER_STATEMENTS,
-    ...(connectionOptions.enable_advanced_policy_generation ? ADVANCED_POLICY_STATEMENTS : []),
-    ...(remediationSelected ? REMEDIATION_START_STATEMENTS : []),
-  ];
-  const roleBlocks = [
-    `data "aws_iam_policy_document" "veritrail_core_scanner_role_trust" {\n  statement {\n    sid     = "AllowVeritrailAssumeRole"\n    effect  = "Allow"\n    actions = ["sts:AssumeRole"]\n\n    principals {\n      type        = "AWS"\n      identifiers = [var.veritrail_principal_arn]\n    }\n\n    condition {\n      test     = "StringEquals"\n      variable = "sts:ExternalId"\n      values   = [var.external_id]\n    }\n  }\n\n  statement {\n    sid     = "AllowVeritrailRoleChainingContext"\n    effect  = "Allow"\n    actions = ["sts:SetSourceIdentity", "sts:TagSession"]\n\n    principals {\n      type        = "AWS"\n      identifiers = [var.veritrail_principal_arn]\n    }\n  }\n}\n\ndata "aws_iam_policy_document" "veritrail_core_scanner_role_policy" {\n${terraformPolicyDocumentForStatements(scannerStatements, {
+  void connectionOptions;
+  const scannerStatements = [...CORE_SCANNER_STATEMENTS];
+  const roleBlocks = `data "aws_iam_policy_document" "veritrail_core_scanner_role_trust" {\n  statement {\n    sid     = "AllowVeritrailAssumeRole"\n    effect  = "Allow"\n    actions = ["sts:AssumeRole"]\n\n    principals {\n      type        = "AWS"\n      identifiers = [var.veritrail_principal_arn]\n    }\n\n    condition {\n      test     = "StringEquals"\n      variable = "sts:ExternalId"\n      values   = [var.external_id]\n    }\n  }\n\n  statement {\n    sid     = "AllowVeritrailRoleChainingContext"\n    effect  = "Allow"\n    actions = ["sts:SetSourceIdentity", "sts:TagSession"]\n\n    principals {\n      type        = "AWS"\n      identifiers = [var.veritrail_principal_arn]\n    }\n  }\n}\n\ndata "aws_iam_policy_document" "veritrail_core_scanner_role_policy" {\n${terraformPolicyDocumentForStatements(scannerStatements, {
       PassAccessAnalyzerMonitorRole: "aws_iam_role.veritrail_core_scanner_role.arn",
-      PassRemediationAutomationRole: "aws_iam_role.veritrail_remediation_automation_role.arn",
-    })}\n}\n\nresource "aws_iam_role" "veritrail_core_scanner_role" {\n  name = var.veritrail_core_scanner_role_name\n\n  assume_role_policy = data.aws_iam_policy_document.veritrail_core_scanner_role_trust.json\n\n  tags = merge(var.tags, {\n    Name        = var.veritrail_core_scanner_role_name\n    ManagedBy   = "Terraform"\n    Application = "Veritrail"\n  })\n}\n\nresource "aws_iam_role_policy" "veritrail_core_scanner_role" {\n  name   = "VeritrailScannerAccess"\n  role   = aws_iam_role.veritrail_core_scanner_role.id\n  policy = data.aws_iam_policy_document.veritrail_core_scanner_role_policy.json\n}`,
-    ...(remediationSelected
-      ? [
-          `data "aws_iam_policy_document" "veritrail_remediation_automation_role_trust" {\n  statement {\n    sid     = "AllowSsmAutomationAssumeRole"\n    effect  = "Allow"\n    actions = ["sts:AssumeRole"]\n\n    principals {\n      type        = "Service"\n      identifiers = ["ssm.amazonaws.com"]\n    }\n  }\n}\n\ndata "aws_iam_policy_document" "veritrail_remediation_automation_role_policy" {\n${terraformPolicyDocumentForStatements([
-            { sid: "SsmHandlerScriptsFromS3", actions: ["s3:GetObject"], resource: "Veritrail-hosted SSM handler scripts" },
-            ...selectedRemediationStatements,
-          ])}\n}\n\nresource "aws_iam_role" "veritrail_remediation_automation_role" {\n  name = var.veritrail_remediation_automation_role_name\n\n  assume_role_policy = data.aws_iam_policy_document.veritrail_remediation_automation_role_trust.json\n\n  tags = merge(var.tags, {\n    Name        = var.veritrail_remediation_automation_role_name\n    ManagedBy   = "Terraform"\n    Application = "Veritrail"\n  })\n}\n\nresource "aws_iam_role_policy" "veritrail_remediation_automation_role" {\n  name   = "VeritrailRemediationAutomation"\n  role   = aws_iam_role.veritrail_remediation_automation_role.id\n  policy = data.aws_iam_policy_document.veritrail_remediation_automation_role_policy.json\n}`,
-        ]
-      : []),
-  ].join("\n\n");
-  const outputs = [
-    `output "veritrail_core_scanner_role_arn" {\n  description = "ARN of the Veritrail core scanner role. Paste this back into Veritrail during verification."\n  value       = aws_iam_role.veritrail_core_scanner_role.arn\n}`,
-    ...(remediationSelected
-      ? [
-          `output "veritrail_remediation_automation_role_arn" {\n  description = "ARN of the optional Veritrail remediation automation role."\n  value       = aws_iam_role.veritrail_remediation_automation_role.arn\n}`,
-        ]
-      : []),
-  ].join("\n\n");
+    })}\n}\n\nresource "aws_iam_role" "veritrail_core_scanner_role" {\n  name = var.veritrail_core_scanner_role_name\n\n  assume_role_policy = data.aws_iam_policy_document.veritrail_core_scanner_role_trust.json\n\n  tags = merge(var.tags, {\n    Name        = var.veritrail_core_scanner_role_name\n    ManagedBy   = "Terraform"\n    Application = "Veritrail"\n  })\n}\n\nresource "aws_iam_role_policy" "veritrail_core_scanner_role" {\n  name   = "VeritrailScannerAccess"\n  role   = aws_iam_role.veritrail_core_scanner_role.id\n  policy = data.aws_iam_policy_document.veritrail_core_scanner_role_policy.json\n}`;
+  const outputs = `output "veritrail_core_scanner_role_arn" {\n  description = "ARN of the Veritrail core scanner role. Paste this back into Veritrail during verification."\n  value       = aws_iam_role.veritrail_core_scanner_role.arn\n}`;
 
-  return `terraform {\n  required_version = ">= 1.5.0"\n\n  required_providers {\n    aws = {\n      source  = "hashicorp/aws"\n      version = ">= 5.0"\n    }\n  }\n}\n\nprovider "aws" {\n  region = var.aws_region\n}\n\nvariable "aws_region" {\n  description = "AWS region used by the AWS provider. IAM roles are global, but the provider still requires a region."\n  type        = string\n  default     = "us-east-1"\n}\n\nvariable "external_id" {\n  description = "External ID generated by Veritrail for this account connection."\n  type        = string\n  default     = ${hclString(acc.external_id)}\n}\n\n${veritrailPrincipalArnVar}\n\nvariable "veritrail_core_scanner_role_name" {\n  description = "Name of the Veritrail read-only scanner role."\n  type        = string\n  default     = ${hclString(SCANNER_ROLE_NAME)}\n}\n${
-    remediationSelected
-      ? `\nvariable "veritrail_remediation_automation_role_name" {\n  description = "Name of the optional Veritrail remediation automation role."\n  type        = string\n  default     = "VeritrailRemediationAutomationRole"\n}\n\nvariable "veritrail_ssm_handler_scripts_arn" {\n  description = "S3 object ARN pattern for Veritrail-hosted SSM automation handler scripts."\n  type        = string\n  default     = "arn:aws:s3:::veritrail-automation-*/*"\n}\n`
-      : ""
-  }\nvariable "tags" {\n  description = "Tags applied to IAM roles."\n  type        = map(string)\n  default = {\n    ManagedBy = "Terraform"\n    Vendor    = "Veritrail"\n  }\n}\n\n${roleBlocks}\n\n${outputs}\n`;
+  return `terraform {\n  required_version = ">= 1.5.0"\n\n  required_providers {\n    aws = {\n      source  = "hashicorp/aws"\n      version = ">= 5.0"\n    }\n  }\n}\n\nprovider "aws" {\n  region = var.aws_region\n}\n\nvariable "aws_region" {\n  description = "AWS region used by the AWS provider. IAM roles are global, but the provider still requires a region."\n  type        = string\n  default     = "us-east-1"\n}\n\nvariable "external_id" {\n  description = "External ID generated by Veritrail for this account connection."\n  type        = string\n  default     = ${hclString(acc.external_id)}\n}\n\n${veritrailPrincipalArnVar}\n\nvariable "veritrail_core_scanner_role_name" {\n  description = "Name of the Veritrail read-only scanner role."\n  type        = string\n  default     = ${hclString(SCANNER_ROLE_NAME)}\n}\n\nvariable "tags" {\n  description = "Tags applied to IAM roles."\n  type        = map(string)\n  default = {\n    ManagedBy = "Terraform"\n    Vendor    = "Veritrail"\n  }\n}\n\n${roleBlocks}\n\n${outputs}\n`;
 }
 
 function downloadTerraformModule(code: string, filename = "veritrail-connector.tf") {
@@ -2517,294 +2044,11 @@ function TerraformCodeBlock({
 
 type DeployTab = "console" | "cli" | "terraform";
 
-const DEPLOY_METHOD_ICON: Record<DeployTab, string> = {
-  console: "/deploy-methods/console.png",
-  cli: "/deploy-methods/cli.png",
-  terraform: "/deploy-methods/terraform.png",
-};
-
-const DEPLOY_METHOD_COPY: Record<
-  DeployTab,
-  {
-    deployDescription: string;
-    whatHappensNext: readonly [string, string, string];
-    consoleLaunchLabel: string;
-  }
-> = {
-  console: {
-    deployDescription: "Launch the CloudFormation stack with the selected roles in the AWS Console.",
-    whatHappensNext: [
-      "CloudFormation stack is created in your AWS account",
-      "IAM roles are provisioned with the selected permissions",
-      "Continue with the RoleArn output to connect Veritrail",
-    ],
-    consoleLaunchLabel: "Launch CloudFormation",
-  },
-  cli: {
-    deployDescription: "Deploy the connector using the AWS CLI and the template parameters below.",
-    whatHappensNext: [
-      "CLI creates or updates the CloudFormation stack",
-      "IAM roles are provisioned with the selected permissions",
-      "Continue with the RoleArn output to connect Veritrail",
-    ],
-    consoleLaunchLabel: "Launch CloudFormation",
-  },
-  terraform: {
-    deployDescription: "Apply the Terraform module to provision IAM roles in your AWS account.",
-    whatHappensNext: [
-      "Terraform creates IAM roles with external ID trust",
-      "Role outputs include the scanner RoleArn for verification",
-      "Continue with the RoleArn output to connect Veritrail",
-    ],
-    consoleLaunchLabel: "Launch CloudFormation",
-  },
-};
-
-const ONBOARDING_FLOW_STEPS = [
-  { n: 1, label: "Choose capabilities" },
-  { n: 2, label: "Review access" },
-  { n: 3, label: "Connect account" },
-] as const;
-
-/** Map in-card wizard step → top stepper (Choose capabilities / Deploy / Verify). */
-function wizardStepToFlowProgress(
-  wizardStep: number,
-  capabilitiesChosenExternally: boolean,
-): 1 | 2 | 3 {
-  if (capabilitiesChosenExternally) {
-    // Capabilities picked on the empty-state page; wizard starts at deploy.
-    if (wizardStep <= 1) return 2;
-    return 3;
-  }
-  // Add-account flow: capabilities → deploy → verify inside the card.
-  if (wizardStep <= 1) return 1;
-  if (wizardStep === 2) return 2;
-  return 3;
-}
-
-function DisclosureLink({
-  open,
-  onToggle,
-  openLabel,
-  closeLabel,
-  disabled,
-  className = "ml-7 mt-1.5",
-  children,
-}: {
-  open: boolean;
-  onToggle: () => void;
-  openLabel: string;
-  closeLabel: string;
-  disabled?: boolean;
-  className?: string;
-  children: ReactNode;
-}) {
-  return (
-    <div className={className}>
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={onToggle}
-        className="text-xs font-semibold text-teal-700 hover:text-teal-800 disabled:opacity-50"
-        aria-expanded={open}
-      >
-        {open ? closeLabel : openLabel}
-      </button>
-      {open && <div className="mt-2">{children}</div>}
-    </div>
-  );
-}
-
-function OnboardingFlowProgress({
-  activeStep,
-  onStepClick,
-}: {
-  activeStep: 1 | 2 | 3;
-  onStepClick?: (step: 1 | 2 | 3) => void;
-}) {
-  return (
-    <ol className="flex items-center gap-3">
-      {ONBOARDING_FLOW_STEPS.map((step, i) => {
-        const active = activeStep === step.n;
-        const done = activeStep > step.n;
-        const content = (
-          <>
-            <span
-              className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
-                active
-                  ? "bg-teal-600 text-white"
-                  : done
-                    ? "bg-emerald-100 text-emerald-700"
-                    : "bg-zinc-100 text-zinc-400"
-              }`}
-            >
-              {done ? (
-                <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                </svg>
-              ) : (
-                step.n
-              )}
-            </span>
-            <span
-              className={`hidden text-sm font-medium sm:inline ${
-                active ? "text-zinc-900" : done ? "text-zinc-600" : "text-zinc-400"
-              }`}
-            >
-              {step.label}
-            </span>
-          </>
-        );
-        return (
-          <li key={step.n} className="flex flex-1 items-center gap-3 last:flex-none">
-            {onStepClick ? (
-              <button
-                type="button"
-                onClick={() => onStepClick(step.n)}
-                className="accounts-flow-step"
-                aria-current={active ? "step" : undefined}
-              >
-                {content}
-              </button>
-            ) : (
-              <div className="accounts-flow-step">{content}</div>
-            )}
-            {i < ONBOARDING_FLOW_STEPS.length - 1 && <span className="h-px flex-1 bg-zinc-200" />}
-          </li>
-        );
-      })}
-    </ol>
-  );
-}
-
-const ONBOARDING_CAPS = [
-  {
-    id: "core" as const,
-    title: "Core scan",
-    blurb: "Continuously scan for security and compliance issues.",
-    icon: "M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607Z",
-    tone: "teal" as const,
-    badge: { label: "Required", tone: "teal" as const },
-    required: true,
-    roleName: "VeritrailCoreScanRole",
-    drawerLabel: "ReadOnly",
-    accessType: "Read-only" as const,
-  },
-  {
-    id: "iam" as const,
-    title: "IAM analysis",
-    blurb: "Analyze IAM permissions and generate least-privilege recommendations.",
-    icon: "M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125Z",
-    tone: "blue" as const,
-    badge: { label: "Optional", tone: "slate" as const },
-    required: false,
-    roleName: "VeritrailIamAnalysisRole",
-    drawerLabel: "IAMAnalysis",
-    accessType: "Analysis" as const,
-  },
-  {
-    id: "ssm" as const,
-    title: "Remediation",
-    blurb: "Automate fixes with scoped permissions and approvals.",
-    icon: "M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z",
-    tone: "amber" as const,
-    badge: { label: "Scoped write", tone: "amber" as const },
-    required: false,
-    roleName: "VeritrailRemediationRole",
-    drawerLabel: "Remediation",
-    accessType: "Scoped write" as const,
-  },
-] as const;
-
-const ONBOARDING_CAP_BY_ID = Object.fromEntries(ONBOARDING_CAPS.map((c) => [c.id, c])) as Record<
-  (typeof ONBOARDING_CAPS)[number]["id"],
-  (typeof ONBOARDING_CAPS)[number]
->;
-
-function OnboardingCapIcon({
-  cap,
-  className,
-  strokeWidth = 1.6,
-  title,
-}: {
-  cap: (typeof ONBOARDING_CAPS)[number];
-  className?: string;
-  strokeWidth?: number;
-  title?: string;
-}) {
-  return (
-    <span className={className} title={title} aria-hidden={title ? undefined : true}>
-      <svg fill="none" stroke="currentColor" strokeWidth={strokeWidth} viewBox="0 0 24 24" aria-hidden>
-        <path strokeLinecap="round" strokeLinejoin="round" d={cap.icon} />
-      </svg>
-    </span>
-  );
-}
-
-/** Document with folded corner + person — Policy generation in Connected capabilities only. */
-function PolicyGenerationCapIcon({
-  className,
-  strokeWidth = 1.6,
-  title,
-}: {
-  className?: string;
-  strokeWidth?: number;
-  title?: string;
-}) {
-  return (
-    <span className={className} title={title} aria-hidden={title ? undefined : true}>
-      <svg fill="none" stroke="currentColor" strokeWidth={strokeWidth} viewBox="0 0 24 24" aria-hidden>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M14 2v4a2 2 0 0 0 2 2h4" />
-        <path strokeLinecap="round" strokeLinejoin="round" d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z" />
-        <circle cx="12" cy="13" r="2" />
-        <path strokeLinecap="round" strokeLinejoin="round" d="M15 18a3 3 0 1 0-6 0" />
-      </svg>
-    </span>
-  );
-}
-
-const ONBOARDING_ROLE_PERMISSIONS: Record<(typeof ONBOARDING_CAPS)[number]["id"], string[]> = {
-  core: [
-    "Read AWS resource configuration",
-    "Collect cloud posture evidence",
-    "Run compliance and security checks",
-  ],
-  iam: [
-    "iam:GenerateServiceLastAccessedDetails",
-    "access-analyzer:StartPolicyGeneration",
-    "access-analyzer:GetGeneratedPolicy",
-  ],
-  ssm: [
-    "Run approved SSM Automation documents",
-    "Apply selected remediation modules only",
-    "Write scoped fixes after approval",
-  ],
-};
-
-function onboardingCapIsOn(value: ConnectionOptions, id: (typeof ONBOARDING_CAPS)[number]["id"]) {
-  const ssmOn = anyRemediationEnabled(value.remediation_modules);
-  return id === "core" ? true : id === "iam" ? value.enable_advanced_policy_generation : ssmOn;
-}
-
-function selectedOnboardingCaps(value: ConnectionOptions) {
-  return ONBOARDING_CAPS.filter((c) => onboardingCapIsOn(value, c.id));
-}
-
 type PolicyStatementSummary = {
   sid: string;
   actions: readonly string[];
   resource: string;
   grantedOn?: string;
-};
-
-type OnboardingPermissionSummary = {
-  id: (typeof ONBOARDING_CAPS)[number]["id"];
-  cap: (typeof ONBOARDING_CAPS)[number];
-  roleName: string;
-  policyName: string;
-  statements: readonly PolicyStatementSummary[];
-  scope: string;
-  description: string;
 };
 
 const CORE_SCANNER_STATEMENTS: readonly PolicyStatementSummary[] = [
@@ -2840,945 +2084,10 @@ const CORE_SCANNER_STATEMENTS: readonly PolicyStatementSummary[] = [
   { sid: "OrganizationsAccountLabel", actions: ["organizations:DescribeAccount"], resource: "*" },
 ] as const;
 
-const ADVANCED_POLICY_STATEMENTS: readonly PolicyStatementSummary[] = [
-  {
-    sid: "AccessAnalyzerPolicyGeneration",
-    actions: ADVANCED_POLICY_RAW_ACTIONS.filter((action) => action !== "iam:PassRole"),
-    resource: "*",
-  },
-  {
-    sid: "PassAccessAnalyzerMonitorRole",
-    actions: ["iam:PassRole"],
-    resource: "Access Analyzer monitor role ARN",
-  },
-] as const;
-
-const REMEDIATION_START_STATEMENTS: readonly PolicyStatementSummary[] = [
-  {
-    sid: "DescribeApprovedSsmDocuments",
-    actions: ["ssm:DescribeDocument", "ssm:GetDocument"],
-    resource: "Veritrail and AWS remediation documents",
-    grantedOn: SCANNER_ROLE_NAME,
-  },
-  {
-    sid: "StartApprovedSsmAutomation",
-    actions: ["ssm:StartAutomationExecution", "ssm:GetAutomationExecution", "ssm:DescribeAutomationExecutions"],
-    resource: "Approved SSM automation documents and executions",
-    grantedOn: SCANNER_ROLE_NAME,
-  },
-  {
-    sid: "PassRemediationAutomationRole",
-    actions: ["iam:PassRole"],
-    resource: "VeritrailRemediationAutomationRole, passed only to ssm.amazonaws.com",
-    grantedOn: SCANNER_ROLE_NAME,
-  },
-] as const;
-
-const REMEDIATION_MODULE_STATEMENTS: Record<RemediationModuleId, PolicyStatementSummary> = {
-  security_groups: {
-    sid: "Ec2SecurityGroupIngress",
-    actions: ["ec2:DescribeSecurityGroups", "ec2:DescribeSecurityGroupRules", "ec2:RevokeSecurityGroupIngress"],
-    resource: "*",
-  },
-  s3_public_access: {
-    sid: "S3BucketPublicAccessBlock",
-    actions: ["s3:GetBucketPublicAccessBlock", "s3:PutBucketPublicAccessBlock"],
-    resource: "arn:aws:s3:::*",
-  },
-  iam_access_keys: {
-    sid: "IamAccessKeyRemediation",
-    actions: ["iam:UpdateAccessKey", "iam:GetAccessKeyLastUsed"],
-    resource: "*",
-  },
-  iam_policies: {
-    sid: "IamPolicyRemediation",
-    actions: ["iam:GetRole", "iam:GetRolePolicy", "iam:PutRolePolicy", "iam:ListAttachedRolePolicies", "iam:DetachRolePolicy", "iam:GetPolicy"],
-    resource: "*",
-  },
-  ssm_parameters: {
-    sid: "SsmParameterSecureStringMigration",
-    actions: ["ssm:GetParameter", "ssm:PutParameter"],
-    resource: "*",
-  },
-  cloudtrail_logging: {
-    sid: "CloudTrailRunbook",
-    actions: ["cloudtrail:UpdateTrail", "cloudtrail:StartLogging"],
-    resource: "*",
-  },
-  kms_rotation: {
-    sid: "KmsKeyRotation",
-    actions: ["kms:EnableKeyRotation", "kms:GetKeyRotationStatus", "kms:DescribeKey"],
-    resource: "*",
-  },
-};
-
-function uniqueActionCount(statements: readonly PolicyStatementSummary[]): number {
-  return new Set(statements.flatMap((statement) => statement.actions)).size;
-}
-
-function reviewRoleTitle(summary: OnboardingPermissionSummary): string {
-  if (summary.id === "core") return "Core Scanner Role";
-  if (summary.id === "iam") return "IAM Analysis Role";
-  return "Remediation Automation Role";
-}
-
-function policyJsonForSummary(summary: OnboardingPermissionSummary): string {
-  return JSON.stringify(
-    {
-      Version: "2012-10-17",
-      Statement: summary.statements.map((statement) => ({
-        Sid: statement.sid,
-        Effect: "Allow",
-        Action: statement.actions.length === 1 ? statement.actions[0] : statement.actions,
-        Resource: statement.resource,
-        ...(statement.sid === "PassRemediationAutomationRole"
-          ? { Condition: { StringEquals: { "iam:PassedToService": "ssm.amazonaws.com" } } }
-          : {}),
-        ...(statement.sid === "PassAccessAnalyzerMonitorRole"
-          ? { Condition: { StringEquals: { "iam:PassedToService": "access-analyzer.amazonaws.com" } } }
-          : {}),
-      })),
-    },
-    null,
-    2,
-  );
-}
-
-function buildPermissionSummaries(value: ConnectionOptions): OnboardingPermissionSummary[] {
-  const caps = Object.fromEntries(ONBOARDING_CAPS.map((cap) => [cap.id, cap])) as Record<
-    (typeof ONBOARDING_CAPS)[number]["id"],
-    (typeof ONBOARDING_CAPS)[number]
-  >;
-  const summaries: OnboardingPermissionSummary[] = [
-    {
-      id: "core",
-      cap: caps.core,
-      roleName: SCANNER_ROLE_NAME,
-      policyName: "VeritrailMinimalReadOnly",
-      statements: CORE_SCANNER_STATEMENTS,
-      scope: "Account-wide read-only",
-      description: "Core scanner role created by veritrail-core-scanner.yaml.",
-    },
-  ];
-
-  if (value.enable_advanced_policy_generation) {
-    summaries.push({
-      id: "iam",
-      cap: caps.iam,
-      roleName: SCANNER_ROLE_NAME,
-      policyName: "VeritrailAdvancedPolicyGeneration",
-      statements: ADVANCED_POLICY_STATEMENTS,
-      scope: "IAM and Access Analyzer analysis",
-      description: "Optional inline policy on the scanner role; it does not modify customer resources.",
-    });
-  }
-
-  if (anyRemediationEnabled(value.remediation_modules)) {
-    const selectedModuleStatements = REMEDIATION_MODULE_SPECS.filter(
-      (spec) => value.remediation_modules[spec.id],
-    ).map((spec) => REMEDIATION_MODULE_STATEMENTS[spec.id]);
-    summaries.push({
-      id: "ssm",
-      cap: caps.ssm,
-      roleName: "VeritrailRemediationAutomationRole",
-      policyName: "VeritrailRemediationAutomation",
-      statements: [
-        ...REMEDIATION_START_STATEMENTS,
-        { sid: "SsmHandlerScriptsFromS3", actions: ["s3:GetObject"], resource: "Veritrail-hosted SSM handler scripts" },
-        ...selectedModuleStatements,
-      ],
-      scope: "Selected remediation modules",
-      description: "Remediation includes scanner-role permissions to start approved SSM automation plus automation-role permissions to run the selected fixes.",
-    });
-  }
-
-  return summaries;
-}
-
-/** Onboarding step 1 — capability cards with role mapping (mock: choose capabilities). */
-function OnboardingCapabilityCards({
-  value,
-  onChange,
-  disabled,
-}: {
-  value: ConnectionOptions;
-  onChange: (next: ConnectionOptions) => void;
-  disabled?: boolean;
-}) {
-  const ssmOn = anyRemediationEnabled(value.remediation_modules);
-  const allModulesOn = Object.fromEntries(
-    Object.keys(DEFAULT_REMEDIATION_MODULES).map((k) => [k, true]),
-  ) as RemediationModules;
-
-  const toggle = (id: (typeof ONBOARDING_CAPS)[number]["id"]) => {
-    if (id === "iam") {
-      onChange({ ...value, enable_advanced_policy_generation: !value.enable_advanced_policy_generation });
-    } else if (id === "ssm") {
-      onChange({ ...value, remediation_modules: ssmOn ? { ...DEFAULT_REMEDIATION_MODULES } : allModulesOn });
-    }
-  };
-
-  return (
-    <div className="accounts-cap-grid">
-      {ONBOARDING_CAPS.map((c) => {
-        const on = onboardingCapIsOn(value, c.id);
-        return (
-          <button
-            key={c.id}
-            type="button"
-            onClick={c.required ? undefined : () => toggle(c.id)}
-            disabled={disabled || c.required}
-            aria-pressed={on}
-            className={`accounts-cap-card accounts-cap-card--${c.tone}${on ? " is-selected" : ""}${c.required ? " is-required" : ""}`}
-          >
-            <span
-              className={`accounts-cap-card__check accounts-cap-card__check--${c.tone}${
-                on ? " is-checked" : ""
-              }`}
-              aria-hidden
-            >
-              {on ? (
-                <svg fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                </svg>
-              ) : null}
-            </span>
-
-            <span className={`accounts-cap-card__icon-ring accounts-cap-card__icon-ring--${c.tone}`}>
-              <svg className="accounts-cap-card__icon" fill="none" stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24" aria-hidden>
-                <path strokeLinecap="round" strokeLinejoin="round" d={c.icon} />
-              </svg>
-            </span>
-            <span className="accounts-cap-card__title">{c.title}</span>
-            <span className={`accounts-cap-card__badge accounts-cap-card__badge--${c.badge.tone}`}>
-              {c.badge.label}
-            </span>
-            <p className="accounts-cap-card__blurb">{c.blurb}</p>
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-function useOnboardingEscapeDismiss(onDismiss: (() => void) | undefined) {
-  useEffect(() => {
-    if (!onDismiss) return;
-    const dismiss = onDismiss;
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") dismiss();
-    }
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [onDismiss]);
-}
-
 function containCodeBlockWheel(event: WheelEvent<HTMLElement>) {
   if (Math.abs(event.deltaX) > Math.abs(event.deltaY)) {
     event.stopPropagation();
   }
-}
-
-function ConnectShellHeader({
-  title,
-  subtitle,
-  className,
-}: {
-  title: string;
-  subtitle: string;
-  className?: string;
-}) {
-  return (
-    <div className={`accounts-connect-shell__header${className ? ` ${className}` : ""}`}>
-      <h2 className="accounts-connect-shell__title">{title}</h2>
-      <p className="accounts-connect-shell__subtitle">{subtitle}</p>
-    </div>
-  );
-}
-
-function AccountOnboardingOverlay({
-  onDismiss,
-  children,
-  ariaLabelledBy,
-}: {
-  onDismiss: () => void;
-  children: ReactNode;
-  ariaLabelledBy?: string;
-}) {
-  useOnboardingEscapeDismiss(onDismiss);
-  const backdropPressedRef = useRef(false);
-
-  return createPortal(
-    <div
-      className="accounts-onboarding-modal"
-      role="presentation"
-      onMouseDown={(e) => {
-        backdropPressedRef.current = e.target === e.currentTarget;
-      }}
-      onMouseUp={(e) => {
-        if (backdropPressedRef.current && e.target === e.currentTarget) {
-          onDismiss();
-        }
-        backdropPressedRef.current = false;
-      }}
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={ariaLabelledBy}
-        className="accounts-onboarding-modal__panel"
-        onMouseDown={(e) => e.stopPropagation()}
-      >
-        {children}
-      </div>
-    </div>,
-    document.body,
-  );
-}
-
-function FirstAccountOnboarding({
-  value,
-  onChange,
-  disabled,
-  onContinue,
-  continuing,
-  onDismiss,
-}: {
-  value: ConnectionOptions;
-  onChange: (next: ConnectionOptions) => void;
-  disabled?: boolean;
-  onContinue: () => void;
-  continuing: boolean;
-  onDismiss?: () => void;
-}) {
-  const selected = selectedOnboardingCaps(value);
-  const accessTypes = [...new Set(selected.map((c) => c.accessType))];
-
-  return (
-    <div className="accounts-connect-shell">
-      <div className="accounts-connect-shell__progress" aria-label="Setup progress">
-        <OnboardingFlowProgress activeStep={1} />
-      </div>
-
-      <div className="accounts-connect-shell__layout">
-        <div className="accounts-connect-shell__main">
-          <ConnectShellHeader
-            title="Connect a cloud account"
-            subtitle="Choose the capabilities to enable for this connection."
-          />
-
-          <OnboardingCapabilityCards value={value} onChange={onChange} disabled={disabled} />
-
-          <div className="accounts-connect-shell__footer">
-            <div className="accounts-connect-shell__footer-stats">
-              <div className="accounts-connect-shell__footer-stat">
-                <p className="accounts-connect-shell__footer-label">Selected capabilities</p>
-                <div className="accounts-connect-shell__cap-icons">
-                  {selected.map((c) => (
-                    <OnboardingCapIcon
-                      key={c.id}
-                      cap={c}
-                      className={`accounts-connect-shell__cap-icon accounts-connect-shell__cap-icon--${c.tone}`}
-                      title={c.title}
-                    />
-                  ))}
-                </div>
-              </div>
-              <div className="accounts-connect-shell__footer-stat">
-                <p className="accounts-connect-shell__footer-label">Roles to be created</p>
-                <p className="accounts-connect-shell__footer-value">
-                  {selected.length} IAM role{selected.length === 1 ? "" : "s"}
-                </p>
-              </div>
-              <div className="accounts-connect-shell__footer-stat">
-                <p className="accounts-connect-shell__footer-label">Access model</p>
-                <div className="accounts-connect-shell__footer-badges">
-                  {accessTypes.map((t) => (
-                    <span
-                      key={t}
-                      className={`accounts-connect-shell__footer-badge${
-                        t === "Scoped write"
-                          ? " accounts-connect-shell__footer-badge--amber"
-                          : t === "Analysis"
-                            ? " accounts-connect-shell__footer-badge--blue"
-                            : ""
-                      }`}
-                    >
-                      {t}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </div>
-            <div className="accounts-connect-shell__footer-cta">
-              {onDismiss ? (
-                <button
-                  type="button"
-                  onClick={onDismiss}
-                  disabled={disabled || continuing}
-                  className="accounts-connect-shell__cancel"
-                >
-                  Cancel
-                </button>
-              ) : null}
-              <button
-                type="button"
-                onClick={onContinue}
-                disabled={disabled || continuing}
-                className="accounts-connect-shell__cta"
-              >
-                {continuing ? "Setting up…" : "Continue"}
-                <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                </svg>
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function OnboardingRoleReview({
-  acc,
-  value,
-}: {
-  acc: Account;
-  value: ConnectionOptions;
-}) {
-  const summaries = buildPermissionSummaries(value);
-  const [activeRole, setActiveRole] = useState(summaries[0]?.id ?? "core");
-  const [jsonCopied, setJsonCopied] = useState(false);
-  const accountId = acc.account_id || "YOUR_AWS_ACCOUNT_ID";
-  const activeSummary = summaries.find((summary) => summary.id === activeRole) ?? summaries[0];
-
-  useEffect(() => {
-    if (!summaries.some((summary) => summary.id === activeRole)) {
-      setActiveRole(summaries[0]?.id ?? "core");
-    }
-  }, [activeRole, summaries]);
-
-  async function copyPolicyJson() {
-    if (!activeSummary) return;
-    await navigator.clipboard.writeText(policyJsonForSummary(activeSummary));
-    setJsonCopied(true);
-    window.setTimeout(() => setJsonCopied(false), 1600);
-  }
-
-  if (!activeSummary) return null;
-
-  return (
-    <div className="accounts-review-clean">
-      <div className="accounts-review-clean__roles">
-        <div className="accounts-review-summary">
-          <span className="accounts-review-summary__count">
-            {summaries.length} role{summaries.length === 1 ? "" : "s"} will be created
-          </span>
-        </div>
-
-        <div className="accounts-role-rows">
-          {summaries.map((summary) => {
-            const actionCount = uniqueActionCount(summary.statements);
-            return (
-              <button
-                key={summary.id}
-                type="button"
-                onClick={() => setActiveRole(summary.id)}
-                className={`accounts-role-row accounts-role-row--${summary.cap.tone}${activeSummary.id === summary.id ? " is-active" : ""}`}
-              >
-                <span className={`accounts-role-row__icon accounts-role-row__icon--${summary.cap.tone}`} aria-hidden>
-                  <svg fill="none" stroke="currentColor" strokeWidth={1.7} viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d={summary.cap.icon} />
-                  </svg>
-                </span>
-                <div className="accounts-role-row__identity">
-                  <p className="accounts-role-row__name">{reviewRoleTitle(summary)}</p>
-                  <span className="accounts-role-row__meta">
-                    {summary.statements.length} statement{summary.statements.length === 1 ? "" : "s"} · {actionCount} action{actionCount === 1 ? "" : "s"} · {summary.scope}
-                  </span>
-                </div>
-                <span className={`accounts-role-row__access accounts-connect-drawer__access accounts-connect-drawer__access--${summary.cap.tone}`}>
-                  {summary.cap.accessType}
-                </span>
-                <span className="accounts-role-row__view" aria-hidden>
-                  <svg fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                  </svg>
-                </span>
-              </button>
-            );
-          })}
-        </div>
-
-      </div>
-
-      <section className="accounts-policy-card">
-        <div className="accounts-policy-card__head">
-          <div>
-            <div className="accounts-policy-card__title-row">
-              <h3>Policy JSON</h3>
-              <span className={`accounts-connect-drawer__access accounts-connect-drawer__access--${activeSummary.cap.tone}`}>
-                {activeSummary.cap.accessType}
-              </span>
-            </div>
-            <p>This is the policy document that will be provisioned for this role.</p>
-          </div>
-          <button type="button" className="accounts-policy-card__copy" onClick={() => void copyPolicyJson()}>
-            <svg fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2m-6 12h8a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2h-8a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2Z" />
-            </svg>
-            {jsonCopied ? "Copied" : "Copy"}
-          </button>
-        </div>
-        <pre className="accounts-policy-json accounts-policy-json--inline">
-          <code>{policyJsonForSummary(activeSummary)}</code>
-        </pre>
-        <div className="accounts-policy-card__foot">
-          <span>
-            {activeSummary.statements.length} statement{activeSummary.statements.length === 1 ? "" : "s"} · {uniqueActionCount(activeSummary.statements)} action{uniqueActionCount(activeSummary.statements) === 1 ? "" : "s"}
-          </span>
-        </div>
-      </section>
-    </div>
-  );
-}
-
-function OnboardingDeployPanel({
-  acc,
-  connectionOptions,
-  tab,
-  onTabChange,
-  layout = "rail",
-}: {
-  acc: Account;
-  connectionOptions: ConnectionOptions;
-  tab: DeployTab;
-  onTabChange: (tab: DeployTab) => void;
-  layout?: "rail" | "column";
-}) {
-  const column = layout === "column";
-  const [cliExpanded, setCliExpanded] = useState(true);
-  const [terraformExpanded, setTerraformExpanded] = useState(true);
-  const { consoleUrl, cliCommand } = resolveDeployArtifacts(acc, connectionOptions, "create");
-  const terraformCode = terraformForConnection(acc, connectionOptions);
-  const copy = DEPLOY_METHOD_COPY[tab];
-
-  function selectTab(next: DeployTab) {
-    onTabChange(next);
-    setCliExpanded(true);
-    setTerraformExpanded(true);
-  }
-
-  return (
-    <aside className={`accounts-deploy-rail${column ? " accounts-deploy-rail--column" : ""}`}>
-      {column ? null : (
-        <div className="accounts-deploy-rail__intro">
-          <h3>Deploy</h3>
-          <p>{copy.deployDescription}</p>
-        </div>
-      )}
-
-      <div className="accounts-deploy-rail__method">
-        <div className="accounts-deploy-tabs">
-          {(["console", "cli", "terraform"] as DeployTab[]).map((t) => (
-            <button key={t} type="button" className={tab === t ? "is-active" : ""} onClick={() => selectTab(t)}>
-              <img
-                src={DEPLOY_METHOD_ICON[t]}
-                alt=""
-                aria-hidden
-                decoding="async"
-                className={`accounts-deploy-tabs__icon accounts-deploy-tabs__icon--${t}`}
-              />
-              {t === "console" ? "Console" : t === "cli" ? "CLI" : "Terraform"}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {column ? null : (
-        <div className="accounts-deploy-rail__next">
-          <p>What happens next?</p>
-          <ul>
-            {copy.whatHappensNext.map((item) => (
-              <li key={item}>
-                <svg fill="none" stroke="currentColor" strokeWidth={2.4} viewBox="0 0 24 24" aria-hidden>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                </svg>
-                {item}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      <div className="accounts-deploy-rail__action">
-        <div className="accounts-deploy-rail__tab-body">
-          {tab === "console" ? (
-            <>
-              <a href={consoleUrl} target="_blank" rel="noreferrer" className="accounts-deploy-rail__primary accounts-deploy-rail__launch">
-                Launch CloudFormation
-                <svg fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H18m0 0v4.5M18 6l-7.5 7.5M6 18h12" />
-                </svg>
-              </a>
-              {column ? (
-                <p className="accounts-deploy-rail__lock-note">
-                  <svg fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 0h10.5a2.25 2.25 0 0 1 2.25 2.25v6.75a2.25 2.25 0 0 1-2.25 2.25H6.75a2.25 2.25 0 0 1-2.25-2.25v-6.75a2.25 2.25 0 0 1 2.25-2.25Z" />
-                  </svg>
-                  Opens in a new tab. No credentials are shared with Veritrail.
-                </p>
-              ) : null}
-            </>
-          ) : tab === "cli" ? (
-            <CliCodeBlock
-              command={cliCommand}
-              expanded={cliExpanded}
-              onExpandedChange={setCliExpanded}
-              compact={column}
-            />
-          ) : (
-            <>
-              <button
-                type="button"
-                onClick={() => downloadTerraformModule(terraformCode)}
-                className="accounts-deploy-rail__primary accounts-deploy-rail__launch"
-              >
-                Download Terraform module
-              </button>
-              <TerraformCodeBlock
-                code={terraformCode}
-                compact={column}
-                expanded={column ? true : terraformExpanded}
-                onExpandedChange={setTerraformExpanded}
-              />
-            </>
-          )}
-        </div>
-      </div>
-    </aside>
-  );
-}
-
-/** Checklist shown in the Verify access column (step 3). Matches POST /v1/accounts/{id}/verify. */
-const CONNECT_VALIDATE_ITEMS: readonly { title: string; desc: string }[] = [
-  {
-    title: "Trust relationship",
-    desc: "Verifies Veritrail can assume the connector role.",
-  },
-  {
-    title: "AWS account identity",
-    desc: "Discovers the AWS account ID from the assumed role.",
-  },
-  {
-    title: "Initial scan",
-    desc: "Queues a scan after the account is saved.",
-  },
-];
-
-type ConnectValidateItemState = "pending" | "running" | "success" | "error";
-
-function connectValidateItemState(
-  index: number,
-  verify: { isPending: boolean; isSuccess: boolean; isError: boolean },
-  activeIndex = 0,
-): ConnectValidateItemState {
-  if (verify.isPending) {
-    if (index < activeIndex) return "success";
-    if (index === activeIndex) return "running";
-    return "pending";
-  }
-  if (verify.isSuccess) return "success";
-  if (verify.isError) return index === 0 ? "error" : "pending";
-  return "pending";
-}
-
-function PendingAccountOnboarding({
-  acc,
-  connectionOptions,
-  roleArn,
-  setRoleArn,
-  verify,
-  onVerifyConnection,
-  onBackToCapabilities,
-  onDismiss,
-  embedded = false,
-  initialStep = 2,
-}: {
-  acc: Account;
-  connectionOptions: ConnectionOptions;
-  roleArn: string;
-  setRoleArn: (v: string) => void;
-  verify: { mutate: () => void; isPending: boolean; isError: boolean; isSuccess: boolean; error: unknown };
-  onVerifyConnection: () => void;
-  onBackToCapabilities: () => void;
-  onDismiss?: () => void;
-  embedded?: boolean;
-  initialStep?: number;
-}) {
-  const [activeStep, setActiveStep] = useState<1 | 2 | 3>(initialStep === 3 ? 3 : 2);
-  const [deployTab, setDeployTab] = useState<DeployTab>("console");
-  const [verifyActiveIndex, setVerifyActiveIndex] = useState(0);
-  const [showVerifySuccess, setShowVerifySuccess] = useState(false);
-  const roleArnValid = isValidIamRoleArn(roleArn);
-  const roleArnValidation = roleArnFieldValidation(roleArn, verify);
-
-  useEffect(() => {
-    setActiveStep(initialStep === 3 ? 3 : 2);
-  }, [initialStep, acc.id]);
-
-  useEffect(() => {
-    if (!verify.isPending) return;
-    setShowVerifySuccess(false);
-    setVerifyActiveIndex(0);
-    const timers = [
-      window.setTimeout(() => setVerifyActiveIndex(1), 650),
-      window.setTimeout(() => setVerifyActiveIndex(2), 1350),
-    ];
-    return () => timers.forEach((timer) => window.clearTimeout(timer));
-  }, [verify.isPending]);
-
-  useEffect(() => {
-    if (verify.isSuccess) {
-      setVerifyActiveIndex(CONNECT_VALIDATE_ITEMS.length);
-      const timer = window.setTimeout(() => setShowVerifySuccess(true), 550);
-      return () => window.clearTimeout(timer);
-    }
-    if (verify.isError) {
-      setShowVerifySuccess(false);
-      setVerifyActiveIndex(0);
-    }
-    return undefined;
-  }, [verify.isSuccess, verify.isError]);
-
-  return (
-    <div className={`accounts-connect-shell${embedded ? " accounts-connect-shell--embedded" : ""}${activeStep === 2 || activeStep === 3 ? " accounts-connect-shell--deploy-review" : ""}`}>
-      {showVerifySuccess && (
-        <div
-          className="accounts-connect-success"
-          role="status"
-          aria-live="polite"
-        >
-          <div className="accounts-connect-success__icon" aria-hidden>
-            <span />
-            <svg fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-            </svg>
-          </div>
-          <p className="accounts-connect-success__title">Connected</p>
-          <p className="accounts-connect-success__copy">Initial scan started. Closing setup...</p>
-        </div>
-      )}
-      <div className="accounts-connect-shell__progress" aria-label="Setup progress">
-        <OnboardingFlowProgress
-          activeStep={activeStep}
-          onStepClick={(step) => {
-            if (step === 1) onBackToCapabilities();
-            else setActiveStep(step);
-          }}
-        />
-      </div>
-
-      <div className="accounts-connect-shell__layout">
-        <div className="accounts-connect-shell__main">
-          {activeStep === 2 ? (
-            <>
-              <ConnectShellHeader
-                title="Review the access you're granting"
-                subtitle="These are the IAM roles the connector will create in your account."
-                className="accounts-connect-shell__header--verify"
-              />
-
-              <div className="accounts-review-stage accounts-review-stage--solo">
-                <main className="accounts-review-stage__main">
-                  <OnboardingRoleReview acc={acc} value={connectionOptions} />
-                </main>
-              </div>
-
-              <div className="accounts-connect-shell__footer">
-                <button type="button" onClick={onBackToCapabilities} className="accounts-connect-shell__back">
-                  <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M11 17l-5-5m0 0 5-5m-5 5h12" />
-                  </svg>
-                  Back to capabilities
-                </button>
-                <div className="accounts-connect-shell__footer-cta">
-                  {onDismiss ? (
-                    <button type="button" onClick={onDismiss} className="accounts-connect-shell__cancel">
-                      Cancel
-                    </button>
-                  ) : null}
-                  <button type="button" onClick={() => setActiveStep(3)} className="accounts-connect-shell__cta">
-                    Continue
-                    <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-            </>
-          ) : (
-            <>
-              <ConnectShellHeader
-                title="Deploy & connect"
-                subtitle="Deploy the AWS connector, paste the RoleArn output, and Veritrail will verify the trust relationship before saving the account."
-                className="accounts-connect-shell__header--verify"
-              />
-
-              <div className="accounts-connect-stage">
-                <section className="accounts-connect-col accounts-connect-col--scroll">
-                  <header className="accounts-connect-col__head">
-                    <span className="accounts-connect-col__num">1</span>
-                    <h3 className="accounts-connect-col__title">Deploy connector</h3>
-                  </header>
-                  <p className="accounts-connect-col__lede">
-                    Create the IAM role in your AWS account using one of the methods below.
-                  </p>
-                  <OnboardingDeployPanel
-                    acc={acc}
-                    connectionOptions={connectionOptions}
-                    tab={deployTab}
-                    onTabChange={setDeployTab}
-                    layout="column"
-                  />
-                </section>
-
-                <section
-                  className={`accounts-connect-col accounts-connect-col--trust${roleArnValid ? " accounts-connect-col--trust-ready" : ""}`}
-                >
-                  <header className="accounts-connect-col__head">
-                    <span className="accounts-connect-col__num">2</span>
-                    <h3 className="accounts-connect-col__title">Confirm trust role</h3>
-                  </header>
-                  <p className="accounts-connect-col__lede">
-                    Use the External ID in your deployment, then paste the RoleArn from the stack output.
-                  </p>
-                  <div className="accounts-output-panel accounts-output-panel--trust">
-                    <CopyInputField
-                      variant="connect"
-                      label="External ID"
-                      value={acc.external_id}
-                      helper="Use this value in the connector template to protect the trust relationship."
-                    />
-                    <CopyInputField
-                      variant="connect"
-                      label="RoleArn output"
-                      value={roleArn}
-                      readOnly={false}
-                      placeholder="arn:aws:iam::123456789012:role/VeritrailConnector"
-                      helper="Paste the RoleArn generated by your deployment."
-                      accountId={acc.account_id}
-                      onChange={setRoleArn}
-                      validation={roleArnValidation}
-                      formatHint="Find it in AWS: CloudFormation → Stacks → Veritrail connector → Outputs → RoleArn"
-                    />
-                    {verify.error ? (
-                      <div className="accounts-output-panel__error" role="alert">
-                        {formatApiError(verify.error)}
-                      </div>
-                    ) : null}
-                  </div>
-                </section>
-
-                <section
-                  className={`accounts-connect-col accounts-connect-col--verify${
-                    !roleArnValid && !verify.isPending ? " accounts-connect-col--verify-idle" : ""
-                  }${roleArnValid && !verify.isPending && !verify.isSuccess ? " accounts-connect-col--verify-ready" : ""}`}
-                >
-                  <header className="accounts-connect-col__head">
-                    <span className="accounts-connect-col__num">3</span>
-                    <h3 className="accounts-connect-col__title">Verify access</h3>
-                    {verify.isSuccess || verify.isPending ? (
-                      <span
-                        className={`accounts-connect-col__pill${
-                          verify.isSuccess
-                            ? " accounts-connect-col__pill--verified"
-                            : verify.isPending
-                              ? " accounts-connect-col__pill--testing"
-                              : ""
-                        }`}
-                      >
-                        {verify.isSuccess ? "Verified" : "Testing..."}
-                      </span>
-                    ) : null}
-                  </header>
-                  <p className="accounts-connect-col__lede">
-                    Before saving the account, Veritrail will validate:
-                  </p>
-                  <ul className="accounts-validate accounts-validate--timeline">
-                    {CONNECT_VALIDATE_ITEMS.map((item, index) => {
-                      const state = connectValidateItemState(index, verify, verifyActiveIndex);
-                      return (
-                        <li
-                          key={item.title}
-                          className={`accounts-validate__item accounts-validate__item--${state}${
-                            index < CONNECT_VALIDATE_ITEMS.length - 1 ? " accounts-validate__item--has-line" : ""
-                          }`}
-                        >
-                          <span className="accounts-validate__marker" aria-hidden>
-                            {state === "running" ? (
-                              <span className="accounts-validate__spinner" />
-                            ) : state === "success" ? (
-                              <svg fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                              </svg>
-                            ) : state === "error" ? (
-                              <svg fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                              </svg>
-                            ) : null}
-                          </span>
-                          <div>
-                            <p className="accounts-validate__title">{item.title}</p>
-                            <p className="accounts-validate__desc">{item.desc}</p>
-                          </div>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </section>
-              </div>
-
-
-              <div className="accounts-connect-shell__footer accounts-connect-shell__footer--verify">
-                <button type="button" onClick={() => setActiveStep(2)} className="accounts-connect-shell__back">
-                  <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M11 17l-5-5m0 0 5-5m-5 5h12" />
-                  </svg>
-                  Back to review access
-                </button>
-                <div className="accounts-connect-shell__footer-cta">
-                  {onDismiss ? (
-                    <button
-                      type="button"
-                      onClick={onDismiss}
-                      disabled={verify.isPending}
-                      className="accounts-connect-shell__cancel"
-                    >
-                      Cancel
-                    </button>
-                  ) : null}
-                  <button
-                    type="button"
-                    onClick={onVerifyConnection}
-                    disabled={verify.isPending || !roleArnValid}
-                    className="accounts-connect-shell__cta"
-                  >
-                    {verify.isPending
-                      ? "Testing connection..."
-                      : roleArnValid
-                        ? "Verify →"
-                        : "Verify"}
-                  </button>
-                </div>
-              </div>
-            </>
-          )}
-        </div>
-      </div>
-    </div>
-  );
 }
 
 function DeployMethodTabs({
@@ -3920,207 +2229,6 @@ function DeployMethodTabs({
   );
 }
 
-
-const ONBOARDING_STEPS = [
-  { n: 1, title: "Deploy AWS connector", short: "Launch CloudFormation in your AWS account" },
-  { n: 2, title: "Copy Role ARN", short: "From the stack Outputs tab after deploy completes" },
-  { n: 3, title: "Verify Connection", short: "Paste the Role ARN to connect Veritrail" },
-] as const;
-
-function OnboardingProgress({
-  activeStep,
-  onStepChange,
-}: {
-  activeStep: number;
-  onStepChange: (n: number) => void;
-}) {
-  return (
-    <div className="flex flex-wrap items-center gap-2 sm:gap-0">
-      {ONBOARDING_STEPS.map((step, i) => {
-        const isActive = activeStep === step.n;
-        const isPast = activeStep > step.n;
-        return (
-          <div key={step.n} className="flex items-center">
-            <button
-              type="button"
-              onClick={() => onStepChange(step.n)}
-              className={`flex items-center gap-2 rounded-lg px-2 py-1.5 transition sm:px-3 ${
-                isActive
-                  ? "bg-white shadow-sm ring-1 ring-zinc-200/80"
-                  : isPast
-                    ? "opacity-70 hover:opacity-100"
-                    : "opacity-45 hover:opacity-70"
-              }`}
-            >
-              <span
-                className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
-                  isActive
-                    ? "bg-zinc-900 text-white"
-                    : isPast
-                      ? "bg-emerald-100 text-emerald-700"
-                      : "bg-zinc-200 text-zinc-500"
-                }`}
-              >
-                {isPast ? (
-                  <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                  </svg>
-                ) : (
-                  step.n
-                )}
-              </span>
-              <span
-                className={`hidden text-sm font-semibold sm:inline ${
-                  isActive ? "text-zinc-900" : "text-zinc-500"
-                }`}
-              >
-                {step.title}
-              </span>
-            </button>
-            {i < ONBOARDING_STEPS.length - 1 && (
-              <svg
-                className="mx-1 hidden h-4 w-4 shrink-0 text-zinc-300 sm:block"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-/** Stop step buttons from stealing focus (and scrolling the page) on click. */
-function onboardingStepPointerDown(e: React.PointerEvent) {
-  e.preventDefault();
-}
-
-function InCardAccountSetupWizard({
-  acc,
-  connectionOptions,
-  onConnectionOptionsChange,
-  connectionOptionsSaving,
-  roleArn,
-  setRoleArn,
-  verify,
-  onVerifyConnection,
-  initialStep = 1,
-}: {
-  acc: Account;
-  connectionOptions: ConnectionOptions;
-  onConnectionOptionsChange: (next: ConnectionOptions) => void;
-  connectionOptionsSaving?: boolean;
-  roleArn: string;
-  setRoleArn: (v: string) => void;
-  verify: { mutate: () => void; isPending: boolean; isError: boolean; isSuccess: boolean; error: unknown };
-  onVerifyConnection: () => void;
-  initialStep?: number;
-}) {
-  const [activeStep, setActiveStep] = useState(initialStep);
-  const roleArnValid = isValidIamRoleArn(roleArn);
-  const roleArnValidation = roleArnFieldValidation(roleArn, verify);
-
-  return (
-    <div className="bg-zinc-50/60 px-5 py-5 sm:px-6">
-      <div className="mb-5">
-        <h3 className="text-base font-semibold tracking-tight text-zinc-900">Cloud account setup</h3>
-        <p className="mt-0.5 text-sm text-zinc-500">
-          Choose capabilities, deploy the connector, then verify the scanner role.
-        </p>
-      </div>
-
-      <OnboardingProgress activeStep={activeStep} onStepChange={setActiveStep} />
-
-      <div className="mt-5 min-w-0">
-        {activeStep === 1 && (
-          <div className="space-y-5">
-            <div>
-              <p className="text-sm font-medium text-zinc-900">Deploy the scanner role</p>
-              <p className="mt-0.5 text-sm text-zinc-500">{ONBOARDING_STEPS[0].short}</p>
-            </div>
-            <ConnectionCapabilitiesPicker
-              value={connectionOptions}
-              onChange={onConnectionOptionsChange}
-              disabled={connectionOptionsSaving}
-              acc={acc}
-            />
-            <DeployMethodTabs acc={acc} deployOptions={connectionOptions} />
-            <DeploymentParametersCard externalId={acc.external_id} />
-            <button
-              type="button"
-              onClick={() => setActiveStep(2)}
-              className="text-sm font-semibold text-teal-700 hover:text-teal-800"
-            >
-              I&apos;ve deployed the stack →
-            </button>
-          </div>
-        )}
-
-        {activeStep === 2 && (
-          <div className="space-y-4">
-            <div>
-              <p className="text-sm font-medium text-zinc-900">Role ARN</p>
-              <p className="mt-0.5 text-sm text-zinc-500">
-                CloudFormation stack → Outputs → RoleArn
-              </p>
-            </div>
-            <CopyInputField
-              label="Role ARN"
-              value={roleArn}
-              readOnly={false}
-              accountId={acc.account_id}
-              onChange={setRoleArn}
-              validation={roleArnValidation}
-            />
-            <button
-              type="button"
-              onClick={() => setActiveStep(3)}
-              disabled={!roleArnValid}
-              className="text-sm font-semibold text-teal-700 hover:text-teal-800 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              Continue →
-            </button>
-          </div>
-        )}
-
-        {activeStep === 3 && (
-          <div className="space-y-4">
-            <div>
-              <p className="text-sm font-medium text-zinc-900">Verify connection</p>
-              <p className="mt-0.5 text-sm text-zinc-500">{ONBOARDING_STEPS[2].short}</p>
-            </div>
-            <CopyInputField label="External ID" value={acc.external_id} />
-            <CopyInputField
-              label="Role ARN"
-              value={roleArn}
-              readOnly={false}
-              accountId={acc.account_id}
-              onChange={setRoleArn}
-              validation={roleArnValidation}
-            />
-            <button
-              type="button"
-              onClick={onVerifyConnection}
-              disabled={verify.isPending || !roleArnValid}
-              className={workflowInlineBtn}
-            >
-              {verify.isPending ? "Verifying…" : "Verify connection"}
-            </button>
-            {verify.error ? (
-              <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
-                {formatApiError(verify.error)}
-              </div>
-            ) : null}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
 
 function resolveScanFreshness(lastScanAt: string | null | undefined): {
   freshness: "fresh" | "stale" | "none";
@@ -4924,13 +3032,11 @@ function AccountCard({
   stats,
   expanded,
   onToggle,
-  setupInitialStep = 1,
 }: {
   acc: Account;
   stats: FindingStats | undefined;
   expanded: boolean;
   onToggle: () => void;
-  setupInitialStep?: number;
 }) {
   const qc = useQueryClient();
   const [roleArn, setRoleArn] = useState("");
@@ -4952,7 +3058,6 @@ function AccountCard({
     setDraftCapabilities(accountConnectionOptions(acc));
   }, [
     acc.id,
-    acc.enable_advanced_policy_generation,
     acc.remediation_modules,
     acc.status,
   ]);
@@ -5011,13 +3116,6 @@ function AccountCard({
     patchConnection.mutate(opts);
   }, 450);
 
-  const applyConnectionOptions = (next: ConnectionOptions) => {
-    const locked = enforceDeployedCapabilityLocks(acc, capabilityVerify, next);
-    setSetupConnectionOptions(locked);
-    setDraftCapabilities(locked);
-    debouncedPatchConnection(locked);
-  };
-
   const verifyCapabilities = useMutation({
     mutationFn: () =>
       api<VerifyCapabilitiesResponse>(`/v1/accounts/${acc.id}/verify-capabilities`, {
@@ -5057,27 +3155,6 @@ function AccountCard({
       qc.invalidateQueries({ queryKey: ["accounts"] });
     },
   });
-
-  const connectionOptionsDirty = () => {
-    const saved = accountConnectionOptions(acc);
-    return (
-      setupConnectionOptions.enable_advanced_policy_generation !==
-        saved.enable_advanced_policy_generation ||
-      REMEDIATION_MODULE_SPECS.some(
-        (m) =>
-          setupConnectionOptions.remediation_modules[m.id] !== saved.remediation_modules[m.id],
-      )
-    );
-  };
-
-  const handleVerifyConnection = () => {
-    const runVerify = () => verify.mutate();
-    if (connectionOptionsDirty()) {
-      patchConnection.mutate(setupConnectionOptions, { onSuccess: runVerify });
-      return;
-    }
-    runVerify();
-  };
 
   const remove = useMutation({
     mutationFn: () => api(`/v1/accounts/${acc.id}`, { method: "DELETE" }),
@@ -5270,19 +3347,7 @@ function AccountCard({
         </div>
       </div>
 
-      {showSetup && (
-        <InCardAccountSetupWizard
-          acc={acc}
-          connectionOptions={setupConnectionOptions}
-          onConnectionOptionsChange={applyConnectionOptions}
-          connectionOptionsSaving={patchConnection.isPending}
-          roleArn={roleArn}
-          setRoleArn={setRoleArn}
-          verify={verify}
-          onVerifyConnection={handleVerifyConnection}
-          initialStep={setupInitialStep}
-        />
-      )}
+      {showSetup ? <AwsConnectFlow acc={acc} embedded /> : null}
 
       <ConnectorUpdateModal
         acc={acc}
@@ -5378,20 +3443,22 @@ function AccountRowProviderMark({ provider }: { provider: CloudProvider }) {
 function MetricCardDelta({
   delta,
   betterWhen,
+  muted = false,
 }: {
   delta: number | null;
   betterWhen: BetterWhen;
+  /** Neutral grey — for metrics (e.g. coverage) that shouldn't celebrate next to a poor posture. */
+  muted?: boolean;
 }) {
   if (delta == null || delta === 0) return null;
   const improved = deltaImproved(delta, betterWhen);
+  const toneClass = muted
+    ? " accounts-detail-metric-card__change--muted"
+    : improved
+      ? " accounts-detail-metric-card__change--good"
+      : " accounts-detail-metric-card__change--bad";
   return (
-    <span
-      className={`accounts-detail-metric-card__change${
-        improved
-          ? " accounts-detail-metric-card__change--good"
-          : " accounts-detail-metric-card__change--bad"
-      }`}
-    >
+    <span className={`accounts-detail-metric-card__change${toneClass}`}>
       {formatPercentDelta(delta)}
     </span>
   );
@@ -5589,6 +3656,339 @@ function OverviewMetricLoadingSkeleton() {
   );
 }
 
+type PriorityFindingRow = {
+  id: string;
+  title: string;
+  severity: string;
+  risk_score: number;
+  check_id?: string;
+  last_seen?: string;
+  event_time?: string;
+  is_event: boolean;
+};
+
+function isEventDerivedFinding(checkId: string | undefined): boolean {
+  return !!checkId?.startsWith("cloudtrail.event.");
+}
+
+function eventTimeFromEvidence(evidence: Record<string, unknown> | undefined): string | undefined {
+  const raw = evidence?.event_time;
+  return typeof raw === "string" && raw.trim() ? raw : undefined;
+}
+
+function priorityFindingWhenLabel(finding: PriorityFindingRow): string {
+  if (finding.is_event && finding.event_time) {
+    return `Event · ${new Date(finding.event_time).toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+    })}`;
+  }
+  if (finding.last_seen) return formatRelativeScanAgo(finding.last_seen);
+  return "";
+}
+
+function findingMatchesAccountRow(
+  f: Finding,
+  accountId: string,
+  isAws: boolean,
+  cloud: CloudAccountRow | null,
+): boolean {
+  const accountProvider = (isAws ? "aws" : cloud?.provider ?? "aws").toLowerCase();
+  if (findingScopeProvider(f) !== accountProvider) return false;
+  const accountKey = isAws ? accountId : (cloud?.external_id ?? cloud?.id ?? accountId);
+  return isAws
+    ? f.account_id === accountId
+    : f.account_id === accountKey || f.account_label === accountKey;
+}
+
+function buildAccountPriorityFindings(
+  items: Finding[] | undefined,
+  accountId: string,
+  isAws: boolean,
+  cloud: CloudAccountRow | null,
+): PriorityFindingRow[] {
+  return (items ?? [])
+    .filter((f) => {
+      if (!findingMatchesAccountRow(f, accountId, isAws, cloud)) return false;
+      if (isEventDerivedFinding(f.check_id)) return false;
+      const sev = (f.severity || "").toLowerCase();
+      return sev === "critical" || sev === "high";
+    })
+    .sort((a, b) => {
+      const risk = b.risk_score - a.risk_score;
+      if (risk !== 0) return risk;
+      const aMs = a.last_seen ? new Date(a.last_seen).getTime() : 0;
+      const bMs = b.last_seen ? new Date(b.last_seen).getTime() : 0;
+      return bMs - aMs;
+    })
+    .slice(0, 5)
+    .map((f) => ({
+      id: f.id,
+      title: f.title,
+      severity: f.severity,
+      risk_score: f.risk_score,
+      check_id: f.check_id,
+      last_seen: f.last_seen,
+      event_time: eventTimeFromEvidence(f.evidence as Record<string, unknown> | undefined),
+      is_event: isEventDerivedFinding(f.check_id),
+    }));
+}
+
+function priorityFindingServiceLabel(checkId: string | undefined): string | null {
+  if (!checkId) return null;
+  if (checkId.startsWith("cloudtrail.event.")) {
+    const topic = checkId.split(".")[2] ?? "";
+    if (topic.startsWith("kms")) return "KMS";
+  }
+  return serviceForCheck(checkId)?.label ?? null;
+}
+
+function OverviewInsightsGrid({
+  accountId,
+  stats,
+  hasScanned,
+  loading = false,
+  priorityFindings,
+  recentScanRows,
+  recentActivity,
+  onViewScans,
+  onViewScanRow,
+}: {
+  accountId: string;
+  stats: FindingStats;
+  hasScanned: boolean;
+  loading?: boolean;
+  priorityFindings: PriorityFindingRow[];
+  recentScanRows: RecentScanDisplayRow[];
+  recentActivity: HistoryEvent[];
+  onViewScans: () => void;
+  onViewScanRow?: (row: RecentScanDisplayRow) => void;
+}) {
+  const navigate = useNavigate();
+  const actions = useMemo(() => buildRecommendedActions(stats).slice(0, 3), [stats]);
+
+  const viewHighFindings = () => {
+    navigate(`/findings?account_id=${encodeURIComponent(accountId)}`);
+  };
+
+  const openFinding = (finding: PriorityFindingRow) => {
+    navigate(`/findings?account_id=${encodeURIComponent(accountId)}&finding=${encodeURIComponent(finding.id)}`);
+  };
+
+  if (loading) {
+    return (
+      <div className="accounts-detail-overview__grid" aria-hidden>
+        <div className="accounts-detail-overview__card accounts-detail-overview__card--skeleton animate-pulse" />
+        <div className="accounts-detail-overview__card accounts-detail-overview__card--skeleton animate-pulse" />
+        <div className="accounts-detail-overview__card accounts-detail-overview__card--skeleton animate-pulse" />
+        <div className="accounts-detail-overview__card accounts-detail-overview__card--skeleton animate-pulse" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="accounts-detail-overview__grid" aria-label="Account insights">
+      <section className="accounts-detail-overview__card accounts-detail-overview__card--findings">
+        <div className="accounts-detail-overview__card-header">
+          <h3 className="accounts-detail-overview__card-title">Priority findings</h3>
+          {priorityFindings.length > 0 ? (
+            <span className="accounts-detail-overview__card-badge" aria-label={`${priorityFindings.length} findings`}>
+              {priorityFindings.length}
+            </span>
+          ) : null}
+        </div>
+        {priorityFindings.length > 0 ? (
+          <>
+            <div className="accounts-detail-overview__card-body">
+              <ul className="accounts-detail-overview__list accounts-detail-overview__list--findings">
+                {priorityFindings.map((finding) => {
+                  const serviceLabel = priorityFindingServiceLabel(finding.check_id);
+                  const whenLabel = priorityFindingWhenLabel(finding);
+                  const severityKey = (finding.severity || "").toLowerCase();
+                  return (
+                    <li key={finding.id}>
+                      <button
+                        type="button"
+                        className="accounts-detail-overview__list-row accounts-detail-overview__list-row--findings"
+                        onClick={() => openFinding(finding)}
+                      >
+                        <span className="accounts-detail-overview__severity-cell">
+                          <span
+                            className={`accounts-detail-overview__severity-dot accounts-detail-overview__severity-dot--${severityKey}`}
+                            title={finding.severity}
+                            aria-hidden
+                          />
+                          <span className="sr-only">{finding.severity} severity</span>
+                        </span>
+                        <span className="accounts-detail-overview__service-cell">
+                          {serviceLabel ? (
+                            <span className="accounts-detail-overview__service-tag">{serviceLabel}</span>
+                          ) : (
+                            <span className="accounts-detail-overview__service-empty">—</span>
+                          )}
+                        </span>
+                        <span className="accounts-detail-overview__list-label">{finding.title}</span>
+                        {whenLabel ? (
+                          <span className="accounts-detail-overview__list-meta">{whenLabel}</span>
+                        ) : null}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+              <button type="button" className="accounts-detail-overview__footer-link" onClick={viewHighFindings}>
+                View all findings →
+              </button>
+            </div>
+          </>
+        ) : (
+          <div className="accounts-detail-overview__card-body">
+            <p className="accounts-detail-overview__card-empty">
+              {hasScanned ? "No high-severity findings right now." : "Run a scan to surface priority findings."}
+            </p>
+          </div>
+        )}
+      </section>
+
+      <section className="accounts-detail-overview__card accounts-detail-overview__card--actions">
+        <div className="accounts-detail-overview__card-header">
+          <h3 className="accounts-detail-overview__card-title">Recommended next actions</h3>
+          {hasScanned && actions.length > 0 ? (
+            <span className="accounts-detail-overview__card-badge" aria-label={`${actions.length} actions`}>
+              {actions.length}
+            </span>
+          ) : null}
+        </div>
+        <div className="accounts-detail-overview__card-body">
+          {!hasScanned ? (
+            <p className="accounts-detail-overview__card-empty">Run a scan first</p>
+          ) : actions.length > 0 ? (
+            <>
+              <ul className="accounts-detail-overview__list accounts-detail-overview__list--actions">
+                {actions.map((action, index) => (
+                  <li key={action.id} className="accounts-detail-overview__action-row">
+                    <span className="accounts-detail-overview__action-label">{action.label}</span>
+                    {index === 0 ? (
+                      <span className="accounts-detail-overview__action-detail">{action.detail}</span>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+              {stats.critHigh > 0 ? (
+                <button type="button" className="accounts-detail-overview__footer-link" onClick={viewHighFindings}>
+                  View high findings →
+                </button>
+              ) : null}
+            </>
+          ) : (
+            <p className="accounts-detail-overview__card-empty">No recommended actions — posture looks clean.</p>
+          )}
+        </div>
+      </section>
+
+      <section className="accounts-detail-overview__card accounts-detail-overview__card--scans">
+        <div className="accounts-detail-overview__card-header">
+          <h3 className="accounts-detail-overview__card-title">Recent scans</h3>
+        </div>
+        <div className="accounts-detail-overview__card-body">
+          {recentScanRows.length > 0 ? (
+            <>
+              <ul className="accounts-detail-overview__scans">
+                {recentScanRows.map((row) => (
+                  <li key={row.key}>
+                    <div className="accounts-detail-overview__scan-row">
+                      <span
+                        className={`accounts-detail-overview__scan-mark${row.succeeded ? "" : " accounts-detail-overview__scan-mark--failed"}`}
+                        aria-hidden
+                      >
+                        {row.succeeded ? (
+                          <svg fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="m5 12 4 4L19 6" />
+                          </svg>
+                        ) : (
+                          <svg fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 6l12 12M18 6 6 18" />
+                          </svg>
+                        )}
+                      </span>
+                      <div className="accounts-detail-overview__scan-when">
+                        <span className="accounts-detail-overview__scan-date">{scanDayLabel(row.timestamp)}</span>
+                        <span className="accounts-detail-overview__scan-ago">{formatRelativeScanAgo(row.timestamp)}</span>
+                      </div>
+                      <span className="accounts-detail-overview__scan-resources">
+                        {scanResourcesLabel(row.resourcesScanned, hasScanned)}
+                      </span>
+                      <div className="accounts-detail-overview__scan-findings">
+                        <span className="accounts-detail-overview__scan-finding accounts-detail-overview__scan-finding--high">
+                          <i aria-hidden />
+                          {hasScanned ? stats.critHigh : "—"}
+                        </span>
+                        <span className="accounts-detail-overview__scan-finding accounts-detail-overview__scan-finding--medium">
+                          <i aria-hidden />
+                          {hasScanned ? stats.medium : "—"}
+                        </span>
+                        <span className="accounts-detail-overview__scan-finding accounts-detail-overview__scan-finding--low">
+                          <i aria-hidden />
+                          {hasScanned ? stats.low : "—"}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        className="accounts-detail-overview__scan-view"
+                        onClick={() => (onViewScanRow ? onViewScanRow(row) : onViewScans())}
+                      >
+                        View
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+              <button type="button" className="accounts-detail-overview__footer-link" onClick={onViewScans}>
+                View all scans →
+              </button>
+            </>
+          ) : (
+            <p className="accounts-detail-overview__card-empty">
+              {hasScanned ? "No recent scans recorded." : "Run a scan to populate scan history."}
+            </p>
+          )}
+        </div>
+      </section>
+
+      <section className="accounts-detail-overview__card accounts-detail-overview__card--activity">
+        <div className="accounts-detail-overview__card-header">
+          <h3 className="accounts-detail-overview__card-title">Recent activity</h3>
+        </div>
+        <div className="accounts-detail-overview__card-body">
+          {recentActivity.length > 0 ? (
+            <>
+              <ul className="accounts-detail-overview__list">
+                {recentActivity.slice(0, 4).map((event) => (
+                  <li key={`${event.scan_run_id}-${event.timestamp}`} className="accounts-detail-overview__list-row">
+                    <span className="accounts-detail-overview__list-label">{activityEventLabel(event)}</span>
+                    <span className="accounts-detail-overview__list-meta">{formatActivityAgo(event.timestamp)}</span>
+                  </li>
+                ))}
+              </ul>
+              <button
+                type="button"
+                className="accounts-detail-overview__footer-link"
+                onClick={() => navigate(`/history?account_id=${encodeURIComponent(accountId)}`)}
+              >
+                View all activity →
+              </button>
+            </>
+          ) : (
+            <p className="accounts-detail-overview__card-empty">
+              {hasScanned ? "No recent change events." : "Activity appears after your first scan."}
+            </p>
+          )}
+        </div>
+      </section>
+    </div>
+  );
+}
+
 function SecurityScoreCard({
   score,
   stats,
@@ -5657,194 +4057,6 @@ function SecurityScoreCard({
   );
 }
 
-function findingsForAccountScope(
-  items: Finding[] | undefined,
-  accountId: string,
-  isAws: boolean,
-  cloud: CloudAccountRow | null,
-): Finding[] {
-  if (isAws) {
-    return (items ?? []).filter((finding) => finding.account_id === accountId);
-  }
-  const externalId = cloud?.external_id ?? cloud?.id ?? accountId;
-  return (items ?? []).filter((finding) => {
-    if (finding.account_provider !== cloud?.provider) return false;
-    if (finding.account_id === externalId || finding.account_id === accountId) return true;
-    if (finding.account_label && cloud && finding.account_label.toLowerCase() === cloud.label.toLowerCase()) {
-      return true;
-    }
-    const evidence = finding.evidence ?? {};
-    if (typeof evidence.project_id === "string" && evidence.project_id === externalId) return true;
-    if (typeof evidence.subscription_id === "string" && evidence.subscription_id === externalId) return true;
-    return false;
-  });
-}
-
-function filterOpenFindingsForAccount(
-  items: Finding[] | undefined,
-  accountId: string,
-  isAws: boolean,
-  cloud: CloudAccountRow | null,
-): Finding[] {
-  return findingsForAccountScope(items, accountId, isAws, cloud).filter(
-    (finding) => finding.status === "open",
-  );
-}
-
-function worstFindingSeverity(items: Finding[]): string {
-  return items.reduce(
-    (worst, f) => ((sevWeight[f.severity] ?? 9) < (sevWeight[worst] ?? 9) ? f.severity : worst),
-    items[0]?.severity ?? "low",
-  );
-}
-
-function uniqueFindingResourceCount(items: Finding[]): number {
-  return new Set(items.map((f) => f.resource_arn).filter(Boolean)).size;
-}
-
-function buildAccountFindingGroups(items: Finding[]): Array<{ key: string; items: Finding[] }> {
-  const map = new Map<string, Finding[]>();
-  for (const f of items) {
-    const key = findingDisplayGroupKey(f.check_id);
-    map.set(key, [...(map.get(key) ?? []), f]);
-  }
-  return [...map.entries()]
-    .sort(([, a], [, b]) => {
-      const wa = worstFindingSeverity(a);
-      const wb = worstFindingSeverity(b);
-      return (
-        (sevWeight[wa] ?? 9) - (sevWeight[wb] ?? 9) ||
-        Math.max(...b.map((f) => f.risk_score)) - Math.max(...a.map((f) => f.risk_score))
-      );
-    })
-    .map(([key, groupItems]) => ({ key, items: groupItems }));
-}
-
-function findingGroupTitle(groupKey: string, items: Finding[]): string {
-  return (
-    findingGroupMeta(groupKey)?.title ??
-    checkLabels[groupKey] ??
-    checkLabels[items[0]?.check_id ?? ""] ??
-    items[0]?.title ??
-    groupKey
-  );
-}
-
-function riskScorePillTone(severity: string): string {
-  return severity === "critical" || severity === "high"
-    ? "findings-v2-risk-pill--high"
-    : severity === "medium"
-      ? "findings-v2-risk-pill--medium"
-      : "findings-v2-risk-pill--low";
-}
-
-function RiskScorePill({ score, severity }: { score: number; severity: string }) {
-  return (
-    <span aria-label={`Risk score ${score}`} className={`findings-v2-risk-pill ${riskScorePillTone(severity)}`}>
-      <span className="findings-v2-risk-pill__inner">{score}</span>
-    </span>
-  );
-}
-
-function AccountDetailFindingsTab({
-  accountId,
-  hasScanned,
-  openCount,
-  findings,
-  onOpenWorkspace,
-  onOpenGroup,
-}: {
-  accountId: string;
-  hasScanned: boolean;
-  openCount: number;
-  findings: Finding[];
-  onOpenWorkspace: () => void;
-  onOpenGroup: (groupKey: string) => void;
-}) {
-  const groups = useMemo(() => buildAccountFindingGroups(findings), [findings]);
-  const previewGroups = groups.slice(0, DETAIL_FINDINGS_GROUP_LIMIT);
-  const hiddenGroupCount = Math.max(0, groups.length - previewGroups.length);
-
-  if (!hasScanned) {
-    return (
-      <div className="accounts-detail-findings accounts-detail-findings--empty">
-        <p className="accounts-detail-findings__empty-title">No findings yet</p>
-        <p className="accounts-detail-findings__empty-body">Run a scan to populate findings for this account.</p>
-      </div>
-    );
-  }
-
-  if (openCount === 0) {
-    return (
-      <div className="accounts-detail-findings accounts-detail-findings--empty">
-        <p className="accounts-detail-findings__empty-title">No open findings</p>
-        <p className="accounts-detail-findings__empty-body">
-          This account has a clean bill of health from the latest scan.
-        </p>
-        <button type="button" className="accounts-detail-findings__workspace-link" onClick={onOpenWorkspace}>
-          Open Findings workspace
-        </button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="accounts-detail-findings">
-      <div className="accounts-detail-findings__head">
-        <div
-          className="findings-v2-col-head accounts-detail-findings__col-head"
-          role="row"
-          aria-label="Findings columns"
-        >
-          <span>Severity</span>
-          <span>Finding</span>
-          <span className="accounts-detail-findings__col-head-risk">Risk</span>
-        </div>
-      </div>
-      <div className="accounts-detail-findings__list">
-        {previewGroups.map(({ key, items }) => {
-          const sev = worstFindingSeverity(items);
-          const railClass =
-            sev === "critical" || sev === "high" || sev === "medium" || sev === "low"
-              ? `accounts-detail-finding-row--${sev}`
-              : "accounts-detail-finding-row--low";
-          const title = findingGroupTitle(key, items);
-          const resourceCount = uniqueFindingResourceCount(items);
-          const topRisk = Math.max(...items.map((f) => f.risk_score));
-          return (
-            <button
-              key={key}
-              type="button"
-              className={`accounts-detail-finding-row ${railClass}`}
-              onClick={() => onOpenGroup(key)}
-            >
-              <span className="accounts-detail-finding-row__severity-cell">
-                <SeverityIndicator severity={sev} />
-              </span>
-              <span className="accounts-detail-finding-row__main">
-                <span className="accounts-detail-finding-row__title">{title}</span>
-                {resourceCount > 0 ? (
-                  <span className="accounts-detail-finding-row__resources">
-                    · {resourceCount} {resourceCount === 1 ? "resource" : "resources"}
-                  </span>
-                ) : null}
-              </span>
-              <RiskScorePill score={topRisk} severity={sev} />
-            </button>
-          );
-        })}
-      </div>
-      {hiddenGroupCount > 0 ? (
-        <div className="accounts-detail-recent-scans__footer">
-          <button type="button" onClick={onOpenWorkspace}>
-            View all in Findings workspace →
-          </button>
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
 function countAccountResources(
   items: Finding[] | undefined,
   accountKey: string,
@@ -5874,14 +4086,6 @@ function formatDetailDateTime(iso: string): string {
     minute: "2-digit",
   });
 }
-
-const DETAIL_TABS: { id: DetailTab; label: string }[] = [
-  { id: "overview", label: "Overview" },
-  { id: "findings", label: "Findings" },
-  { id: "scans", label: "Scans" },
-  { id: "resources", label: "Resources" },
-  { id: "settings", label: "Settings" },
-];
 
 function DetailTabStub({ title, body, action }: { title: string; body: string; action?: ReactNode }) {
   return (
@@ -5921,7 +4125,7 @@ function AccountSplitDetailPane({
 }) {
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const [tab, setTab] = useState<DetailTab>("overview");
+  const [showAccountSettings, setShowAccountSettings] = useState(false);
 
   const isAws = row.kind === "aws";
   const acc = isAws ? row.account : null;
@@ -5957,7 +4161,6 @@ function AccountSplitDetailPane({
   }, [
     isAws,
     acc?.id,
-    acc?.enable_advanced_policy_generation,
     acc?.remediation_modules,
     acc?.status,
   ]);
@@ -5971,6 +4174,7 @@ function AccountSplitDetailPane({
     backgroundPollMs: 5000,
     onScanComplete: () => {
       qc.invalidateQueries({ queryKey: ["findings-snapshot-all"] });
+      qc.invalidateQueries({ queryKey: ["findings"] });
       qc.invalidateQueries({ queryKey: ["controls"] });
       qc.invalidateQueries({ queryKey: ["accounts"] });
       qc.invalidateQueries({ queryKey: ["accounts-scan-stats"] });
@@ -5987,6 +4191,7 @@ function AccountSplitDetailPane({
       onScanComplete: () => {
         qc.invalidateQueries({ queryKey: ["cloud-accounts"] });
         qc.invalidateQueries({ queryKey: ["findings-snapshot-all"] });
+        qc.invalidateQueries({ queryKey: ["findings"] });
         qc.invalidateQueries({ queryKey: ["cloud-scan-runs", cloud!.provider, accountId] });
         qc.invalidateQueries({ queryKey: ["cloud-scan-run-latest", cloud!.provider, accountId] });
         qc.invalidateQueries({ queryKey: ["cloud-account-overview", cloud!.provider, accountId] });
@@ -6093,11 +4298,6 @@ function AccountSplitDetailPane({
       (cloudOverviewQ.isPending || cloudOverviewPrevQ.isPending || cloudScanHistoryQ.isPending));
 
   const displayStats = overviewMetricsLoading ? undefined : (stats ?? EMPTY_FINDING_STATS);
-
-  const accountFindings = useMemo(
-    () => filterOpenFindingsForAccount(findingsItems, accountId, isAws, cloud),
-    [findingsItems, accountId, isAws, cloud],
-  );
 
   const patchConnection = useMutation({
     mutationFn: (opts: ConnectionOptions) =>
@@ -6217,7 +4417,6 @@ function AccountSplitDetailPane({
     if (!hasScanned || !displayStats || overviewMetricsLoading) return null;
     return computeSecurityScore(displayStats, coveragePct, lastScanAt);
   }, [hasScanned, displayStats, coveragePct, lastScanAt, overviewMetricsLoading]);
-  const recentScans = (historyQ.data?.events ?? []).slice(0, 3);
   const recentScanRows = useMemo(
     () =>
       buildRecentScanRows(
@@ -6230,17 +4429,42 @@ function AccountSplitDetailPane({
       ).slice(0, 3),
     [isAws, hasScanned, lastScanAt, historyQ.data?.events, cloudScanHistoryQ.data, resourceCount],
   );
-  const cloudScanTabRows = useMemo(
+  const recentActivity = useMemo(
     () =>
-      buildRecentScanRows(
-        false,
-        hasScanned,
-        lastScanAt,
-        [],
-        cloudScanHistoryQ.data,
-        hasScanned ? resourceCount : null,
-      ),
-    [hasScanned, lastScanAt, cloudScanHistoryQ.data, resourceCount],
+      (historyQ.data?.events ?? [])
+        .filter((event) => event.type !== "baseline_established")
+        .slice(0, 5),
+    [historyQ.data?.events],
+  );
+  const priorityFindings = useMemo(
+    () => buildAccountPriorityFindings(findingsItems, accountId, isAws, cloud),
+    [findingsItems, accountId, isAws, cloud],
+  );
+  const accountBlockerFindings = useMemo(
+    () =>
+      (findingsItems ?? [])
+        .filter(
+          (f) =>
+            findingMatchesAccountRow(f, accountId, isAws, cloud) &&
+            (f.status ?? "open") === "open",
+        )
+        .map((f) => ({
+          id: f.id,
+          check_id: f.check_id,
+          severity: f.severity,
+          status: f.status ?? "open",
+        })),
+    [findingsItems, accountId, isAws, cloud],
+  );
+  const scanTimelineRows = useMemo(
+    () =>
+      recentScanRows.map((row) => ({
+        key: row.key,
+        timestamp: row.timestamp,
+        text: scanRowToTimelineText(row.succeeded, row.resourcesScanned),
+        dotGreen: row.succeeded,
+      })),
+    [recentScanRows],
   );
   const complianceTrendPoints = useMemo(() => {
     if (isAws) return postureTrendSeries(historyQ.data);
@@ -6312,55 +4536,6 @@ function AccountSplitDetailPane({
     cloudOverviewPrevQ.data,
   ]);
 
-  const capabilityRows: {
-    id: "core" | "iam" | "ssm";
-    name: string;
-    desc: string;
-    status: "enabled" | "disabled" | "coming-soon";
-  }[] = isAws
-    ? [
-        {
-          id: "core",
-          name: "Core scanner",
-          desc: "Continuous security and compliance scanning",
-          status: connected ? "enabled" : "disabled",
-        },
-        {
-          id: "iam",
-          name: "Policy generation",
-          desc: "IAM least-privilege recommendations",
-          status: acc!.enable_advanced_policy_generation ? "enabled" : "disabled",
-        },
-        {
-          id: "ssm",
-          name: "SSM remediation",
-          desc: "Scoped automated fixes with approvals",
-          status: anyRemediationEnabled(acc!.remediation_modules ?? DEFAULT_REMEDIATION_MODULES)
-            ? "enabled"
-            : "disabled",
-        },
-      ]
-    : [
-        {
-          id: "core",
-          name: "Core scanner",
-          desc: "Continuous security and compliance scanning",
-          status: connected ? "enabled" : "disabled",
-        },
-        {
-          id: "iam",
-          name: "Policy generation",
-          desc: "IAM least-privilege recommendations",
-          status: "coming-soon",
-        },
-        {
-          id: "ssm",
-          name: "Automated remediation",
-          desc: "Scoped automated fixes with approvals",
-          status: "coming-soon",
-        },
-      ];
-
   if (!connected) {
     return (
       <div className="accounts-detail-pane">
@@ -6426,449 +4601,163 @@ function AccountSplitDetailPane({
               <div className="accounts-detail-pane__meta">
                 <span>{displayId}</span>
                 <CopyIdButton text={displayId} />
+                {connected ? (
+                  <span className="accounts-detail-pane__status">
+                    <span className="accounts-detail-pane__status-dot" aria-hidden />
+                    Connected
+                  </span>
+                ) : null}
+              </div>
+            ) : connected ? (
+              <div className="accounts-detail-pane__meta">
+                <span className="accounts-detail-pane__status">
+                  <span className="accounts-detail-pane__status-dot" aria-hidden />
+                  Connected
+                </span>
               </div>
             ) : null}
           </div>
         </div>
         <div className="accounts-detail-pane__actions">
-          <button
-            type="button"
-            className="accounts-detail-header__scan-btn"
-            onClick={handleScan}
-            disabled={scanBusy}
-          >
-            <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2.1} viewBox="0 0 24 24" aria-hidden>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 5.25v13.5L18 12 7.5 5.25Z" />
-            </svg>
-            {scanBusy ? "Scanning…" : "Scan now"}
-          </button>
-          <AccountDetailOverflowMenu
-            onViewFindings={() => setTab("findings")}
-            onManageConnection={() =>
-              isAws
-                ? setShowConnectorUpdate(true)
-                : navigate(cloudIntegrationPath(cloud!.provider))
-            }
-            onEditAccount={() => {
-              setTab("settings");
-              if (isAws) setShowManageCapabilities(true);
-            }}
-          />
+          <div className="accounts-detail-pane__actions-row">
+            <button
+              type="button"
+              className="accounts-detail-header__scan-btn"
+              onClick={handleScan}
+              disabled={scanBusy}
+            >
+              <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2.1} viewBox="0 0 24 24" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 5.25v13.5L18 12 7.5 5.25Z" />
+              </svg>
+              {scanBusy ? "Scanning…" : "Scan now"}
+            </button>
+            <AccountDetailOverflowMenu
+              onViewFindings={() =>
+                navigate(`/findings?account_id=${encodeURIComponent(accountId)}`)
+              }
+              onManageConnection={() =>
+                isAws
+                  ? setShowConnectorUpdate(true)
+                  : navigate(cloudIntegrationPath(cloud!.provider))
+              }
+              onEditAccount={() => {
+                if (isAws) {
+                  setShowAccountSettings(true);
+                  setShowManageCapabilities(true);
+                } else {
+                  navigate(cloudIntegrationPath(cloud!.provider));
+                }
+              }}
+            />
+          </div>
+          {hasScanned && lastScanAt ? (
+            <p className="accounts-detail-pane__last-scan" title={formatLastScanTimestamp(lastScanAt)}>
+              Last scan · {formatRelativeScanAgo(lastScanAt)}
+            </p>
+          ) : null}
         </div>
       </div>
 
-      <div className="accounts-detail-pane__tabs" role="tablist">
-        {DETAIL_TABS.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            role="tab"
-            aria-selected={tab === t.id}
-            className={`accounts-detail-pane__tab${tab === t.id ? " is-active" : ""}`}
-            onClick={() => setTab(t.id)}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
-
       <div className="accounts-detail-pane__body">
-        {tab === "overview" && (
+        {showAccountSettings && isAws && acc ? (
           <>
-            <div className="accounts-detail-overview__metrics" aria-label="Account overview metrics">
-              <div className="accounts-detail-overview__metric accounts-detail-overview__metric--security">
-                <p className="accounts-detail-overview__metric-label">
-                  Security score
-                  <MetricHelpTip metric="Security score" text={SECURITY_SCORE_HELP} />
-                </p>
-                <SecurityScoreCard
-                  score={securityScore}
-                  stats={displayStats}
-                  coveragePct={coveragePct}
-                  lastScanAt={lastScanAt}
-                  hasScanned={hasScanned}
-                  loading={overviewMetricsLoading}
-                />
-              </div>
-              <div className="accounts-detail-overview__metric">
-                <p className="accounts-detail-overview__metric-label">
-                  SOC 2 readiness
-                  <MetricHelpTip metric="SOC 2 readiness" text={SOC2_READINESS_HELP} />
-                </p>
-                {overviewMetricsLoading ? (
-                  <OverviewMetricLoadingSkeleton />
-                ) : (
-                  <>
-                <div className="accounts-detail-overview__metric-value-row">
-                  <p className="accounts-detail-overview__metric-value">
-                    {hasScanned && compliancePct != null ? `${compliancePct}%` : "—"}
-                  </p>
-                  {hasScanned && compliancePct != null ? (
-                    <MetricCardDelta delta={complianceDelta} betterWhen="up" />
-                  ) : null}
-                </div>
-                {!hasScanned ? (
-                  <p className="accounts-detail-overview__metric-detail">Run a scan first</p>
-                ) : (
-                  <div className="accounts-detail-overview__metric-footer">
-                    {soc2PhaseLabel ? (
-                      <p className="accounts-detail-overview__metric-phase">{soc2PhaseLabel}</p>
-                    ) : null}
-                    <p className="accounts-detail-overview__metric-detail">
-                      {soc2CheckSummary
-                        ? `${soc2CheckSummary.passed.toLocaleString()} passing · ${soc2CheckSummary.pending.toLocaleString()} pending`
-                        : "Awaiting control mapping"}
-                    </p>
-                  </div>
-                )}
-                  </>
-                )}
-              </div>
-              <div className="accounts-detail-overview__metric">
-                <p className="accounts-detail-overview__metric-label">
-                  Evidence coverage
-                  <MetricHelpTip metric="Evidence coverage" text={COVERAGE_METRIC_HELP} />
-                </p>
-                {overviewMetricsLoading ? (
-                  <OverviewMetricLoadingSkeleton />
-                ) : (
-                  <>
-                <div className="accounts-detail-overview__metric-value-row">
-                  <p className="accounts-detail-overview__metric-value">
-                    {coveragePct != null ? `${coveragePct}%` : "—"}
-                  </p>
-                  {hasScanned && coveragePct != null ? (
-                    <MetricCardDelta delta={coverageDelta} betterWhen="up" />
-                  ) : null}
-                </div>
-                {hasScanned && coveragePct != null ? (
-                  <div
-                    className="accounts-detail-overview__progress"
-                    role="progressbar"
-                    aria-valuenow={coveragePct}
-                    aria-valuemin={0}
-                    aria-valuemax={100}
-                    aria-label="Evidence coverage"
-                  >
-                    <div
-                      className="accounts-detail-overview__progress-fill"
-                      style={{ width: `${Math.min(100, coveragePct)}%` }}
-                    />
-                  </div>
-                ) : null}
-                <p className="accounts-detail-overview__metric-detail">
-                  {hasScanned ? "Evidence window · last 7 days" : "Run a scan first"}
-                </p>
-                  </>
-                )}
-              </div>
-            </div>
-
-            <div className="accounts-detail-overview__lower">
-              <div className="accounts-detail-capabilities">
-                <h3 className="accounts-detail-capabilities__title">Connected capabilities</h3>
-                {capabilityRows.map((cap) => {
-                  const onboardingCap = ONBOARDING_CAP_BY_ID[cap.id] ?? ONBOARDING_CAPS[0];
-                  const iconClassName =
-                    "accounts-detail-capability-row__icon accounts-detail-capability-row__icon--neutral";
-                  return (
-                    <div className="accounts-detail-capability-row" key={cap.name}>
-                      {cap.id === "iam" ? (
-                        <PolicyGenerationCapIcon className={iconClassName} title="Policy generation" />
-                      ) : (
-                        <OnboardingCapIcon
-                          cap={onboardingCap}
-                          className={iconClassName}
-                          title={onboardingCap.title}
-                        />
-                      )}
-                      <div className="min-w-0">
-                        <p className="accounts-detail-capability-row__name">{cap.name}</p>
-                        <p className="accounts-detail-capability-row__desc">{cap.desc}</p>
-                      </div>
-                      <span
-                        className={`accounts-detail-capability-row__status accounts-detail-capability-row__status--${cap.status}`}
-                      >
-                        <span className="accounts-detail-capability-row__status-dot" aria-hidden />
-                        {cap.status === "enabled"
-                          ? "Enabled"
-                          : cap.status === "coming-soon"
-                            ? "Coming soon"
-                            : "Off"}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {recentScanRows.length > 0 ? (
-              <div className="accounts-detail-recent-scans">
-                <div className="accounts-detail-recent-scans__head">
-                  <h3 className="accounts-detail-recent-scans__title">Recent scans</h3>
-                </div>
-                {recentScanRows.map((row) => (
-                  <div className="accounts-detail-scan-row" key={row.key}>
-                    <span className={`accounts-detail-scan-row__mark ${row.succeeded ? "is-success" : "is-failed"}`} aria-hidden>
-                      {row.succeeded ? (
-                        <svg fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="m5 12 4 4L19 6" />
-                        </svg>
-                      ) : (
-                        <svg fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 6l12 12M18 6 6 18" />
-                        </svg>
-                      )}
-                    </span>
-                    <div className="accounts-detail-scan-row__when-block">
-                      <p className="accounts-detail-scan-row__when">{scanDayLabel(row.timestamp)}</p>
-                      <p className="accounts-detail-scan-row__ago">{formatRelativeScanAgo(row.timestamp)}</p>
-                    </div>
-                    <div className="accounts-detail-scan-row__meta">
-                      <p className="accounts-detail-scan-row__resources">
-                        {scanResourcesLabel(row.resourcesScanned, hasScanned)}
-                      </p>
-                      {hasScanned && displayStats ? (
-                        <div className="accounts-detail-scan-row__findings">
-                          <span className="accounts-detail-scan-row__finding accounts-detail-scan-row__finding--high">
-                            <i aria-hidden />
-                            <span className="accounts-detail-scan-row__finding-count">{displayStats.critHigh}</span>
-                          </span>
-                          <span className="accounts-detail-scan-row__finding accounts-detail-scan-row__finding--medium">
-                            <i aria-hidden />
-                            <span className="accounts-detail-scan-row__finding-count">{displayStats.medium}</span>
-                          </span>
-                          <span className="accounts-detail-scan-row__finding accounts-detail-scan-row__finding--low">
-                            <i aria-hidden />
-                            <span className="accounts-detail-scan-row__finding-count">{displayStats.low}</span>
-                          </span>
-                        </div>
-                      ) : hasScanned ? (
-                        <div className="accounts-detail-scan-row__findings accounts-detail-scan-row__findings--placeholder" aria-hidden />
-                      ) : (
-                        <div className="accounts-detail-scan-row__findings accounts-detail-scan-row__findings--placeholder" aria-hidden />
-                      )}
-                    </div>
-                    <button
-                      type="button"
-                      className="accounts-detail-scan-row__view"
-                      onClick={() =>
-                        isAws
-                          ? navigate(`/history?account_id=${accountId}`)
-                          : setTab("scans")
-                      }
-                    >
-                      View
-                    </button>
-                  </div>
-                ))}
-                {isAws ? (
-                  <div className="accounts-detail-recent-scans__footer">
-                    <button type="button" onClick={() => navigate(`/history?account_id=${accountId}`)}>
-                      View all scans →
-                    </button>
-                  </div>
-                ) : recentScanRows.length > 1 ? (
-                  <div className="accounts-detail-recent-scans__footer">
-                    <button type="button" onClick={() => setTab("scans")}>
-                      View all scans →
-                    </button>
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
-          </>
-        )}
-
-        {tab === "findings" && (
-          <AccountDetailFindingsTab
-            accountId={accountId}
-            hasScanned={hasScanned}
-            openCount={displayStats?.open ?? 0}
-            findings={accountFindings}
-            onOpenWorkspace={() => navigate(`/findings?account=${accountId}`)}
-            onOpenGroup={(groupKey) =>
-              navigate(`/findings?account=${accountId}&checks=${encodeURIComponent(groupKey)}`)
-            }
-          />
-        )}
-
-        {tab === "scans" && (
-          isAws ? (
-            <DetailTabStub
-              title="Scan history"
-              body={
-                recentScans.length > 0
-                  ? `${recentScans.length} recent scan${recentScans.length === 1 ? "" : "s"} in the last 30 days.`
-                  : "Scan history appears after your first completed scan."
-              }
-              action={
-                <button
-                  type="button"
-                  className="accounts-detail-quick-actions__primary"
-                  onClick={() => navigate(`/history?account_id=${accountId}`)}
-                >
-                  View scan history
-                </button>
-              }
-            />
-          ) : cloudScanTabRows.length > 0 ? (
-            <div className="accounts-detail-recent-scans">
-              <div className="accounts-detail-recent-scans__head">
-                <h3 className="accounts-detail-recent-scans__title">Scan history</h3>
-              </div>
-              {cloudScanTabRows.map((row) => (
-                <div className="accounts-detail-scan-row" key={row.key}>
-                  <span className={`accounts-detail-scan-row__mark ${row.succeeded ? "is-success" : "is-failed"}`} aria-hidden>
-                    {row.succeeded ? (
-                      <svg fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="m5 12 4 4L19 6" />
-                      </svg>
-                    ) : (
-                      <svg fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 6l12 12M18 6 6 18" />
-                      </svg>
-                    )}
-                  </span>
-                  <div className="accounts-detail-scan-row__when-block">
-                    <p className="accounts-detail-scan-row__when">{scanDayLabel(row.timestamp)}</p>
-                    <p className="accounts-detail-scan-row__ago">{formatRelativeScanAgo(row.timestamp)}</p>
-                  </div>
-                  <div className="accounts-detail-scan-row__meta">
-                    <p className="accounts-detail-scan-row__resources">
-                      {scanResourcesLabel(row.resourcesScanned, hasScanned)}
-                    </p>
-                    {hasScanned && displayStats ? (
-                      <div className="accounts-detail-scan-row__findings">
-                        <span className="accounts-detail-scan-row__finding accounts-detail-scan-row__finding--high">
-                          <i aria-hidden />
-                          <span className="accounts-detail-scan-row__finding-count">{displayStats.critHigh}</span>
-                        </span>
-                        <span className="accounts-detail-scan-row__finding accounts-detail-scan-row__finding--medium">
-                          <i aria-hidden />
-                          <span className="accounts-detail-scan-row__finding-count">{displayStats.medium}</span>
-                        </span>
-                        <span className="accounts-detail-scan-row__finding accounts-detail-scan-row__finding--low">
-                          <i aria-hidden />
-                          <span className="accounts-detail-scan-row__finding-count">{displayStats.low}</span>
-                        </span>
-                      </div>
-                    ) : hasScanned ? (
-                      <div className="accounts-detail-scan-row__findings accounts-detail-scan-row__findings--placeholder" aria-hidden />
-                    ) : (
-                      <div className="accounts-detail-scan-row__findings accounts-detail-scan-row__findings--placeholder" aria-hidden />
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <DetailTabStub
-              title="On-demand scans"
-              body={
-                hasScanned
-                  ? "Scan history appears after your first completed scan."
-                  : "GCP and Azure accounts run scans on demand from this page or the integration settings."
-              }
-            />
-          )
-        )}
-
-        {tab === "resources" && (
-          <DetailTabStub
-            title={`${resourceStats.resources.toLocaleString()} resources in findings`}
-            body="Full resource inventory browsing is coming soon. Counts reflect resources with open findings from the latest scan."
-          />
-        )}
-
-        {tab === "settings" && isAws && acc && (
-          <AccountDetailsPanel
-            acc={acc}
-            showManageCapabilities={showManageCapabilities}
-            showUpdateArn={showUpdateArn}
-            roleArn={roleArn}
-            setRoleArn={setRoleArn}
-            verify={verify}
-            onCancelUpdate={() => {
-              setShowUpdateArn(false);
-              setRoleArn("");
-              verify.reset();
-            }}
-            manageCapabilitiesPanel={
-              showManageCapabilities ? (
-                <ManageCapabilitiesPanel
-                  acc={acc}
-                  draft={draftCapabilities}
-                  onDraftChange={(next) => {
-                    const locked = enforceDeployedCapabilityLocks(acc, capabilityVerify, next);
-                    setDraftCapabilities(locked);
-                    debouncedPatchConnection(locked);
-                  }}
-                  onClose={() => setShowManageCapabilities(false)}
-                  saveError={patchError}
-                  onVerifyCapabilities={() => verifyCapabilities.mutate()}
-                  verifyingCapabilities={verifyCapabilities.isPending}
-                  verifyFeedback={verifyFeedback}
-                  capabilityVerify={capabilityVerify}
-                  verificationMeta={verificationMeta}
-                />
-              ) : (
-                <div className="px-4 py-3">
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      className="accounts-outline-btn"
-                      onClick={() => setShowManageCapabilities(true)}
-                    >
-                      Manage capabilities
-                    </button>
-                    <button
-                      type="button"
-                      className="accounts-outline-btn"
-                      onClick={() => setShowUpdateArn(true)}
-                    >
-                      Update IAM role
-                    </button>
-                    <button
-                      type="button"
-                      className="accounts-outline-btn"
-                      onClick={() => setShowConnectorUpdate(true)}
-                    >
-                      Update connector
-                    </button>
-                    <button
-                      type="button"
-                      className="accounts-outline-btn"
-                      onClick={() => setShowRemoveConfirm(true)}
-                      disabled={remove.isPending}
-                    >
-                      Disconnect account
-                    </button>
-                  </div>
-                  {isAws && nextScanShort !== "—" ? (
-                    <p className="mt-3 text-xs text-zinc-500">
-                      Next scheduled scan: <span className="font-medium text-zinc-700">{nextScanShort}</span>
-                    </p>
-                  ) : null}
-                </div>
-              )
-            }
-          />
-        )}
-
-        {tab === "settings" && !isAws && (
-          <DetailTabStub
-            title="Integration settings"
-            body="Manage connector credentials and scan settings in the integration page."
-            action={
+            <div className="accounts-detail-settings-panel__head">
               <button
                 type="button"
-                className="accounts-detail-quick-actions__primary"
-                onClick={() => navigate(cloudIntegrationPath(cloud!.provider))}
+                className="accounts-detail-settings-panel__back"
+                onClick={() => {
+                  setShowAccountSettings(false);
+                  setShowManageCapabilities(false);
+                  setShowUpdateArn(false);
+                  setRoleArn("");
+                  verify.reset();
+                }}
               >
-                Open integration
+                ‹ Back to overview
               </button>
-            }
+            </div>
+            <AccountDetailsPanel
+              acc={acc}
+              showManageCapabilities={showManageCapabilities}
+              showUpdateArn={showUpdateArn}
+              roleArn={roleArn}
+              setRoleArn={setRoleArn}
+              verify={verify}
+              onCancelUpdate={() => {
+                setShowUpdateArn(false);
+                setRoleArn("");
+                verify.reset();
+              }}
+              manageCapabilitiesPanel={
+                showManageCapabilities ? (
+                  <ManageCapabilitiesPanel
+                    acc={acc}
+                    draft={draftCapabilities}
+                    onDraftChange={(next) => {
+                      const locked = enforceDeployedCapabilityLocks(acc, capabilityVerify, next);
+                      setDraftCapabilities(locked);
+                      debouncedPatchConnection(locked);
+                    }}
+                    onClose={() => setShowManageCapabilities(false)}
+                    saveError={patchError}
+                    onVerifyCapabilities={() => verifyCapabilities.mutate()}
+                    verifyingCapabilities={verifyCapabilities.isPending}
+                    verifyFeedback={verifyFeedback}
+                    capabilityVerify={capabilityVerify}
+                    verificationMeta={verificationMeta}
+                  />
+                ) : (
+                  <div className="px-4 py-3">
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        className="accounts-outline-btn"
+                        onClick={() => setShowManageCapabilities(true)}
+                      >
+                        Manage capabilities
+                      </button>
+                      <button
+                        type="button"
+                        className="accounts-outline-btn"
+                        onClick={() => setShowUpdateArn(true)}
+                      >
+                        Update IAM role
+                      </button>
+                      <button
+                        type="button"
+                        className="accounts-outline-btn"
+                        onClick={() => setShowConnectorUpdate(true)}
+                      >
+                        Update connector
+                      </button>
+                      <button
+                        type="button"
+                        className="accounts-outline-btn"
+                        onClick={() => setShowRemoveConfirm(true)}
+                        disabled={remove.isPending}
+                      >
+                        Disconnect account
+                      </button>
+                    </div>
+                    {nextScanShort !== "—" ? (
+                      <p className="mt-3 text-xs text-zinc-500">
+                        Next scheduled scan: <span className="font-medium text-zinc-700">{nextScanShort}</span>
+                      </p>
+                    ) : null}
+                  </div>
+                )
+              }
+            />
+          </>
+        ) : (
+          <AccountReadinessOverview
+            accountId={accountId}
+            provider={provider}
+            findings={accountBlockerFindings}
+            findingsLoading={findingsLoading}
+            hasScanned={hasScanned}
+            historyEvents={historyQ.data?.events ?? []}
+            scanTimelineRows={scanTimelineRows}
           />
         )}
       </div>
@@ -7122,13 +5011,137 @@ function IntegrationCloudAccountCard({
   );
 }
 
+function CompactSeverityCounts({
+  stats,
+  hasScanned,
+  loading,
+}: {
+  stats: FindingStats | undefined;
+  hasScanned: boolean;
+  loading?: boolean;
+}) {
+  if (loading) {
+    return (
+      <div className="accounts-compact-card__severity accounts-compact-card__severity--loading" aria-hidden>
+        <span />
+        <span />
+        <span />
+      </div>
+    );
+  }
+  const high = hasScanned ? (stats?.critHigh ?? 0) : 0;
+  const medium = hasScanned ? (stats?.medium ?? 0) : 0;
+  const low = hasScanned ? (stats?.low ?? 0) : 0;
+  return (
+    <div className="accounts-compact-card__severity">
+      <span className="accounts-compact-card__severity-item accounts-compact-card__severity-item--high">
+        <i aria-hidden />
+        {hasScanned ? high.toLocaleString() : "—"} High
+      </span>
+      <span className="accounts-compact-card__severity-item accounts-compact-card__severity-item--medium">
+        <i aria-hidden />
+        {hasScanned ? medium.toLocaleString() : "—"} Medium
+      </span>
+      <span className="accounts-compact-card__severity-item accounts-compact-card__severity-item--low">
+        <i aria-hidden />
+        {hasScanned ? low.toLocaleString() : "—"} Low
+      </span>
+    </div>
+  );
+}
+
+function CompactSplitAccountCard({
+  row,
+  stats,
+  findingsLoading,
+  selected,
+  onSelect,
+  manageLayout = false,
+}: {
+  row: AccountListRow;
+  stats: FindingStats | undefined;
+  findingsLoading?: boolean;
+  selected: boolean;
+  onSelect: () => void;
+  manageLayout?: boolean;
+}) {
+  const connected =
+    row.kind === "aws" ? isAccountConnected(row.account) : isCloudAccountConnected(row.cloud);
+  const hasScanned =
+    connected &&
+    !!(row.kind === "aws" ? row.account.last_scan_at : row.cloud.last_scan_at);
+  const lastScanAt = row.kind === "aws" ? row.account.last_scan_at : row.cloud.last_scan_at;
+  const displayName = row.kind === "aws" ? row.account.label : row.cloud.label;
+  const displayId =
+    row.kind === "aws" ? row.account.account_id : row.cloud.external_id;
+  const provider = (row.kind === "aws" ? "aws" : row.cloud.provider) as "aws" | "gcp" | "azure";
+  const scanAgo = hasScanned ? formatRelativeScanAgo(lastScanAt) : null;
+
+  return (
+    <button
+      type="button"
+      className={`accounts-compact-card${manageLayout ? " accounts-compact-card--manage" : ""}${selected ? " is-selected" : ""}${!connected ? " is-pending" : ""}`}
+      onClick={onSelect}
+      aria-pressed={selected}
+    >
+      <div className="accounts-compact-card__top">
+        <div className="accounts-compact-card__identity">
+          <div className="accounts-compact-card__logo">
+            <AccountRowProviderMark provider={provider} />
+          </div>
+          <div className="accounts-compact-card__meta">
+            <span className="accounts-compact-card__name-row">
+              <span className="accounts-compact-card__name">{displayName}</span>
+              {connected ? <VerifiedBadgeIcon /> : null}
+            </span>
+            {displayId ? <span className="accounts-compact-card__id">{displayId}</span> : null}
+          </div>
+        </div>
+        {connected ? (
+          <span className="accounts-compact-card__connection">
+            <span className="accounts-compact-card__status-dot" aria-hidden />
+            <span className="accounts-compact-card__connected-label">Connected</span>
+            {scanAgo ? (
+              <>
+                <span className="accounts-compact-card__connection-divider" aria-hidden />
+                <span className="accounts-compact-card__scan-ago">{scanAgo}</span>
+              </>
+            ) : null}
+          </span>
+        ) : (
+          <span className="accounts-compact-card__status accounts-compact-card__status--pending">
+            Setup required
+          </span>
+        )}
+      </div>
+      <div className="accounts-compact-card__bottom">
+        {manageLayout ? (
+          <p className="accounts-compact-card__findings-label">Open findings</p>
+        ) : null}
+        <CompactSeverityCounts stats={stats} hasScanned={hasScanned} loading={findingsLoading} />
+      </div>
+      {selected ? (
+        <svg
+          className="accounts-compact-card__chevron"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={2}
+          viewBox="0 0 24 24"
+          aria-hidden
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="m9 6 6 6-6 6" />
+        </svg>
+      ) : null}
+    </button>
+  );
+}
+
 function AccountPremiumCard({
   acc,
   stats,
   findingsLoading = false,
   expanded,
   onToggle,
-  setupInitialStep = 1,
   selected = false,
   splitLayout = false,
   suppressSelectionStyle = false,
@@ -7140,7 +5153,6 @@ function AccountPremiumCard({
   findingsLoading?: boolean;
   expanded: boolean;
   onToggle: () => void;
-  setupInitialStep?: number;
   selected?: boolean;
   splitLayout?: boolean;
   suppressSelectionStyle?: boolean;
@@ -7168,7 +5180,6 @@ function AccountPremiumCard({
     setDraftCapabilities(accountConnectionOptions(acc));
   }, [
     acc.id,
-    acc.enable_advanced_policy_generation,
     acc.remediation_modules,
     acc.status,
   ]);
@@ -7226,13 +5237,6 @@ function AccountPremiumCard({
     patchConnection.mutate(opts);
   }, 450);
 
-  const applyConnectionOptions = (next: ConnectionOptions) => {
-    const locked = enforceDeployedCapabilityLocks(acc, capabilityVerify, next);
-    setSetupConnectionOptions(locked);
-    setDraftCapabilities(locked);
-    debouncedPatchConnection(locked);
-  };
-
   const verifyCapabilities = useMutation({
     mutationFn: () =>
       api<VerifyCapabilitiesResponse>(`/v1/accounts/${acc.id}/verify-capabilities`, {
@@ -7272,27 +5276,6 @@ function AccountPremiumCard({
       qc.invalidateQueries({ queryKey: ["accounts"] });
     },
   });
-
-  const connectionOptionsDirty = () => {
-    const saved = accountConnectionOptions(acc);
-    return (
-      setupConnectionOptions.enable_advanced_policy_generation !==
-        saved.enable_advanced_policy_generation ||
-      REMEDIATION_MODULE_SPECS.some(
-        (m) =>
-          setupConnectionOptions.remediation_modules[m.id] !== saved.remediation_modules[m.id],
-      )
-    );
-  };
-
-  const handleVerifyConnection = () => {
-    const runVerify = () => verify.mutate();
-    if (connectionOptionsDirty()) {
-      patchConnection.mutate(setupConnectionOptions, { onSuccess: runVerify });
-      return;
-    }
-    runVerify();
-  };
 
   const remove = useMutation({
     mutationFn: () => api(`/v1/accounts/${acc.id}`, { method: "DELETE" }),
@@ -7518,19 +5501,7 @@ function AccountPremiumCard({
               </div>
             )}
 
-            {showSetup && (
-              <PendingAccountOnboarding
-                acc={acc}
-                connectionOptions={setupConnectionOptions}
-                roleArn={roleArn}
-                setRoleArn={setRoleArn}
-                verify={verify}
-                onVerifyConnection={handleVerifyConnection}
-                onBackToCapabilities={onToggle}
-                embedded
-                initialStep={setupInitialStep}
-              />
-            )}
+            {showSetup ? <AwsConnectFlow acc={acc} embedded /> : null}
           </div>
         )}
 
@@ -7668,140 +5639,35 @@ function AddAccountProviderPicker({
   );
 }
 
-function PendingAccountSetupSurface({
-  acc,
-  initialStep,
-  onBackToCapabilities,
-  onDismiss,
-  onCompleteSetup,
-}: {
-  acc: Account;
-  initialStep: number;
-  onBackToCapabilities: () => void;
-  onDismiss?: () => void;
-  onCompleteSetup?: () => void;
-}) {
-  const qc = useQueryClient();
-  const [roleArn, setRoleArn] = useState("");
-  const [setupConnectionOptions, setSetupConnectionOptions] = useState(() => accountConnectionOptions(acc));
-
-  useEffect(() => {
-    setSetupConnectionOptions(accountConnectionOptions(acc));
-  }, [
-    acc.id,
-    acc.enable_advanced_policy_generation,
-    acc.remediation_modules,
-    acc.status,
-  ]);
-
-  const patchConnection = useMutation({
-    mutationFn: (opts: ConnectionOptions) =>
-      api<Account>(`/v1/accounts/${acc.id}/connection-options`, {
-        method: "PATCH",
-        body: JSON.stringify(opts),
-      }),
-    onSuccess: (updated) => {
-      qc.setQueryData<Account[]>(["accounts"], (rows) =>
-        rows ? rows.map((row) => (row.id === updated.id ? updated : row)) : [updated],
-      );
-      setSetupConnectionOptions(accountConnectionOptions(updated));
-    },
-  });
-
-  const verify = useMutation({
-    mutationFn: () =>
-      api<Account>(`/v1/accounts/${acc.id}/verify`, {
-        method: "POST",
-        body: JSON.stringify({ role_arn: sanitizeIamRoleArnInput(roleArn) }),
-      }),
-    onSuccess: (updated) => {
-      qc.setQueryData<Account[]>(["accounts"], (rows) =>
-        rows ? rows.map((row) => (row.id === updated.id ? updated : row)) : [updated],
-      );
-      qc.invalidateQueries({ queryKey: ["accounts"] });
-      qc.invalidateQueries({ queryKey: ["accounts-plan-usage"] });
-      setRoleArn("");
-      if (isAccountConnected(updated)) {
-        // Hold the final check state and success overlay briefly, then close the modal.
-        window.setTimeout(() => onCompleteSetup?.(), 2800);
-      }
-    },
-    onError: () => {
-      qc.invalidateQueries({ queryKey: ["accounts"] });
-    },
-  });
-
-  const connectionOptionsDirty = () => {
-    const saved = accountConnectionOptions(acc);
-    return (
-      setupConnectionOptions.enable_advanced_policy_generation !==
-        saved.enable_advanced_policy_generation ||
-      REMEDIATION_MODULE_SPECS.some(
-        (m) =>
-          setupConnectionOptions.remediation_modules[m.id] !== saved.remediation_modules[m.id],
-      )
-    );
-  };
-
-  const handleVerifyConnection = () => {
-    const runVerify = () => verify.mutate();
-    if (connectionOptionsDirty()) {
-      patchConnection.mutate(setupConnectionOptions, { onSuccess: runVerify });
-      return;
-    }
-    runVerify();
-  };
-
-  return (
-    <PendingAccountOnboarding
-      acc={acc}
-      connectionOptions={setupConnectionOptions}
-      roleArn={roleArn}
-      setRoleArn={setRoleArn}
-      verify={verify}
-      onVerifyConnection={handleVerifyConnection}
-      onBackToCapabilities={onBackToCapabilities}
-      onDismiss={onDismiss}
-      initialStep={initialStep}
-    />
-  );
-}
-
-function useMatchMedia(query: string) {
-  const [matches, setMatches] = useState(
-    () => typeof window !== "undefined" && window.matchMedia(query).matches,
-  );
-
-  useEffect(() => {
-    const mq = window.matchMedia(query);
-    const onChange = () => setMatches(mq.matches);
-    onChange();
-    mq.addEventListener("change", onChange);
-    return () => mq.removeEventListener("change", onChange);
-  }, [query]);
-
-  return matches;
-}
-
 export default function Accounts() {
   const qc = useQueryClient();
   const navigate = useNavigate();
-  const stackedAccountsLayout = useMatchMedia("(max-width: 1439px)");
+  const [searchParams] = useSearchParams();
+  // Route fork (docs/org-readiness-home.md §1):
+  // `/accounts` (no params) = org readiness home; `/accounts?account_id=X` = the
+  // per-account detail pane; `/accounts?view=all` = the management list.
+  const viewAll = searchParams.get("view") === "all";
+  const hasAccountParam = !!(searchParams.get("account_id") || searchParams.get("account"));
+  // Org home is unscoped by definition — never auto-select a persisted account here.
+  const orgHome = !viewAll && !hasAccountParam;
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [selectedRowKey, setSelectedRowKey] = useState<string | null>(null);
-  const [setupInitialStep, setSetupInitialStep] = useState(1);
   const [showProviderPicker, setShowProviderPicker] = useState(false);
   const [addingAwsAccount, setAddingAwsAccount] = useState(false);
+  const [addingCloudProvider, setAddingCloudProvider] = useState<Exclude<CloudProviderChoice, "aws"> | null>(
+    null,
+  );
   const [onboardingAccount, setOnboardingAccount] = useState<Account | null>(null);
   const [discardOnboardingAccountId, setDiscardOnboardingAccountId] = useState<string | null>(null);
   const [accountSearch, setAccountSearch] = useState("");
   const [providerFilter, setProviderFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [listSort, setListSort] = useState<AccountListSort>("last_scan");
   const [pendingConnectionOptions, setPendingConnectionOptions] = useState<ConnectionOptions>(
     defaultOnboardingConnectionOptions,
   );
   const [page, setPage] = useState(1);
-  const pageSize = 10;
+  const pageSize = 12;
 
   const accounts = useQuery({
     queryKey: ["accounts"],
@@ -7823,7 +5689,6 @@ export default function Accounts() {
       api<Account>("/v1/accounts", {
         method: "POST",
         body: JSON.stringify({
-          enable_advanced_policy_generation: opts.enable_advanced_policy_generation,
           remediation_modules: opts.remediation_modules,
         }),
       }),
@@ -7836,20 +5701,8 @@ export default function Accounts() {
       setAddingAwsAccount(true);
       setOnboardingAccount(acc);
       setDiscardOnboardingAccountId(acc.id);
-      setSetupInitialStep(2);
       setExpandedId(null);
       setPendingConnectionOptions(accountConnectionOptions(acc));
-    },
-  });
-
-  const patchConnection = useMutation({
-    mutationFn: ({ accountId, opts }: { accountId: string; opts: ConnectionOptions }) =>
-      api<Account>(`/v1/accounts/${accountId}/connection-options`, {
-        method: "PATCH",
-        body: JSON.stringify(opts),
-      }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["accounts"] });
     },
   });
 
@@ -7937,11 +5790,23 @@ export default function Accounts() {
     [filteredAccs, filteredIntegrationAccs],
   );
 
+  const sortedFilteredRows = useMemo(
+    () => sortAccountListRows(filteredRows, listSort),
+    [filteredRows, listSort],
+  );
+
   const effectivePageSize = pageSize;
-  const totalPages = Math.max(1, Math.ceil(filteredRows.length / effectivePageSize));
-  const paginatedRows = filteredRows.slice((page - 1) * effectivePageSize, page * effectivePageSize);
-  const pageStart = filteredRows.length === 0 ? 0 : (page - 1) * effectivePageSize + 1;
-  const pageEnd = Math.min(page * effectivePageSize, filteredRows.length);
+  const totalPages = Math.max(1, Math.ceil(sortedFilteredRows.length / effectivePageSize));
+  const paginatedRows = sortedFilteredRows.slice((page - 1) * effectivePageSize, page * effectivePageSize);
+  const pageStart = sortedFilteredRows.length === 0 ? 0 : (page - 1) * effectivePageSize + 1;
+  const pageEnd = Math.min(page * effectivePageSize, sortedFilteredRows.length);
+
+  const connectedOptionsQ = useConnectedAccountOptions();
+  const { accountId: urlAccountId } = useSelectedAccountId(
+    connectedOptionsQ.options,
+    connectedOptionsQ.isSuccess,
+    { disableUrlSync: orgHome },
+  );
 
   const selectedRow = useMemo(
     () => (selectedRowKey ? parseAccountListRowKey(selectedRowKey, filteredRows) : null),
@@ -7953,17 +5818,50 @@ export default function Accounts() {
       setSelectedRowKey(null);
       return;
     }
+    const fromUrl = accountListRowFromId(urlAccountId, filteredRows);
+    if (fromUrl) {
+      const key = accountListRowKey(fromUrl);
+      if (selectedRowKey !== key) setSelectedRowKey(key);
+      return;
+    }
     if (selectedRowKey && parseAccountListRowKey(selectedRowKey, filteredRows)) return;
     const preferred =
       filteredRows.find((row) =>
         row.kind === "aws" ? isAccountConnected(row.account) : isCloudAccountConnected(row.cloud),
       ) ?? filteredRows[0];
     setSelectedRowKey(accountListRowKey(preferred));
-  }, [filteredRows, selectedRowKey]);
+  }, [filteredRows, selectedRowKey, urlAccountId]);
 
   useEffect(() => {
     if (page > totalPages) setPage(totalPages);
   }, [page, totalPages]);
+
+  // Filters belong to the management list. Clear them when returning to the
+  // dashboard so a stale search can't hide the selected account.
+  useEffect(() => {
+    if (viewAll) return;
+    setAccountSearch("");
+    setProviderFilter("all");
+    setStatusFilter("all");
+    setPage(1);
+  }, [viewAll]);
+
+  const openAccountDashboard = (row: AccountListRow) => {
+    if (row.kind === "aws" && !isAccountConnected(row.account)) {
+      setOnboardingAccount(row.account);
+      setDiscardOnboardingAccountId(null);
+      setPendingConnectionOptions(accountConnectionOptions(row.account));
+      setAddingAwsAccount(true);
+      return;
+    }
+    if (row.kind === "cloud" && !isCloudAccountConnected(row.cloud)) {
+      navigate(cloudIntegrationPath(row.cloud.provider));
+      return;
+    }
+    const id = accountIdFromListRow(row);
+    setSelectedRowKey(accountListRowKey(row));
+    navigate(`/accounts?account_id=${encodeURIComponent(id)}`);
+  };
 
   const pendingAcc = allAccs.find((a) => !isAccountConnected(a));
   const activeOnboardingAccount = onboardingAccount
@@ -7976,41 +5874,12 @@ export default function Accounts() {
     !cloudAccounts.isError &&
     (addingAwsAccount || (!hasAnyAccounts && (!pendingAcc || expandedId === null)));
 
-  const handleOnboardingContinue = () => {
-    if (activeOnboardingAccount) {
-      patchConnection.mutate(
-        { accountId: activeOnboardingAccount.id, opts: pendingConnectionOptions },
-        {
-          onSuccess: (updated) => {
-            setOnboardingAccount(updated);
-            setSetupInitialStep(2);
-            setExpandedId(null);
-          },
-        },
-      );
-      return;
-    }
-    if (pendingAcc && !addingAwsAccount) {
-      patchConnection.mutate(
-        { accountId: pendingAcc.id, opts: pendingConnectionOptions },
-        {
-          onSuccess: () => {
-            setSetupInitialStep(2);
-            setExpandedId(pendingAcc.id);
-            setSelectedRowKey(accountListRowKey({ kind: "aws", account: pendingAcc }));
-          },
-        },
-      );
-      return;
-    }
-    create.mutate(pendingConnectionOptions);
-  };
+  const autoCreatePendingAccountRef = useRef(false);
 
   const resetAddAccountFlow = () => {
     setAddingAwsAccount(false);
     setOnboardingAccount(null);
     setDiscardOnboardingAccountId(null);
-    setSetupInitialStep(1);
     setPendingConnectionOptions(defaultOnboardingConnectionOptions());
   };
 
@@ -8034,7 +5903,6 @@ export default function Accounts() {
 
   const handleDismissEmbeddedSetup = () => {
     setExpandedId(null);
-    setSetupInitialStep(1);
     if (pendingAcc) {
       setPendingConnectionOptions(accountConnectionOptions(pendingAcc));
       const pendingKey = accountListRowKey({ kind: "aws", account: pendingAcc });
@@ -8068,21 +5936,40 @@ export default function Accounts() {
   const handleProviderSelect = (provider: CloudProviderChoice) => {
     setShowProviderPicker(false);
     if (provider === "gcp") {
-      navigate("/integrations/gcp");
+      setAddingCloudProvider("gcp");
       return;
     }
     if (provider === "azure") {
-      navigate("/integrations/azure");
+      setAddingCloudProvider("azure");
       return;
     }
     setPendingConnectionOptions(defaultOnboardingConnectionOptions());
     setOnboardingAccount(null);
     setDiscardOnboardingAccountId(null);
-    setSetupInitialStep(1);
     setAddingAwsAccount(true);
+    if (pendingAcc) {
+      setOnboardingAccount(pendingAcc);
+      setDiscardOnboardingAccountId(pendingAcc.id);
+      setPendingConnectionOptions(accountConnectionOptions(pendingAcc));
+      return;
+    }
+    if (!create.isPending) {
+      create.mutate(defaultOnboardingConnectionOptions());
+    }
   };
 
-  const continuingOnboarding = create.isPending || patchConnection.isPending;
+  useEffect(() => {
+    if (
+      showFirstTimeCapabilityOnboarding &&
+      !pendingAcc &&
+      !addingAwsAccount &&
+      !create.isPending &&
+      !autoCreatePendingAccountRef.current
+    ) {
+      autoCreatePendingAccountRef.current = true;
+      create.mutate(defaultOnboardingConnectionOptions());
+    }
+  }, [showFirstTimeCapabilityOnboarding, pendingAcc, addingAwsAccount, create.isPending]);
 
   useEffect(() => {
     if (pendingAcc && expandedId === null) {
@@ -8090,7 +5977,6 @@ export default function Accounts() {
     }
   }, [
     pendingAcc?.id,
-    pendingAcc?.enable_advanced_policy_generation,
     pendingAcc?.remediation_modules,
     expandedId,
   ]);
@@ -8137,38 +6023,62 @@ export default function Accounts() {
         </div>
       )}
 
-      {showFirstTimeCapabilityOnboarding && (
-        <FirstAccountOnboarding
-          value={pendingConnectionOptions}
-          onChange={setPendingConnectionOptions}
-          disabled={continuingOnboarding}
-          continuing={continuingOnboarding}
-          onContinue={handleOnboardingContinue}
+      {showFirstTimeCapabilityOnboarding && pendingAcc ? (
+        <AwsConnectFlow
+          acc={pendingAcc}
+          embedded
+          onComplete={() => {
+            setExpandedId(pendingAcc.id);
+            setSelectedRowKey(accountListRowKey({ kind: "aws", account: pendingAcc }));
+          }}
         />
-      )}
+      ) : null}
 
-      {addingAwsAccount && (
-        <AccountOnboardingOverlay onDismiss={handleDismissAddAccount}>
-          {activeOnboardingAccount && setupInitialStep !== 1 ? (
-            <PendingAccountSetupSurface
+      {addingAwsAccount ? (
+        <CloudConnectOverlay onDismiss={handleDismissAddAccount} ariaLabelledBy="cloud-connect-title">
+          {activeOnboardingAccount ? (
+            <AwsConnectFlow
               acc={activeOnboardingAccount}
-              initialStep={setupInitialStep}
-              onBackToCapabilities={() => setSetupInitialStep(1)}
+              embedded
               onDismiss={handleDismissAddAccount}
-              onCompleteSetup={resetAddAccountFlow}
+              onComplete={resetAddAccountFlow}
             />
           ) : (
-            <FirstAccountOnboarding
-              value={pendingConnectionOptions}
-              onChange={setPendingConnectionOptions}
-              disabled={continuingOnboarding}
-              continuing={continuingOnboarding}
-              onContinue={handleOnboardingContinue}
-              onDismiss={handleDismissAddAccount}
+            <div className="accounts-connect-shell accounts-connect-shell--creating">
+              <p className="accounts-connect-shell__creating">Creating account…</p>
+            </div>
+          )}
+        </CloudConnectOverlay>
+      ) : null}
+
+      {addingCloudProvider ? (
+        <CloudConnectOverlay
+          onDismiss={() => setAddingCloudProvider(null)}
+          ariaLabelledBy="cloud-connect-title"
+        >
+          {addingCloudProvider === "gcp" ? (
+            <GcpConnectFlow
+              embedded
+              onDismiss={() => setAddingCloudProvider(null)}
+              onComplete={() => {
+                setAddingCloudProvider(null);
+                qc.invalidateQueries({ queryKey: ["cloud-accounts"] });
+                qc.invalidateQueries({ queryKey: ["gcp-projects"] });
+              }}
+            />
+          ) : (
+            <AzureConnectFlow
+              embedded
+              onDismiss={() => setAddingCloudProvider(null)}
+              onComplete={() => {
+                setAddingCloudProvider(null);
+                qc.invalidateQueries({ queryKey: ["cloud-accounts"] });
+                qc.invalidateQueries({ queryKey: ["azure-subscriptions"] });
+              }}
             />
           )}
-        </AccountOnboardingOverlay>
-      )}
+        </CloudConnectOverlay>
+      ) : null}
 
       <AddAccountProviderPicker
         open={showProviderPicker}
@@ -8176,191 +6086,181 @@ export default function Accounts() {
         onSelect={handleProviderSelect}
       />
 
-      {showAccountList && (
-        <>
+      {showAccountList && viewAll && (
+        <div className="accounts-list-shell accounts-list-shell--compact accounts-list-shell--manage">
+          <div className="accounts-list-shell__header">
+            <AccountsToolbar
+              search={accountSearch}
+              onSearchChange={(v) => {
+                setAccountSearch(v);
+                setPage(1);
+              }}
+              providerFilter={providerFilter}
+              onProviderFilterChange={(v) => {
+                setProviderFilter(v);
+                setPage(1);
+              }}
+              statusFilter={statusFilter}
+              onStatusFilterChange={(v) => {
+                setStatusFilter(v);
+                setPage(1);
+              }}
+              onAddAccount={handleAddAccountClick}
+              addDisabled={create.isPending || atPlanCap || addingAwsAccount}
+              addTitle={atPlanCap ? planCapMsg : undefined}
+              adding={create.isPending}
+            />
+          </div>
           {filteredRows.length === 0 ? (
-            <div className="accounts-list-shell">
-              <div className="accounts-list-shell__header">
-                <AccountsToolbar
-                  search={accountSearch}
-                  onSearchChange={(v) => {
-                    setAccountSearch(v);
-                    setPage(1);
-                  }}
-                  providerFilter={providerFilter}
-                  onProviderFilterChange={(v) => {
-                    setProviderFilter(v);
-                    setPage(1);
-                  }}
-                  statusFilter={statusFilter}
-                  onStatusFilterChange={(v) => {
-                    setStatusFilter(v);
-                    setPage(1);
-                  }}
-                  onAddAccount={handleAddAccountClick}
-                  addDisabled={create.isPending || atPlanCap || addingAwsAccount}
-                  addTitle={atPlanCap ? planCapMsg : undefined}
-                  adding={create.isPending}
-                />
-              </div>
-              <p className="accounts-list-empty">No accounts match your filters</p>
-            </div>
+            <p className="accounts-list-empty">No accounts match your filters</p>
           ) : (
-            <div className="accounts-split">
-              <div className="accounts-split__list">
-                <div className="accounts-list-shell">
-                  <div className="accounts-list-shell__header">
-                    <AccountsToolbar
-                      search={accountSearch}
-                      onSearchChange={(v) => {
-                        setAccountSearch(v);
-                        setPage(1);
-                      }}
-                      providerFilter={providerFilter}
-                      onProviderFilterChange={(v) => {
-                        setProviderFilter(v);
-                        setPage(1);
-                      }}
-                      statusFilter={statusFilter}
-                      onStatusFilterChange={(v) => {
-                        setStatusFilter(v);
-                        setPage(1);
-                      }}
-                      onAddAccount={handleAddAccountClick}
-                      addDisabled={create.isPending || atPlanCap || addingAwsAccount}
-                      addTitle={atPlanCap ? planCapMsg : undefined}
-                      adding={create.isPending}
-                    />
-                  </div>
-                  <div className="accounts-list-table-scroll">
-                    <div className="accounts-list-head" aria-hidden>
-                      <span className="accounts-col accounts-col--account">Account</span>
-                      <span className="accounts-col accounts-col--coverage">Coverage</span>
-                      <span className="accounts-col accounts-col--findings">Open findings</span>
-                      <span className="accounts-col accounts-col--status">Status</span>
-                    </div>
-                    <div className="accounts-list-body">
-                    {paginatedRows.map((row) => {
-                      const key = accountListRowKey(row);
-                      const isSelected = selectedRowKey === key;
-                      const onSelect = () => setSelectedRowKey(key);
-                      return row.kind === "aws" ? (
-                        <AccountPremiumCard
-                          key={`aws-${row.account.id}`}
-                          acc={row.account}
-                          stats={statsMap.get(row.account.id)}
-                          findingsLoading={findingsSnapshotLoading}
-                          expanded={expandedId === row.account.id}
-                          setupInitialStep={expandedId === row.account.id ? setupInitialStep : 1}
-                          selected={isSelected}
-                          splitLayout
-                          suppressSelectionStyle={stackedAccountsLayout}
-                          onSelect={onSelect}
-                          onContinueSetup={() => {
-                            setOnboardingAccount(row.account);
-                            setDiscardOnboardingAccountId(null);
-                            setPendingConnectionOptions(accountConnectionOptions(row.account));
-                            setSetupInitialStep(2);
-                            setAddingAwsAccount(true);
-                            setExpandedId(null);
-                          }}
-                          onToggle={() => {
-                            setSelectedRowKey(key);
-                            setExpandedId((id) => {
-                              if (id === row.account.id) return null;
-                              if (!isAccountConnected(row.account)) setSetupInitialStep(2);
-                              return row.account.id;
-                            });
-                          }}
-                        />
-                      ) : (
-                        <IntegrationCloudAccountCard
-                          key={`${row.cloud.provider}-${row.cloud.id}`}
-                          cloud={row.cloud}
-                          stats={integrationStatsMap.get(row.cloud.id)}
-                          findingsLoading={findingsSnapshotLoading}
-                          selected={isSelected}
-                          splitLayout
-                          suppressSelectionStyle={stackedAccountsLayout}
-                          onSelect={onSelect}
-                        />
-                      );
-                    })}
-                    </div>
-                  </div>
-
-                  <div className="accounts-list-pagination">
-                    <p className="accounts-list-pagination__meta">
-                      {pageStart}-{pageEnd} of {filteredRows.length} account{filteredRows.length === 1 ? "" : "s"}
-                    </p>
-                    {totalPages > 1 ? (
-                      <div className="accounts-list-pagination__controls">
-                        <button
-                          type="button"
-                          className="accounts-list-pagination__btn"
-                          disabled={page <= 1}
-                          onClick={() => setPage((p) => Math.max(1, p - 1))}
-                          aria-label="Previous page"
-                        >
-                          ‹
-                        </button>
-                        <button type="button" className="accounts-list-pagination__btn is-current" aria-current="page">
-                          {page}
-                        </button>
-                        <button
-                          type="button"
-                          className="accounts-list-pagination__btn"
-                          disabled={page >= totalPages}
-                          onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                          aria-label="Next page"
-                        >
-                          ›
-                        </button>
-                      </div>
-                    ) : null}
-                  </div>
+            <>
+              <div className="accounts-compact-list__head">
+                <p className="accounts-compact-list__title">
+                  {sortedFilteredRows.length} account{sortedFilteredRows.length === 1 ? "" : "s"}
+                </p>
+                <div className="accounts-compact-list__sort">
+                  <label className="sr-only" htmlFor="accounts-list-sort">
+                    Sort accounts
+                  </label>
+                  <select
+                    id="accounts-list-sort"
+                    value={listSort}
+                    onChange={(e) => {
+                      setListSort(e.target.value as AccountListSort);
+                      setPage(1);
+                    }}
+                  >
+                    <option value="last_scan">Last scan ↓</option>
+                    <option value="name">Name</option>
+                  </select>
                 </div>
               </div>
-
-              <div className="accounts-split__detail">
-                {selectedRow ? (
-                  <AccountSplitDetailPane
-                    row={selectedRow}
-                    stats={
-                      selectedRow.kind === "aws"
-                        ? statsMap.get(selectedRow.account.id)
-                        : integrationStatsMap.get(selectedRow.cloud.id)
-                    }
-                    findingsItems={allFindings.data?.items}
-                    findingsLoading={findingsSnapshotLoading}
-                    setupInitialStep={setupInitialStep}
-                    onManageSetup={() => {
-                      if (selectedRow.kind === "aws" && !isAccountConnected(selectedRow.account)) {
-                        setOnboardingAccount(selectedRow.account);
-                        setDiscardOnboardingAccountId(null);
-                        setPendingConnectionOptions(accountConnectionOptions(selectedRow.account));
-                        setSetupInitialStep(2);
-                        setAddingAwsAccount(true);
-                        setExpandedId(null);
-                        return;
-                      }
-                      setExpandedId(null);
-                      setSetupInitialStep(1);
-                    }}
-                    onDismissSetup={handleDismissEmbeddedSetup}
-                  />
-                ) : (
-                  <div className="accounts-detail-empty">
-                    <p className="accounts-detail-empty__title">Select an account</p>
-                    <p className="accounts-detail-empty__body">
-                      Choose an account from the list to view coverage, findings, and quick actions.
-                    </p>
-                  </div>
-                )}
+              <div className="accounts-compact-list__scroll">
+                {paginatedRows.map((row) => {
+                  const key = accountListRowKey(row);
+                  const stats =
+                    row.kind === "aws"
+                      ? statsMap.get(row.account.id)
+                      : integrationStatsMap.get(row.cloud.id);
+                  return (
+                    <CompactSplitAccountCard
+                      key={key}
+                      row={row}
+                      stats={stats}
+                      findingsLoading={findingsSnapshotLoading}
+                      selected={false}
+                      manageLayout
+                      onSelect={() => openAccountDashboard(row)}
+                    />
+                  );
+                })}
               </div>
+
+              <div className="accounts-list-pagination">
+                <p className="accounts-list-pagination__meta">
+                  {pageStart}-{pageEnd} of {sortedFilteredRows.length} account
+                  {sortedFilteredRows.length === 1 ? "" : "s"}
+                </p>
+                {totalPages > 1 ? (
+                  <div className="accounts-list-pagination__controls">
+                    <button
+                      type="button"
+                      className="accounts-list-pagination__btn"
+                      disabled={page <= 1}
+                      onClick={() => setPage((p) => Math.max(1, p - 1))}
+                      aria-label="Previous page"
+                    >
+                      ‹
+                    </button>
+                    <button type="button" className="accounts-list-pagination__btn is-current" aria-current="page">
+                      {page}
+                    </button>
+                    <button
+                      type="button"
+                      className="accounts-list-pagination__btn"
+                      disabled={page >= totalPages}
+                      onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                      aria-label="Next page"
+                    >
+                      ›
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {showAccountList && orgHome && (
+        <HeaderSlot>
+          <div className="header-filter-bar accounts-dashboard__header-bar">
+            <Link to="/accounts?view=all" className="accounts-dashboard__all-link">
+              <svg fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" d="m15 6-6 6 6 6" />
+              </svg>
+              All accounts
+              {sortedFilteredRows.length > 0 ? ` (${sortedFilteredRows.length})` : ""}
+            </Link>
+          </div>
+        </HeaderSlot>
+      )}
+
+      {showAccountList && !viewAll && (
+        <>
+          {!orgHome && (
+            <HeaderSlot>
+              <div className="header-filter-bar accounts-dashboard__header-bar">
+                <Link to="/accounts?view=all" className="accounts-dashboard__all-link">
+                  <svg fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="m15 6-6 6 6 6" />
+                  </svg>
+                  All accounts
+                  {sortedFilteredRows.length > 0 ? ` (${sortedFilteredRows.length})` : ""}
+                </Link>
+              </div>
+            </HeaderSlot>
+          )}
+          <div className="accounts-dashboard">
+          {orgHome ? (
+            <OrgReadinessHome />
+          ) : selectedRow ? (
+            <AccountSplitDetailPane
+              row={selectedRow}
+              stats={
+                selectedRow.kind === "aws"
+                  ? statsMap.get(selectedRow.account.id)
+                  : integrationStatsMap.get(selectedRow.cloud.id)
+              }
+              findingsItems={allFindings.data?.items}
+              findingsLoading={findingsSnapshotLoading}
+              onManageSetup={() => {
+                if (selectedRow.kind === "aws" && !isAccountConnected(selectedRow.account)) {
+                  setOnboardingAccount(selectedRow.account);
+                  setDiscardOnboardingAccountId(null);
+                  setPendingConnectionOptions(accountConnectionOptions(selectedRow.account));
+                  setAddingAwsAccount(true);
+                  setExpandedId(null);
+                  return;
+                }
+                setExpandedId(null);
+              }}
+              onDismissSetup={handleDismissEmbeddedSetup}
+            />
+          ) : (
+            <div className="accounts-detail-empty">
+              <p className="accounts-detail-empty__title">Select an account</p>
+              <p className="accounts-detail-empty__body">
+                Open{" "}
+                <Link to="/accounts?view=all" className="accounts-detail-empty__link">
+                  all accounts
+                </Link>{" "}
+                to browse and manage them.
+              </p>
             </div>
           )}
-
+          </div>
         </>
       )}
 

@@ -262,6 +262,37 @@ def execute_cloud_scan(
             if posture is not None:
                 stats["posture_score"] = posture
             scan_run.stats = stats
+
+        # Activation milestones (ops-only)
+        try:
+            from app.models.org import Org
+            from app.services.org_activity import record_activation_milestone
+
+            org = db.get(Org, org_id)
+            if org:
+                provider = (
+                    "gcp"
+                    if scope_column == "gcp_project_id"
+                    else "azure"
+                    if scope_column == "azure_subscription_id"
+                    else scope_column
+                )
+                record_activation_milestone(
+                    db,
+                    org,
+                    "first_scan_completed_at",
+                    detail={"scope_id": str(scope_id), "provider": provider},
+                )
+                if opened > 0:
+                    record_activation_milestone(
+                        db,
+                        org,
+                        "first_finding_at",
+                        detail={"opened": opened, "provider": provider},
+                    )
+        except Exception:
+            pass
+
         if on_success:
             on_success()
         db.commit()

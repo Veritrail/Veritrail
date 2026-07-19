@@ -26,11 +26,6 @@ function passRateClass(stats: ComplianceFrameworkStats | undefined): string {
   return "text-rose-600";
 }
 
-function triggerValueLabel(label: string, stats: ComplianceFrameworkStats | undefined): string {
-  if (!stats || stats.total === 0 || stats.passRate == null) return label;
-  return `${label} · ${stats.passRate}%`;
-}
-
 export function ComplianceFrameworkSelect({
   selectedId,
   statsById,
@@ -46,7 +41,6 @@ export function ComplianceFrameworkSelect({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const activeFw = FRAMEWORKS.find((f) => f.id === selectedId) ?? FRAMEWORKS[0];
-  const activeStats = statsById[selectedId];
 
   const updateMenuPosition = useCallback(() => {
     const btn = triggerRef.current;
@@ -151,13 +145,13 @@ export function ComplianceFrameworkSelect({
         ref={triggerRef}
         icon={<FrameworkMark framework={selectedId} className="selector-card__framework-mark" />}
         label="Framework"
-        value={triggerValueLabel(activeFw.label, activeStats)}
+        value={activeFw.label}
         iconTone="framework"
         open={open}
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="listbox"
         aria-expanded={open}
-        aria-label={`Framework: ${triggerValueLabel(activeFw.label, activeStats)}`}
+        aria-label={`Framework: ${activeFw.label}`}
       />
       {menu}
     </div>

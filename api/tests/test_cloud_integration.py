@@ -54,6 +54,7 @@ def test_list_cloud_accounts_normalizes_all_providers():
                 label="Prod",
                 status="connected",
                 last_scan_at=now,
+                last_error="AccessDenied",
             )
         ])),
         MagicMock(all=MagicMock(return_value=[
@@ -63,6 +64,7 @@ def test_list_cloud_accounts_normalizes_all_providers():
                 label="Demo",
                 status="connected",
                 last_scan_at=now,
+                last_error=None,
             )
         ])),
         MagicMock(all=MagicMock(return_value=[
@@ -72,6 +74,7 @@ def test_list_cloud_accounts_normalizes_all_providers():
                 label="Azure Prod",
                 status="pending",
                 last_scan_at=None,
+                last_error=None,
             )
         ])),
     ]
@@ -82,6 +85,7 @@ def test_list_cloud_accounts_normalizes_all_providers():
     assert rows[0]["provider"] == "aws"
     assert rows[0]["external_id"] == "123456789012"
     assert rows[0]["open_findings_count"] == 2
+    assert rows[0]["last_error"] == "AccessDenied"
     assert rows[1]["provider"] == "gcp"
     assert rows[1]["label"] == "Demo"
     assert rows[1]["open_findings_count"] == 1

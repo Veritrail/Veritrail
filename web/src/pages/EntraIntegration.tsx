@@ -5,6 +5,7 @@ import { api, formatApiError } from "../api";
 import { integrationConnectUrlSchema, integrationStatusNullableSchema } from "../lib/apiSchemas";
 import { formatSync, IntegrationBrandIcon, Spinner, StatusDot } from "../components/IntegrationsUi";
 import { useIntegrationSyncState } from "../hooks/useIntegrationSyncState";
+import { invalidateIntegrationComplianceCaches } from "../lib/integrationQueryInvalidation";
 import "../styles/integration-setup.css";
 
 type Provider = {
@@ -66,14 +67,17 @@ export default function EntraIntegration() {
     mutationFn: () =>
       api("/v1/integrations/entra/sync", { method: "POST", body: JSON.stringify({}) }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["integration", SYNC_KEY] });
-      setTimeout(() => qc.invalidateQueries({ queryKey: ["scan-run-latest"] }), 300);
+      invalidateIntegrationComplianceCaches(qc, {
+        integrationStatusKey: ["integration", SYNC_KEY],
+        refreshScanRunLatest: true,
+      });
     },
   });
 
   const disconnect = useMutation({
     mutationFn: () => api("/v1/integrations/entra", { method: "DELETE" }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["integration", SYNC_KEY] }),
+    onSuccess: () =>
+      invalidateIntegrationComplianceCaches(qc, { integrationStatusKey: ["integration", SYNC_KEY] }),
   });
 
   const p = provider;

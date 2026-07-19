@@ -140,22 +140,24 @@ export function findingScopeProviderLabel(provider: FindingScopeProvider): strin
   }
 }
 
-/** Copy for remediation → Automated fix when SSM/customer automation is unavailable. */
-export function automatedRemediationUnavailableCopy(
+/** Drawer / notification copy for Verify fix outcomes — provider-aware, not AWS-only. */
+export function verifyFixOutcomeCopy(
   provider: FindingScopeProvider,
-  context: "check" | "metadata" = "check",
-): string {
-  if (provider === "aws") {
-    if (context === "metadata") {
-      return "Could not load SSM remediation metadata for this finding.";
-    }
-    return "SSM remediation is not available for this check yet. Use Console or CLI above.";
-  }
+  status: "unchanged" | "error",
+): { title: string; body: string } {
   const label = findingScopeProviderLabel(provider);
-  if (context === "metadata") {
-    return `Could not load fix guidance metadata for this ${label} finding.`;
+  const connector =
+    provider === "aws" ? "account connector" : `${label} integration`;
+  if (status === "error") {
+    return {
+      title: "Verify couldn't complete",
+      body: `Veritrail couldn't reach ${label} to re-check this finding. Check the ${connector}, then try again.`,
+    };
   }
-  return `Guided fix steps are not available for ${label} findings yet. Use Console or CLI above.`;
+  return {
+    title: "Still open",
+    body: `Verify finished but this finding did not resolve. Fix the issue in ${label}, then try again.`,
+  };
 }
 
 /** 12-digit AWS account id from API or resource ARN (not Veritrail's internal account uuid). */
@@ -503,6 +505,24 @@ const RESOURCE_TYPE_LABELS: Record<string, string> = {
   "github.org": "Organizations",
   "gitlab.repo": "Projects",
   "gitlab.org": "Groups",
+  "gcp.asset": "GCP Assets",
+  "gcp.compute": "GCP Compute Instances",
+  "gcp.firewall": "GCP Firewall Rules",
+  "gcp.logging": "GCP Projects",
+  "gcp.osconfig": "GCP VM Instances",
+  "gcp.scc": "GCP SCC",
+  "azure.defender": "Azure Defender",
+  "azure.logging": "Azure Subscriptions",
+  "azure.storage": "Azure Storage Accounts",
+  "azure.compute": "Azure Virtual Machines",
+  "azure.entra": "Azure Entra Roles",
+  "azure.policy": "Azure Policy Resources",
+};
+
+const CLOUD_PROVIDER_PREFIX: Record<string, string> = {
+  gcp: "GCP",
+  azure: "Azure",
+  aws: "AWS",
 };
 
 export function resourceTypeLabel(checkId: string): string {
@@ -510,7 +530,9 @@ export function resourceTypeLabel(checkId: string): string {
   if (match) return match[1];
   const parts = checkId.split(".");
   if (parts.length >= 2) {
-    return `${parts[0].toUpperCase()} ${parts[1].replace(/_/g, " ")}s`;
+    const provider =
+      CLOUD_PROVIDER_PREFIX[parts[0] ?? ""] ?? parts[0].charAt(0).toUpperCase() + parts[0].slice(1);
+    return `${provider} ${parts[1].replace(/_/g, " ")}s`;
   }
   return "Resources";
 }
@@ -556,6 +578,18 @@ const RESOURCE_TYPE_PILL_LABELS: Record<string, string> = {
   "github.org": "GitHub org",
   "gitlab.repo": "GitLab project",
   "gitlab.org": "GitLab group",
+  "gcp.asset": "GCP asset",
+  "gcp.compute": "GCP compute instance",
+  "gcp.firewall": "GCP firewall rule",
+  "gcp.logging": "GCP project",
+  "gcp.osconfig": "GCP VM instance",
+  "gcp.scc": "GCP SCC",
+  "azure.defender": "Azure Defender",
+  "azure.logging": "Azure subscription",
+  "azure.storage": "Azure storage account",
+  "azure.compute": "Azure virtual machine",
+  "azure.entra": "Azure Entra role",
+  "azure.policy": "Azure policy resource",
 };
 
 export function resourceTypePillLabel(checkId: string): string {
@@ -563,9 +597,10 @@ export function resourceTypePillLabel(checkId: string): string {
   if (match) return match[1];
   const parts = checkId.split(".");
   if (parts.length >= 2) {
-    const service = parts[0].toUpperCase();
+    const provider =
+      CLOUD_PROVIDER_PREFIX[parts[0] ?? ""] ?? parts[0].charAt(0).toUpperCase() + parts[0].slice(1);
     const noun = parts[1].replace(/_/g, " ");
-    return `${service} ${noun}`;
+    return `${provider} ${noun}`;
   }
   return "AWS resource";
 }
@@ -647,45 +682,82 @@ export function awsServiceLabelForCheck(checkId: string): string {
 
 /** Human-readable AWS service name for IAM action prefixes (policy Services tab). */
 const IAM_SERVICE_DISPLAY_NAMES: Record<string, string> = {
-  ACM: "Certificate Manager",
-  APIGATEWAY: "API Gateway",
-  AUTOSCALING: "Auto Scaling",
-  CLOUDFORMATION: "CloudFormation",
-  CLOUDFRONT: "CloudFront",
-  CLOUDTRAIL: "CloudTrail",
-  CLOUDWATCH: "AWS CloudWatch",
+  ACCESSANALYZER: "IAM Access Analyzer",
+  ACCOUNT: "AWS Account",
+  ACM: "AWS Certificate Manager",
+  APIGATEWAY: "Amazon API Gateway",
+  ATHENA: "Amazon Athena",
+  AUTOSCALING: "Amazon EC2 Auto Scaling",
+  BACKUP: "AWS Backup",
+  BATCH: "AWS Batch",
+  BEDROCK: "Amazon Bedrock",
+  COGNITOIDENTITY: "Amazon Cognito Identity Pools",
+  COGNITOIDP: "Amazon Cognito User Pools",
+  CODEBUILD: "AWS CodeBuild",
+  CODECOMMIT: "AWS CodeCommit",
+  CODEPIPELINE: "AWS CodePipeline",
+  CLOUDFORMATION: "AWS CloudFormation",
+  CLOUDFRONT: "Amazon CloudFront",
+  CLOUDTRAIL: "AWS CloudTrail",
+  CLOUDWATCH: "Amazon CloudWatch",
   CLOUDWATCHLOGS: "CloudWatch Logs",
   CONFIG: "AWS Config",
-  DYNAMODB: "DynamoDB",
-  EC2: "EC2",
-  ECR: "ECR",
-  ECRPUBLIC: "ECR Public",
-  EKS: "EKS",
-  ELASTICACHE: "ElastiCache",
-  ELASTICBEANSTALK: "Elastic Beanstalk",
+  DYNAMODB: "Amazon DynamoDB",
+  DIRECTCONNECT: "AWS Direct Connect",
+  DS: "AWS Directory Service",
+  EC2: "Amazon EC2",
+  EC2MESSAGES: "EC2 Messages",
+  ECR: "Amazon ECR",
+  ECRPUBLIC: "Amazon ECR Public",
+  ECS: "Amazon ECS",
+  EKS: "Amazon EKS",
+  ELASTICACHE: "Amazon ElastiCache",
+  ELASTICBEANSTALK: "AWS Elastic Beanstalk",
+  ELASTICLOADBALANCING: "Elastic Load Balancing",
   ELB: "Elastic Load Balancing",
-  ES: "OpenSearch",
+  ES: "Amazon OpenSearch Service",
   EVENTBRIDGE: "Amazon EventBridge",
   EVENTS: "Amazon EventBridge",
-  FIREHOSE: "Kinesis Data Firehose",
-  GUARDDUTY: "GuardDuty",
+  EFS: "Amazon EFS",
+  FIREHOSE: "Amazon Data Firehose",
+  FSX: "Amazon FSx",
+  GLOBALACCELERATOR: "AWS Global Accelerator",
+  GLACIER: "Amazon S3 Glacier",
+  GLUE: "AWS Glue",
+  GUARDDUTY: "Amazon GuardDuty",
+  HEALTH: "AWS Health",
   IAM: "AWS IAM",
-  KINESIS: "Kinesis",
-  KMS: "KMS",
-  LAMBDA: "Lambda",
+  IDENTITYSTORE: "AWS IAM Identity Center",
+  IMAGEBUILDER: "EC2 Image Builder",
+  INSPECTOR: "Amazon Inspector",
+  KINESIS: "Amazon Kinesis",
+  KMS: "AWS KMS",
+  LAMBDA: "AWS Lambda",
+  LIGHTSAIL: "Amazon Lightsail",
   LOGS: "CloudWatch Logs",
-  ORGANIZATIONS: "Organizations",
-  RDS: "RDS",
-  ROUTE53: "Route 53",
-  ROUTE53DOMAINS: "Route 53 Domains",
+  MACIE: "Amazon Macie",
+  ORGANIZATIONS: "AWS Organizations",
+  RDS: "Amazon RDS",
+  REDSHIFT: "Amazon Redshift",
+  ROUTE53: "Amazon Route 53",
+  ROUTE53DOMAINS: "Amazon Route 53 Domains",
+  RAM: "AWS Resource Access Manager",
   S3: "Amazon S3",
-  SECRETSMANAGER: "Secrets Manager",
-  SECURITYHUB: "Security Hub",
-  SNS: "SNS",
-  SQS: "SQS",
-  SSM: "Systems Manager",
-  STS: "STS",
-  VPC: "VPC",
+  SERVICECATALOG: "AWS Service Catalog",
+  SECRETSMANAGER: "AWS Secrets Manager",
+  SECURITYHUB: "AWS Security Hub",
+  SNS: "Amazon SNS",
+  SQS: "Amazon SQS",
+  SSM: "AWS Systems Manager",
+  SSMMESSAGES: "SSM Messages",
+  SHIELD: "AWS Shield",
+  SSO: "AWS IAM Identity Center",
+  STORAGEGATEWAY: "AWS Storage Gateway",
+  STS: "AWS STS",
+  SUPPORT: "AWS Support",
+  TRUSTEDADVISOR: "AWS Trusted Advisor",
+  VPC: "Amazon VPC",
+  WAF: "AWS WAF",
 };
 
 export function formatIamServiceDisplayName(serviceLabel: string): string {
@@ -711,11 +783,25 @@ const ASSET_TYPE_DISPLAY_LABELS: Record<string, string> = {
   "iam.account": "Account Setting",
   "s3.bucket": "S3 Bucket",
   "ec2.ebs": "EBS Volume",
+  "gcp.asset": "GCP Asset",
+  "gcp.compute": "GCP Compute Instance",
+  "gcp.firewall": "GCP Firewall Rule",
+  "gcp.logging": "GCP Project",
+  "gcp.osconfig": "GCP VM Instance",
+  "gcp.scc": "GCP SCC",
+  "azure.defender": "Azure Defender",
+  "azure.logging": "Azure Subscription",
+  "azure.storage": "Azure Storage Account",
+  "azure.compute": "Azure Virtual Machine",
+  "azure.entra": "Azure Entra Role",
+  "azure.policy": "Azure Policy Resource",
 };
 
 const TITLE_CASE_ACRONYMS: Record<string, string> = {
   iam: "IAM",
   aws: "AWS",
+  gcp: "GCP",
+  azure: "Azure",
   s3: "S3",
   kms: "KMS",
   ec2: "EC2",
@@ -728,6 +814,9 @@ const TITLE_CASE_ACRONYMS: Record<string, string> = {
   sns: "SNS",
   sqs: "SQS",
   elb: "ELB",
+  scc: "SCC",
+  vm: "VM",
+  entra: "Entra",
 };
 
 function titleCasePillLabel(pillLabel: string): string {

@@ -2,8 +2,7 @@
 
 _Created 2026-06-22. Control-level view of where Veritrail stands against the SOC 2
 Common Criteria, what each evidence source unlocks, and the order to close the
-gap. Complements [compliance-expansion-checklist.md](./compliance-expansion-checklist.md)
-(which is the check-level backlog); this doc is the **control-level** strategy._
+gap. This doc is the **control-level** strategy._
 
 ## TL;DR
 
@@ -89,3 +88,11 @@ is **depth** (blast-radius, least-privilege, AWS rigor) + **price** + serving
 **engineering teams who want real technical evidence**, not 100 SaaS connectors
 and checkbox theater. Go deep on the engineering stack; keep the human/document
 GRC surface thin.
+
+## Coverage boundary
+
+Veritrail's scope is technical evidence only. Endpoint/EDR, MDM enrollment, HR training,
+vendor risk, and program-level criteria (CC1–CC5, CC9) are deliberately **not** surfaced as
+controls — they belong to the customer's GRC platform. See
+[integrations-overview.md](./integrations-overview.md) "Coverage boundary" for the rationale
+and the July 2026 decision record.

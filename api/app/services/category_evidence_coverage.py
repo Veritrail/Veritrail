@@ -11,7 +11,6 @@ from sqlalchemy.orm import Session
 from app.models.evidence_artifact import EvidenceArtifact
 from app.models.org import Org
 from app.services.composite_controls import list_composite_controls
-from app.services.evidence_gap import open_absence_gap_check_ids
 from app.services.coverage_overrides import get_coverage_overrides
 from app.services.evidence_source_registry import (
     EVIDENCE_SOURCE_CATEGORIES,
@@ -45,8 +44,6 @@ def _composite_display_status(
     if status == "fail" and has_accepted:
         return "externally_covered"
     check_ids = composite.get("check_ids") or []
-    if status == "fail" and not has_accepted and open_absence_gap_check_ids(check_ids, open_by_check):
-        return "needs_evidence"
     failing_checks = [cid for cid in check_ids if open_by_check.get(cid)]
     if not failing_checks:
         return "failing"

@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import { AccountFilterDropdown } from "../components/AccountFilterDropdown";
@@ -12,10 +12,10 @@ import {
   serializeFrameworkParam,
 } from "../components/BenchmarkFrameworkSelect";
 import { FindingsStatusSelect } from "../components/FindingsStatusSelect";
-import { FindingsChecksFilter, FindingsChecksFilterSummary } from "../components/FindingsChecksFilter";
+import { FindingsChecksFilter } from "../components/FindingsChecksFilter";
 import { api, formatApiError, token } from "../api";
 import { checkFrameworksSchema, compositeControlListSchema, integrationStatusNullableSchema } from "../lib/apiSchemas";
-import { fetchAllFindings } from "../lib/fetchAllFindings";
+import { fetchAllFindings, FINDINGS_FETCH_CAP } from "../lib/fetchAllFindings";
 import ConnectAwsEmptyState from "../components/ConnectAwsEmptyState";
 import {
   ALL_CLOUD_SCOPE_ID,
@@ -23,6 +23,7 @@ import {
   findingsScopeDropdownValue,
   findingsScopeParams,
   flattenScopeGroups,
+  IDENTITY_SCOPE_ID,
   parseFindingsProviderScope,
   SCOPE_SENTINEL_PREFIX,
   SOURCE_CONTROL_SCOPE_ID,
@@ -30,7 +31,7 @@ import {
   type FindingsProviderScope,
   type FindingsScopeParams,
 } from "../hooks/useConnectedAccountOptions";
-import { readStoredSelectedAccountId, writeStoredSelectedAccountId } from "../lib/selectedAccountStorage";
+import { readStoredFindingsScopeId, writeStoredFindingsScopeId } from "../lib/selectedAccountStorage";
 import { useSelectedAccountId } from "../hooks/useSelectedAccountId";
 import { useTriggeredScan } from "../hooks/useTriggeredScan";
 import { prefetchJiraIntegration, useJiraIntegration } from "../hooks/useJiraIntegration";
@@ -111,6 +112,7 @@ function parseProviderScope(value: string | null) {
 function scopeSentinelToProvider(scope: string): string | null {
   if (scope === "all_cloud") return "all_cloud";
   if (scope === "source_control") return "source_control";
+  if (scope === "identity") return "identity";
   return null;
 }
 
@@ -279,7 +281,7 @@ const CATEGORY_SHORT_LABEL: Record<string, string> = {
   vulnerability_management: "Vulnerability Management",
   container_vulnerability_monitoring: "Container Vulnerability",
   logging_monitoring: "Logging & Monitoring",
-  incident_response: "Incident Response",
+  incident_response: "Threat Detection",
   backup_resilience: "Backup & Resilience",
   endpoint_security: "Endpoint Security",
   mdm_endpoint: "Device Management",
@@ -287,13 +289,35 @@ const CATEGORY_SHORT_LABEL: Record<string, string> = {
   vendor_risk: "Vendor Risk",
 };
 
-/** "2 IAM users" / "79 EBS volumes" when every resource in the row shares one
-    asset type; plain "N resources" for mixed rows. Acronym-ish words (IAM,
-    S3, EBS, DynamoDB…) keep their casing, the rest lowercase. */
+/** Title-case plural labels for GCP / Azure resource counts ("20 GCP Assets"). */
+function usesTitleCaseResourceCount(typeLabel: string): boolean {
+  return typeLabel.startsWith("GCP ") || typeLabel.startsWith("Azure ");
+}
+
+function pluralizeTitleCaseNoun(noun: string): string {
+  if (/^[A-Z]{2,}$/.test(noun)) return noun;
+  const lower = noun.toLowerCase();
+  if (lower === "defender") return noun;
+  if (/[^aeiouy]y$/i.test(lower)) return `${noun.slice(0, -1)}ies`;
+  if (/(?:s|x|z|ch|sh)$/i.test(lower)) return `${noun}es`;
+  return `${noun}s`;
+}
+
+/** "2 IAM users" / "79 EBS volumes" for AWS; "20 GCP Assets" for GCP/Azure.
+    Mixed rows fall back to plain "N resources". */
 function resourceCountLabel(count: number, typeLabel: string | null): string {
   if (!typeLabel) return `${count} ${count === 1 ? "resource" : "resources"}`;
+
+  if (usesTitleCaseResourceCount(typeLabel)) {
+    if (count === 1) return `${count} ${typeLabel}`;
+    const words = typeLabel.split(" ");
+    const last = words[words.length - 1] ?? "";
+    words[words.length - 1] = pluralizeTitleCaseNoun(last);
+    return `${count} ${words.join(" ")}`;
+  }
+
   const words = typeLabel.split(" ").map((w) => (/[A-Z].*[A-Z0-9]/.test(w) ? w : w.toLowerCase()));
-  let noun = words[words.length - 1];
+  let noun = words[words.length - 1] ?? "";
   if (count !== 1) noun = /[^aeiou]y$/i.test(noun) ? `${noun.slice(0, -1)}ies` : `${noun}s`;
   words[words.length - 1] = noun;
   return `${count} ${words.join(" ")}`;
@@ -347,8 +371,8 @@ function formatResourceDate(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "—";
   const date = d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-  const time = d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
-  return `${date} ${time}`;
+  const time = d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+  return `${date} · ${time}`;
 }
 
 function ResourceProviderTile({ finding }: { finding: Finding }) {
@@ -426,7 +450,7 @@ function AffectedResourceRow({
       <div className="findings-affected-resource-row__meta-grid">
         <div className="findings-affected-resource-row__meta findings-affected-resource-row__meta--account">
           <p className="veritrail-kicker">Account</p>
-          <p className="mt-1 flex min-w-0 items-center gap-2 text-[13px] font-semibold text-zinc-800">
+          <p className="findings-affected-resource-row__meta-value mt-1 flex min-w-0 items-center gap-2">
             <span className="truncate">{account}</span>
             <button
               type="button"
@@ -445,7 +469,7 @@ function AffectedResourceRow({
         </div>
         <div className="findings-affected-resource-row__meta findings-affected-resource-row__meta--last-seen">
           <p className="veritrail-kicker">Last seen</p>
-          <p className="mt-1 flex min-w-0 items-center gap-2 text-[13px] font-medium tabular-nums text-zinc-800">
+          <p className="findings-affected-resource-row__meta-value mt-1 flex min-w-0 items-center gap-2 tabular-nums">
             <span className="truncate">{formatResourceDate(finding.last_seen)}</span>
             <svg className="h-4 w-4 shrink-0 text-zinc-300" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
@@ -454,7 +478,7 @@ function AffectedResourceRow({
         </div>
         <div className="findings-affected-resource-row__meta findings-affected-resource-row__meta--first-seen">
           <p className="veritrail-kicker">First seen</p>
-          <p className="mt-1 truncate text-[13px] font-medium tabular-nums text-zinc-800">{formatResourceDate(finding.first_seen)}</p>
+          <p className="findings-affected-resource-row__meta-value mt-1 truncate tabular-nums">{formatResourceDate(finding.first_seen)}</p>
         </div>
       </div>
       {externalUrl ? (
@@ -463,7 +487,7 @@ function AffectedResourceRow({
           target="_blank"
           rel="noreferrer"
           onClick={(event) => event.stopPropagation()}
-          className="findings-affected-resource-row__action inline-flex shrink-0 items-center gap-2 rounded-lg border border-zinc-200 bg-white px-3.5 py-2 text-[13px] font-semibold text-zinc-700 transition hover:border-zinc-300 hover:bg-zinc-50 hover:text-zinc-900"
+          className="findings-affected-resource-row__action"
         >
           {externalLabel}
           <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
@@ -733,9 +757,24 @@ function FindingRow({
   );
 }
 
-export default function Findings() {
+export type FindingsWorkspaceProps = {
+  /** Scope queries and filters to this connected account id (e.g. account detail tab). */
+  lockedAccountId?: string;
+  /** Render inside another page shell — no global header scope picker or URL filter sync. */
+  embedded?: boolean;
+};
+
+function invalidateFindingsQueries(qc: ReturnType<typeof useQueryClient>) {
+  void qc.invalidateQueries({ queryKey: ["findings"] });
+  void qc.invalidateQueries({ queryKey: ["findings-snapshot-all"] });
+  void qc.invalidateQueries({ queryKey: ["org-readiness"] });
+}
+
+export function FindingsWorkspace({ lockedAccountId, embedded = false }: FindingsWorkspaceProps = {}) {
   const qc = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
+  const isLocked = !!lockedAccountId;
+  const syncFiltersToUrl = !embedded;
   const [status, setStatus] = useState<StatusTab>("open");
   const [selected, setSelected] = useState<Finding | null>(null);
   const [selectedGroup, setSelectedGroup] = useState<Finding[]>([]);
@@ -744,15 +783,15 @@ export default function Findings() {
   const [sortKey, setSortKey] = useState<SortKey>("severity");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [severityFilter, setSeverityFilter] = useState<SeverityFilter>("all");
-  const [searchText, setSearchText] = useState(searchParams.get("q") ?? "");
+  const [searchText, setSearchText] = useState(() => (syncFiltersToUrl ? searchParams.get("q") ?? "" : ""));
   const [searchTags, setSearchTags] = useState<string[]>(() => {
+    if (!syncFiltersToUrl) return [];
     const raw = searchParams.get("checks");
     return raw ? raw.split(",").filter(Boolean) : [];
   });
   const [selectedFrameworks, setSelectedFrameworks] = useState<FrameworkId[]>(() =>
-    parseFrameworkParam(searchParams.get("framework")),
+    syncFiltersToUrl ? parseFrameworkParam(searchParams.get("framework")) : [],
   );
-  const providerScope = parseProviderScope(searchParams.get("provider"));
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [expandedCheckIds, setExpandedCheckIds] = useState<Set<string>>(() => new Set());
   const [selectedGroupKeys, setSelectedGroupKeys] = useState<Set<string>>(() => new Set());
@@ -805,26 +844,74 @@ export default function Findings() {
     queryFn: () => api("/v1/integrations/gitlab", { schema: integrationStatusNullableSchema }),
     staleTime: 300_000,
   });
+  const entraProviderQ = useQuery({
+    queryKey: ["integration", "entra"],
+    queryFn: () => api("/v1/integrations/entra", { schema: integrationStatusNullableSchema }),
+    staleTime: 300_000,
+  });
+  const googleWorkspaceProviderQ = useQuery({
+    queryKey: ["integration", "google-workspace"],
+    queryFn: () => api("/v1/integrations/google-workspace", { schema: integrationStatusNullableSchema }),
+    staleTime: 300_000,
+  });
   const hasGithub = !!githubProviderQ.data;
   const hasGitlab = !!gitlabProviderQ.data;
-  const scopeGroups = useMemo(
-    () => buildFindingsScopeGroups(cloudAccounts, { hasGithub, hasGitlab }),
-    [cloudAccounts, hasGithub, hasGitlab],
-  );
+  const hasIdentity =
+    !!entraProviderQ.data || !!googleWorkspaceProviderQ.data;
+  const scopeGroups = useMemo(() => {
+    const groups = buildFindingsScopeGroups(cloudAccounts, { hasGithub, hasGitlab, hasIdentity });
+    return groups.map((group) => ({
+      ...group,
+      options: group.options.map((option) =>
+        option.provider === "all_cloud" ? { ...option, label: "Workspace" } : option,
+      ),
+    }));
+  }, [cloudAccounts, hasGithub, hasGitlab, hasIdentity]);
   const connectedScopeOptions = useMemo(() => flattenScopeGroups(scopeGroups), [scopeGroups]);
+  const providerScope = useMemo((): FindingsProviderScope | null => {
+    if (isLocked) return null;
+    const fromUrl = parseProviderScope(searchParams.get("provider"));
+    if (fromUrl) return fromUrl;
+    if (searchParams.has("account_id") || searchParams.has("account")) return null;
+    if (!accountsReady) return null;
+
+    const stored = readStoredFindingsScopeId();
+    if (stored === ALL_CLOUD_SCOPE_ID && cloudAccounts.length >= 1) return "all_cloud";
+    if (stored === SOURCE_CONTROL_SCOPE_ID && (hasGithub || hasGitlab)) return "source_control";
+    if (stored === IDENTITY_SCOPE_ID && hasIdentity) return "identity";
+    return null;
+  }, [
+    accountsReady,
+    cloudAccounts.length,
+    hasGithub,
+    hasGitlab,
+    hasIdentity,
+    isLocked,
+    searchParams,
+  ]);
   const {
     accountId: selectedAccountId,
     activeAccount: selectedActiveAccount,
     setAccountId: setSelectedAccountId,
   } = useSelectedAccountId(cloudAccounts, accountsReady, {
-    holdUrlSyncWhenParams: ["provider"],
+    holdUrlSyncWhenParams: isLocked || embedded ? ["account_id", "account", "provider"] : ["provider"],
     scopeDefaults: {
       cloudAccountCount: cloudAccounts.length,
       hasSourceControl: hasGithub || hasGitlab,
+      hasIdentity,
+      scopeIds: [ALL_CLOUD_SCOPE_ID, SOURCE_CONTROL_SCOPE_ID, IDENTITY_SCOPE_ID],
+    },
+    storage: {
+      read: readStoredFindingsScopeId,
+      write: writeStoredFindingsScopeId,
     },
   });
-  const effectiveAccountId = providerScope ? "" : selectedAccountId;
-  const activeAccount = providerScope ? undefined : selectedActiveAccount;
+  const effectiveAccountId = isLocked ? lockedAccountId! : providerScope ? "" : selectedAccountId;
+  const activeAccount = isLocked
+    ? cloudAccounts.find((account) => account.id === lockedAccountId)
+    : providerScope
+      ? undefined
+      : selectedActiveAccount;
   const scopeParams: FindingsScopeParams = providerScope
     ? { provider: providerScope }
     : findingsScopeParams(activeAccount);
@@ -832,15 +919,35 @@ export default function Findings() {
   const awsScanAccountId =
     activeAccount?.provider === "aws" || !activeAccount?.provider ? effectiveAccountId || undefined : undefined;
 
-  const findingsQueryEnabled =
-    !accountsLoading &&
-    (!!providerScope || !!effectiveAccountId || connectedScopeOptions.length > 0);
+  const findingsQueryEnabled = isLocked
+    ? !accountsLoading && !!lockedAccountId
+    : !accountsLoading &&
+      (!!providerScope || !!effectiveAccountId || connectedScopeOptions.length > 0);
 
   useEffect(() => {
+    if (isLocked || embedded || !accountsReady) return;
+
+    const fromUrl = parseProviderScope(searchParams.get("provider"));
+    if (fromUrl) {
+      const scopeId = findingsScopeDropdownValue(fromUrl, "");
+      if (scopeId.startsWith(SCOPE_SENTINEL_PREFIX)) {
+        writeStoredFindingsScopeId(scopeId);
+      }
+      return;
+    }
+
+    const urlAccountId = searchParams.get("account_id") || searchParams.get("account");
+    if (urlAccountId && cloudAccounts.some((account) => account.id === urlAccountId)) {
+      writeStoredFindingsScopeId(urlAccountId);
+    }
+  }, [accountsReady, cloudAccounts, embedded, isLocked, searchParams]);
+
+  useEffect(() => {
+    if (isLocked || embedded) return;
     if (!accountsReady || accountsLoading) return;
     if (searchParams.has("provider") || searchParams.has("account_id")) return;
 
-    const stored = readStoredSelectedAccountId();
+    const stored = readStoredFindingsScopeId();
     if (stored === ALL_CLOUD_SCOPE_ID && cloudAccounts.length >= 1) {
       setSearchParams(
         (prev) => {
@@ -865,10 +972,22 @@ export default function Findings() {
       );
       return;
     }
+    if (stored === IDENTITY_SCOPE_ID && hasIdentity) {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.set("provider", "identity");
+          next.delete("account_id");
+          return next;
+        },
+        { replace: true },
+      );
+      return;
+    }
     if (stored && cloudAccounts.some((account) => account.id === stored)) return;
 
     if (cloudAccounts.length >= 1) {
-      writeStoredSelectedAccountId(ALL_CLOUD_SCOPE_ID);
+      writeStoredFindingsScopeId(ALL_CLOUD_SCOPE_ID);
       setSearchParams(
         (prev) => {
           const next = new URLSearchParams(prev);
@@ -881,11 +1000,24 @@ export default function Findings() {
       return;
     }
     if (hasGithub || hasGitlab) {
-      writeStoredSelectedAccountId(SOURCE_CONTROL_SCOPE_ID);
+      writeStoredFindingsScopeId(SOURCE_CONTROL_SCOPE_ID);
       setSearchParams(
         (prev) => {
           const next = new URLSearchParams(prev);
           next.set("provider", "source_control");
+          next.delete("account_id");
+          return next;
+        },
+        { replace: true },
+      );
+      return;
+    }
+    if (hasIdentity) {
+      writeStoredFindingsScopeId(IDENTITY_SCOPE_ID);
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.set("provider", "identity");
           next.delete("account_id");
           return next;
         },
@@ -898,6 +1030,7 @@ export default function Findings() {
     cloudAccounts,
     hasGithub,
     hasGitlab,
+    hasIdentity,
     searchParams,
     setSearchParams,
   ]);
@@ -917,7 +1050,7 @@ export default function Findings() {
     (findingsQueryEnabled && !findingsQuery.isSuccess && !findingsQuery.isError);
   const { scanRun, scanStatus, isRunning, scanTriggered, triggerScan } = useTriggeredScan(
     awsScanAccountId,
-    { onScanComplete: () => qc.invalidateQueries({ queryKey: ["findings"] }) },
+    { onScanComplete: () => invalidateFindingsQueries(qc) },
   );
 
   useEffect(() => {
@@ -928,11 +1061,12 @@ export default function Findings() {
   }, [findingsQuery.isFetching, isRefreshing]);
 
   useEffect(() => {
+    if (!syncFiltersToUrl) return;
     const raw = searchParams.get("checks");
     const next = raw ? raw.split(",").filter(Boolean) : [];
     setSearchTags(next);
     if (next.length > 0) setStatus("open");
-  }, [searchParams]);
+  }, [searchParams, syncFiltersToUrl]);
 
   const act = useMutation({
     mutationFn: ({ id, action }: { id: string; action: "recheck" | "reopen" }) =>
@@ -941,9 +1075,9 @@ export default function Findings() {
       if (action === "recheck") {
         const result = data as RecheckResponse;
         const checkId = selected?.check_id ?? result.check_id ?? "";
-        if (!applyRecheckResult(id, checkId, result)) setTimeout(() => qc.invalidateQueries({ queryKey: ["findings"] }), 6000);
+        if (!applyRecheckResult(id, checkId, result)) setTimeout(() => invalidateFindingsQueries(qc), 6000);
       } else {
-        qc.invalidateQueries({ queryKey: ["findings"] });
+        invalidateFindingsQueries(qc);
         if (selected) setSelected(data as Finding);
         if (action === "reopen") {
           clearDrawerVerifyFlash();
@@ -957,6 +1091,8 @@ export default function Findings() {
   });
 
   const findings = findingsQuery.data?.items ?? [];
+  const findingsTruncated = !!findingsQuery.data?.truncated;
+  const findingsTotal = findingsQuery.data?.total ?? findings.length;
   const scopedFindings = useMemo(
     () =>
       providerScope
@@ -1008,11 +1144,25 @@ export default function Findings() {
   const verifying = !!(selected && pendingRecheck?.findingId === selected.id);
   const verified = !!(selected && recheckOutcome?.findingId === selected.id && recheckOutcome.status === "verified");
   const verifyUnchanged = !!(selected && recheckOutcome?.findingId === selected.id && recheckOutcome.status === "unchanged");
+  const verifyError = !!(selected && recheckOutcome?.findingId === selected.id && recheckOutcome.status === "error");
 
   const benchmarkScopedFindings = useMemo(
     () => scopedFindings.filter((f) => matchesBenchmarkFilter(f, selectedFrameworks, checkFrameworksApi)),
     [scopedFindings, selectedFrameworks, checkFrameworksApi],
   );
+
+  const searchSuggestions = useMemo(() => {
+    const labels = new Set<string>();
+    for (const finding of benchmarkScopedFindings) {
+      const groupKey = findingDisplayGroupKey(finding.check_id);
+      labels.add(
+        findingGroupMeta(groupKey)?.title ??
+          checkLabels[finding.check_id] ??
+          finding.title,
+      );
+    }
+    return [...labels].sort((a, b) => a.localeCompare(b));
+  }, [benchmarkScopedFindings]);
 
   const rows = useMemo(() => {
     const qtext = searchText.trim().toLowerCase();
@@ -1128,7 +1278,7 @@ export default function Findings() {
       const results = await Promise.allSettled(selectedFindings.map((f) => mutate(f.id)));
       const failed = results.filter((r) => r.status === "rejected").length;
       setBulkBusy(false);
-      qc.invalidateQueries({ queryKey: ["findings"] });
+      invalidateFindingsQueries(qc);
       if (failed > 0) {
         setBulkMsg(`${results.length - failed} updated · ${failed} failed`);
       } else {
@@ -1210,6 +1360,42 @@ export default function Findings() {
     setRemTab(defaultFindingRemediationMode(finding.check_id));
   }
 
+  const deepLinkFindingId = syncFiltersToUrl ? searchParams.get("finding") : null;
+  const deepLinkConsumed = useRef(false);
+
+  useEffect(() => {
+    deepLinkConsumed.current = false;
+  }, [deepLinkFindingId]);
+
+  useEffect(() => {
+    if (!deepLinkFindingId || deepLinkConsumed.current) return;
+    if (status !== "open") {
+      setStatus("open");
+      return;
+    }
+    if (!findingsQuery.isSuccess) return;
+
+    const target = scopedFindings.find((f) => f.id === deepLinkFindingId);
+    if (!target) return;
+
+    deepLinkConsumed.current = true;
+    openReview([target], target);
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("finding");
+        return next;
+      },
+      { replace: true },
+    );
+  }, [
+    deepLinkFindingId,
+    status,
+    findingsQuery.isSuccess,
+    scopedFindings,
+    setSearchParams,
+  ]);
+
   const toggleExpandedCheck = useCallback((checkId: string) => {
     setExpandedCheckIds((prev) => {
       const next = new Set(prev);
@@ -1221,6 +1407,7 @@ export default function Findings() {
 
   function handleBenchmarkChange(next: FrameworkId[]) {
     setSelectedFrameworks(next);
+    if (!syncFiltersToUrl) return;
     const serialized = serializeFrameworkParam(next);
     setSearchParams(
       (prev) => {
@@ -1238,7 +1425,7 @@ export default function Findings() {
       const scope = id.slice(SCOPE_SENTINEL_PREFIX.length);
       const provider = scopeSentinelToProvider(scope);
       if (!provider) return;
-      writeStoredSelectedAccountId(id);
+      writeStoredFindingsScopeId(id);
       setSearchParams(
         (prev) => {
           const next = new URLSearchParams(prev);
@@ -1250,12 +1437,13 @@ export default function Findings() {
       );
       return;
     }
-    writeStoredSelectedAccountId(id);
+    writeStoredFindingsScopeId(id);
     setSelectedAccountId(id, { removeParams: ["provider"] });
   }
 
   function handleSearch(value: string) {
     setSearchText(value);
+    if (!syncFiltersToUrl) return;
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev);
@@ -1269,6 +1457,7 @@ export default function Findings() {
 
   function handleTagsChange(tags: string[]) {
     setSearchTags(tags);
+    if (!syncFiltersToUrl) return;
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev);
@@ -1342,11 +1531,15 @@ export default function Findings() {
     URL.revokeObjectURL(url);
   }, [scopeParams.account_id, scopeParams.azure_subscription_id, scopeParams.gcp_project_id, scopeParams.provider, status]);
 
-  if (accountsReady && !accountsLoading && connectedScopeOptions.length === 0) return <ConnectAwsEmptyState />;
+  if (!embedded && accountsReady && !accountsLoading && connectedScopeOptions.length === 0) {
+    return <ConnectAwsEmptyState />;
+  }
 
   return (
-    <div className="findings-v2-page findings-v2-shell min-h-full w-full">
-        {connectedScopeOptions.length > 0 && (
+    <div
+      className={`findings-v2-page findings-v2-shell w-full ${embedded ? "findings-v2-page--embedded" : "min-h-full"}`}
+    >
+        {!embedded && connectedScopeOptions.length > 0 && (
           <HeaderSlot>
           <HeaderFilterBar>
             <AccountFilterDropdown
@@ -1356,9 +1549,17 @@ export default function Findings() {
               onChange={handleAccountChange}
             />
             <BenchmarkFrameworkSelect selected={selectedFrameworks} onChange={handleBenchmarkChange} />
+            <FindingsStatusSelect value={status} onChange={setStatus} />
           </HeaderFilterBar>
           </HeaderSlot>
         )}
+
+        {embedded ? (
+          <div className="findings-v2-embedded-filters">
+            <BenchmarkFrameworkSelect selected={selectedFrameworks} onChange={handleBenchmarkChange} />
+            <FindingsStatusSelect value={status} onChange={setStatus} />
+          </div>
+        ) : null}
 
         {showFindingsLoading && (
           <div className="findings-v2-content min-w-0">
@@ -1389,6 +1590,16 @@ export default function Findings() {
 
         {!showFindingsLoading && !findingsQuery.isError && (
           <section className="findings-v2-content min-w-0">
+            {findingsTruncated ? (
+              <div
+                role="status"
+                className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+              >
+                Showing the top {findings.length.toLocaleString()} of{" "}
+                {findingsTotal.toLocaleString()} findings (cap {FINDINGS_FETCH_CAP.toLocaleString()}).
+                Use filters or export CSV for the full set.
+              </div>
+            ) : null}
             <div className="findings-v2-card rounded-2xl border border-[#e6ebf2] bg-white shadow-sm shadow-zinc-950/[0.04]">
               <div className="findings-v2-table-toolbar">
                 <div className="findings-v2-toolbar-scroll">
@@ -1406,10 +1617,6 @@ export default function Findings() {
                     />
 
                     <FindingsChecksFilter tags={searchTags} checkLabels={checkLabels} onChange={handleTagsChange} />
-                    <FindingsStatusSelect
-                      value={status}
-                      onChange={setStatus}
-                    />
                   </div>
 
                   <div className="findings-v2-control-cluster">
@@ -1421,12 +1628,13 @@ export default function Findings() {
                       aria-label="Search findings"
                       value={searchText}
                       onChange={handleSearch}
+                      suggestions={searchSuggestions}
                     />
                     <div className="findings-v2-toolbar-group findings-v2-toolbar-group--divider" role="group" aria-label="Finding actions">
                       <button
                         type="button"
                         onClick={() => {
-                          qc.invalidateQueries({ queryKey: ["findings"] });
+                          invalidateFindingsQueries(qc);
                           setIsRefreshing(true);
                         }}
                         disabled={isRefreshing}
@@ -1440,7 +1648,7 @@ export default function Findings() {
                       </button>
                     </div>
                     <div className="findings-v2-toolbar-group findings-v2-actions-group" role="group" aria-label="Export and scan">
-                      <button type="button" onClick={downloadCsv} className="findings-v2-toolbar-btn findings-v2-toolbar-btn--ghost">
+                      <button type="button" onClick={() => void downloadCsv()} className="findings-v2-toolbar-btn">
                         <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
                         </svg>
@@ -1458,18 +1666,6 @@ export default function Findings() {
                   </div>
                 </div>
               </div>
-
-              <FindingsChecksFilterSummary
-                tags={searchTags}
-                checkLabels={checkLabels}
-                displayGroupCount={
-                  searchTags.length > 0
-                    ? postureDisplayGroups.length +
-                      (SHOW_ACTIVITY_DETECTIONS_SECTION ? activityDisplayGroups.length : 0)
-                    : undefined
-                }
-                onClear={() => handleTagsChange([])}
-              />
 
               {rows.length === 0 ? (
                 <div className={`px-6 py-16 text-center ${isPositiveEmpty ? "bg-emerald-50/40" : ""}`}>
@@ -1619,7 +1815,7 @@ export default function Findings() {
                 Resolve…
               </button>
               <button type="button" className="findings-bulk-bar__btn" onClick={exportSelectedCsv}>
-                Export CSV
+                Export
               </button>
               <button type="button" className="findings-bulk-bar__btn" onClick={clearBulkSelection}>
                 Clear
@@ -1640,6 +1836,7 @@ export default function Findings() {
         onRemTabChange={setRemTab}
         verified={verified}
         verifyUnchanged={verifyUnchanged}
+        verifyError={verifyError}
         verifying={verifying}
         onDismissVerifyOutcome={clearDrawerVerifyFlash}
         onFocusFinding={focusFinding}
@@ -1659,4 +1856,8 @@ export default function Findings() {
       />
     </div>
   );
+}
+
+export default function Findings() {
+  return <FindingsWorkspace />;
 }

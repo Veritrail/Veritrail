@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../api";
-import { accountListSchema, scanRunLatestNullableSchema } from "../lib/apiSchemas";
+import { accountListSchema, findingSummarySchema, scanRunLatestNullableSchema } from "../lib/apiSchemas";
 import { isAccountConnected } from "../lib/accountConnection";
 import { fetchAllFindings } from "../lib/fetchAllFindings";
 
@@ -82,6 +82,10 @@ export default function Dashboard() {
     queryKey: ["dashboard-findings"],
     queryFn: () => fetchAllFindings<Finding>({ status: "open" }),
   });
+  const summary = useQuery({
+    queryKey: ["findings-summary", "open"],
+    queryFn: () => api("/v1/findings/summary", { schema: findingSummarySchema }),
+  });
 
   const connectedAccount = accounts.data?.find((a) => isAccountConnected(a));
 
@@ -97,12 +101,25 @@ export default function Dashboard() {
   });
 
   const rows = findings.data?.items ?? [];
-  const isLoading = findings.isLoading || accounts.isLoading;
+  const isLoading = findings.isLoading || accounts.isLoading || summary.isLoading;
 
-  const critHigh = rows.filter((f) => f.severity === "critical" || f.severity === "high").length;
-  const medium = rows.filter((f) => f.severity === "medium").length;
-  const low = rows.filter((f) => f.severity === "low").length;
-  const total = rows.length;
+  const bySev = summary.data?.by_severity ?? {};
+  const critHigh =
+    summary.data != null
+      ? (bySev.critical ?? 0) + (bySev.high ?? 0)
+      : rows.filter((f) => f.severity === "critical" || f.severity === "high").length;
+  const medium =
+    summary.data != null
+      ? (bySev.medium ?? 0)
+      : rows.filter((f) => f.severity === "medium").length;
+  const low =
+    summary.data != null
+      ? (bySev.low ?? 0) + (bySev.info ?? 0)
+      : rows.filter((f) => f.severity === "low").length;
+  const total =
+    summary.data != null
+      ? (summary.data.by_status?.open ?? 0)
+      : rows.length;
 
   const postureScore = Math.max(0, Math.min(100, Math.round(100 - critHigh * 10 - medium * 3 - low * 1)));
 

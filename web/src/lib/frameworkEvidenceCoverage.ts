@@ -118,9 +118,10 @@ function cisPresentation(
   };
 }
 
-function isoPresentation(
+function evidencePeriodPresentation(
   cov: EvidenceCoverage | undefined,
   periodKey: string | number,
+  badgeLabel: string,
 ): FrameworkEvidenceUi {
   if (periodKey === "last_scan") {
     return {
@@ -145,7 +146,7 @@ function isoPresentation(
         : `${days} days collected`;
 
   return {
-    badgeLabel: "Evidence history",
+    badgeLabel,
     tone: days > 0 ? "neutral" : "limited",
     headline,
     showProgressBar: false,
@@ -154,6 +155,13 @@ function isoPresentation(
     detailLine: `Evidence included for the selected ${total}-day export period (not a fixed audit requirement).`,
     guidanceLine: null,
   };
+}
+
+function isoPresentation(
+  cov: EvidenceCoverage | undefined,
+  periodKey: string | number,
+): FrameworkEvidenceUi {
+  return evidencePeriodPresentation(cov, periodKey, "Evidence history");
 }
 
 export function frameworkEvidenceUi(

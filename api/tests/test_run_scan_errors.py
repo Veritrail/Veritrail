@@ -88,6 +88,21 @@ def _stub_all_collectors_ok(monkeypatch, tasks):
         monkeypatch.setattr(tasks, name, lambda *a, **kw: 0)
 
 
+def _fake_db_for_run_scan(fake_acc: MagicMock) -> MagicMock:
+    """DB mock that survives multiple Org lookups during finalize/coverage sync."""
+    fake_db = MagicMock()
+
+    def _get(model, _key):
+        if getattr(model, "__name__", None) == "AwsAccount":
+            return fake_acc
+        return None
+
+    fake_db.get.side_effect = _get
+    # account_open_findings_count → int(db.scalar(...) or 0)
+    fake_db.scalar.return_value = 0
+    return fake_db
+
+
 def test_run_scan_collector_failure_rolls_back_and_continues(monkeypatch):
     """If a collector raises, the pipeline rolls back that collector's
     uncommitted work, records it under stats.collector_errors, continues with
@@ -104,8 +119,7 @@ def test_run_scan_collector_failure_rolls_back_and_continues(monkeypatch):
     fake_run.id = uuid.uuid4()
     fake_run.stats = {}
 
-    fake_db = MagicMock()
-    fake_db.get.side_effect = [fake_acc, None]  # AwsAccount, Org
+    fake_db = _fake_db_for_run_scan(fake_acc)
 
     _stub_all_collectors_ok(monkeypatch, tasks)
 
@@ -158,61 +172,9 @@ def test_run_scan_check_failure_does_not_kill_scan(monkeypatch):
     fake_run.id = uuid.uuid4()
     fake_run.stats = {}
 
-    fake_db = MagicMock()
-    # Two .get calls: 1) AwsAccount, 2) Org
-    fake_db.get.side_effect = [fake_acc, None]
+    fake_db = _fake_db_for_run_scan(fake_acc)
 
-    # Stub every collector. collect_iam/vpc/ec2 must return dicts; the rest
-    # return ints (matching production signatures).
-    dict_collectors = {
-        "collect_iam",
-        "collect_account_governance",
-        "collect_vpc",
-        "collect_ec2",
-        "collect_ecs",
-        "collect_inspector",
-        "collect_backup",
-    }
-    int_collectors = {
-        "collect_s3_account_public_access_block",
-        "collect_s3",
-        "collect_kms",
-        "collect_cloudtrail",
-        "collect_cloudtrail_events",
-        "collect_guardduty",
-        "collect_guardduty_findings",
-        "collect_identity_center",
-        "collect_config_compliance",
-        "collect_rds",
-        "collect_access_analyzer",
-        "collect_config_service",
-        "collect_securityhub",
-        "collect_acm",
-        "collect_lambda",
-        "collect_secrets",
-        "collect_ssm_parameters",
-        "collect_iam_server_certificates",
-        "collect_elb",
-        "collect_dynamodb",
-        "collect_sns",
-        "collect_sqs",
-        "collect_ecr",
-        "collect_ecr_registry_settings",
-        "collect_eks",
-    }
-    for name in dict_collectors:
-        if name == "collect_ec2":
-            monkeypatch.setattr(tasks, name, lambda *a, **kw: {"instances": 0, "volumes": 0, "snapshots": 0, "amis": 0, "ebs_regions": 0})
-        elif name == "collect_ecs":
-            monkeypatch.setattr(tasks, name, lambda *a, **kw: {"clusters": 0, "services": 0, "task_definitions": 0})
-        elif name == "collect_inspector":
-            monkeypatch.setattr(tasks, name, lambda *a, **kw: {"regions": 0, "findings": 0})
-        elif name == "collect_backup":
-            monkeypatch.setattr(tasks, name, lambda *a, **kw: {"backup_plans": 0, "backup_vaults": 0})
-        else:
-            monkeypatch.setattr(tasks, name, lambda *a, **kw: {})
-    for name in int_collectors:
-        monkeypatch.setattr(tasks, name, lambda *a, **kw: 0)
+    _stub_all_collectors_ok(monkeypatch, tasks)
 
     good_check = MagicMock()
     good_check.CHECK_ID = "test.good"

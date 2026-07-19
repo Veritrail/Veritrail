@@ -8,6 +8,7 @@ import {
   type EvidenceTone,
   type FrameworkEvidenceUi,
 } from "../lib/frameworkEvidenceCoverage";
+import { PackIntegrityPanel } from "./PackIntegrityPanel";
 
 const WINDOW_OPTIONS = [
   { value: "last_scan" as const, label: "Last scan" },
@@ -577,6 +578,9 @@ export type EvidencePackExportPanelProps = {
   lastScanLabel?: string | null;
   downloading: boolean;
   onDownload: () => void;
+  /** ZIP SHA-256 from the last successful download (response header). */
+  lastZipSha256?: string | null;
+  lastReportId?: string | null;
 };
 
 export function EvidencePackExportPanel({
@@ -592,6 +596,8 @@ export function EvidencePackExportPanel({
   lastScanLabel,
   downloading,
   onDownload,
+  lastZipSha256,
+  lastReportId,
 }: EvidencePackExportPanelProps) {
   const evidenceUi = frameworkEvidenceUi(frameworkId, coverage, periodKey, {
     controlsEvaluated,
@@ -651,6 +657,8 @@ export function EvidencePackExportPanel({
             </div>
           </div>
         </section>
+
+        <PackIntegrityPanel zipSha256={lastZipSha256} reportId={lastReportId} />
       </div>
 
       <button

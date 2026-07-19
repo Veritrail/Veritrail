@@ -2,7 +2,8 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from jose import JWTError, jwt
+import jwt
+from jwt import PyJWTError as JWTError
 
 from app.core.config import get_settings
 
@@ -59,7 +60,6 @@ def issue_refresh_token(sub: str, org_id: str, *, remember_me: bool = False) -> 
 
 
 def decode_refresh_token(token: str) -> dict:
-    from jose import JWTError
     from fastapi import HTTPException, status
     try:
         payload = jwt.decode(token, settings.JWT_SECRET, algorithms=[settings.JWT_ALG])
@@ -133,6 +133,9 @@ def issue_signup_pending_token(email: str, **idp_fields: str) -> str:
     display_name = (idp_fields.get("display_name") or "").strip()
     if display_name:
         payload["display_name"] = display_name
+    avatar_url = (idp_fields.get("avatar_url") or "").strip()
+    if avatar_url:
+        payload["avatar_url"] = avatar_url
     return jwt.encode(payload, settings.JWT_SECRET, algorithm=settings.JWT_ALG)
 
 

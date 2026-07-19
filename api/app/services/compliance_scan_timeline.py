@@ -582,7 +582,20 @@ def build_compliance_scan_timeline(
             "persistent_gaps": [],
         }
 
-    findings = list(db.scalars(select(Finding).where(Finding.account_id == account_id)).all())
+    # History is framework-scoped. A finding may map to ISO/CIS controls while the
+    # user is viewing SOC 2 (and vice versa), so do not let unrelated checks leak
+    # into snapshot counts, activity rows, or drawer copy.
+    framework_check_ids = {
+        check_id for _control, check_ids in catalog for check_id in check_ids
+    }
+    findings = list(
+        db.scalars(
+            select(Finding).where(
+                Finding.account_id == account_id,
+                Finding.check_id.in_(framework_check_ids),
+            )
+        ).all()
+    )
     events_by_finding = load_events_by_finding(db, [f.id for f in findings])
 
     scan_runs = db.scalars(

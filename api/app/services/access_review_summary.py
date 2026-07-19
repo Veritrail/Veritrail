@@ -12,10 +12,9 @@ from app.models.finding import Finding
 from app.models.github import IdentityProvider, IdentityUser
 
 DORMANT_DAYS = 90
-_IDENTITY_PROVIDER_TYPES = ("entra_id", "google_workspace", "github", "gitlab", "okta")
+_IDENTITY_PROVIDER_TYPES = ("entra_id", "google_workspace", "github", "gitlab")
 _ADMIN_UNREVIEWED_CHECKS = frozenset({
     "entra.admin.unreviewed",
-    "okta.admin.unreviewed",
     "github.org.admin_unreviewed",
     "google_workspace.admin.unreviewed",
 })
@@ -91,7 +90,6 @@ def build_access_review_summary(db: Session, org_id: uuid.UUID) -> dict[str, Any
             Finding.org_id == org_id,
             Finding.status == "open",
             Finding.check_id.like("entra.%")
-            | Finding.check_id.like("okta.%")
             | Finding.check_id.like("google_workspace.%")
             | Finding.check_id.like("github.org.%")
             | Finding.check_id.like("gitlab.org.%")

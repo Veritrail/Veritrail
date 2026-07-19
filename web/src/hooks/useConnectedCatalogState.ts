@@ -4,10 +4,8 @@ import { useMemo } from "react";
 import { api } from "../api";
 import {
   cloudAccountListSchema,
-  iacRepositoryIntegrationSchema,
   integrationStatusNullableSchema,
   jiraIntegrationSchema,
-  oktaIntegrationSchema,
   scannerIntegrationSchema,
   settingsSchema,
 } from "../lib/apiSchemas";
@@ -34,10 +32,6 @@ export function useConnectedCatalogState() {
   const entra = useQuery({
     queryKey: ["entra-provider"],
     queryFn: () => api("/v1/integrations/entra", { schema: integrationStatusNullableSchema }),
-  });
-  const okta = useQuery({
-    queryKey: ["okta-integration"],
-    queryFn: () => api("/v1/integrations/okta", { schema: oktaIntegrationSchema }),
   });
   const cloudAccounts = useQuery({
     queryKey: ["cloud-accounts"],
@@ -67,10 +61,6 @@ export function useConnectedCatalogState() {
     queryKey: ["scanner-aikido"],
     queryFn: () => api("/v1/integrations/scanners/aikido", { schema: scannerIntegrationSchema }),
   });
-  const iacRepository = useQuery({
-    queryKey: ["iac-repository-integration"],
-    queryFn: () => api("/v1/integrations/iac-repository", { schema: iacRepositoryIntegrationSchema }),
-  });
   const jira = useQuery({
     queryKey: ["jira-integration"],
     queryFn: () => api("/v1/integrations/jira", { schema: jiraIntegrationSchema }),
@@ -82,6 +72,10 @@ export function useConnectedCatalogState() {
   const datadogSiem = useQuery({
     queryKey: ["siem-integration", "datadog"],
     queryFn: () => api("/v1/integrations/siem/datadog", { schema: scannerIntegrationSchema }),
+  });
+  const pagerduty = useQuery({
+    queryKey: ["pagerduty-integration"],
+    queryFn: () => api("/v1/integrations/pagerduty", { schema: scannerIntegrationSchema }),
   });
 
   const accountsList = cloudAccounts.data ?? [];
@@ -95,14 +89,13 @@ export function useConnectedCatalogState() {
   const gitlabConnected = !!gitlab.data;
   const googleConnected = !!googleWorkspace.data;
   const entraConnected = !!entra.data;
-  const oktaConnected = !!okta.data?.connected;
   const slackConnected = !!settings.data?.notifications.slack_webhook_url?.trim();
   const gcpConnected = gcpRows.some(isCloudAccountConnected);
   const azureConnected = azureRows.some(isCloudAccountConnected);
-  const iacRepositoryConnected = !!iacRepository.data?.connected;
   const jiraConnected = !!jira.data?.connected;
   const splunkConnected = !!splunkSiem.data?.connected;
   const datadogConnected = !!datadogSiem.data?.connected;
+  const pagerdutyConnected = !!pagerduty.data?.connected;
   const snykConnected = !!snykScanner.data?.connected;
   const wizConnected = !!wizScanner.data?.connected;
   const tenableConnected = !!tenableScanner.data?.connected;
@@ -116,14 +109,13 @@ export function useConnectedCatalogState() {
     gitlabConnected,
     googleConnected,
     entraConnected,
-    oktaConnected,
     slackConnected,
     gcpConnected,
     azureConnected,
-    iacRepositoryConnected,
     jiraConnected,
     splunkConnected,
     datadogConnected,
+    pagerdutyConnected,
     connectedScanners: {
       snyk: snykConnected,
       wiz: wizConnected,
@@ -142,14 +134,13 @@ export function useConnectedCatalogState() {
       gitlabConnected,
       googleConnected,
       entraConnected,
-      oktaConnected,
       slackConnected,
       gcpConnected,
       azureConnected,
-      iacRepositoryConnected,
       jiraConnected,
       splunkConnected,
       datadogConnected,
+      pagerdutyConnected,
       snykConnected,
       wizConnected,
       tenableConnected,
@@ -168,7 +159,6 @@ export function useConnectedCatalogState() {
       gitlab.isLoading ||
       googleWorkspace.isLoading ||
       entra.isLoading ||
-      okta.isLoading ||
       cloudAccounts.isLoading ||
       wizScanner.isLoading ||
       tenableScanner.isLoading ||
@@ -176,9 +166,9 @@ export function useConnectedCatalogState() {
       snykScanner.isLoading ||
       orcaScanner.isLoading ||
       aikidoScanner.isLoading ||
-      iacRepository.isLoading ||
       jira.isLoading ||
       splunkSiem.isLoading ||
-      datadogSiem.isLoading,
+      datadogSiem.isLoading ||
+      pagerduty.isLoading,
   };
 }

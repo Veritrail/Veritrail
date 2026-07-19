@@ -82,15 +82,6 @@
     box-shadow 0.15s ease;
 }
 
-.findings-v2-status-trigger {
-  width: auto;
-  min-width: 0;
-  max-width: none;
-  justify-content: space-between;
-  gap: 0.375rem;
-  padding-inline: 0.75rem;
-}
-
 .findings-v2-benchmark-trigger {
   width: auto;
   min-width: 0;
@@ -112,6 +103,12 @@
   color: #18181b;
 }
 
+.findings-v2-checks-trigger__count {
+  color: #64748b;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+
 .findings-v2-filter-cluster > div {
   min-width: 0;
   max-width: 100%;
@@ -120,45 +117,6 @@
 
 .findings-v2-filter-trigger .truncate {
   min-width: 0;
-}
-
-.findings-v2-checks-summary {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 0.5rem 1rem;
-  border-bottom: 1px solid #eef2f6;
-  background: #fafafa;
-}
-
-.findings-v2-checks-summary__text {
-  margin: 0;
-  min-width: 0;
-  font-size: 0.75rem;
-  line-height: 1.4;
-  color: #71717a;
-}
-
-.findings-v2-checks-summary__sep {
-  margin-inline: 0.35rem;
-  color: #a1a1aa;
-}
-
-.findings-v2-checks-summary__clear {
-  flex-shrink: 0;
-  border: none;
-  background: none;
-  padding: 0;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: #71717a;
-  cursor: pointer;
-  transition: color 0.15s ease;
-}
-
-.findings-v2-checks-summary__clear:hover {
-  color: #4338ca;
 }
 
 .findings-v2-checks-popover__header {
@@ -289,20 +247,6 @@
   color: #111827;
 }
 
-/* Export: text+icon ghost so the sort trio stays the only outlined group. */
-.findings-v2-page .findings-v2-toolbar-btn.findings-v2-toolbar-btn--ghost {
-  border-color: transparent;
-  background: transparent;
-  box-shadow: none;
-  color: #52525b;
-}
-
-.findings-v2-page .findings-v2-toolbar-btn.findings-v2-toolbar-btn--ghost:hover:not(:disabled) {
-  border-color: transparent;
-  background: #f3f4f6;
-  color: #111827;
-}
-
 /* Search and refresh sit together; the divider was pushing them apart. */
 .findings-v2-page .findings-v2-toolbar-group--divider {
   padding-left: 6px;
@@ -368,25 +312,28 @@
 }
 
 /* Findings toolbar buttons adopt the History filter-button family: flat (no
-   shadow), 8px radius, lighter border, #374151 text. Scoped to Findings. */
+   shadow), 8px radius, lighter border, #374151 text. Scoped to Findings.
+   Border matches the Search field / standard secondary buttons (--vt-border);
+   #cbd5e1 read as a dark edge next to them. */
 .findings-v2-page .findings-v2-toolbar-btn {
   flex: 0 0 auto;
   min-width: max-content;
   border-radius: 0.5rem;
-  border-color: #cbd5e1;
+  border: 1px solid var(--vt-border, #e8edf3);
+  background: #ffffff;
   color: #374151;
   box-shadow: none;
 }
 
 .findings-v2-page .findings-v2-toolbar-btn:hover:not(:disabled) {
-  border-color: #9aa7b8;
-  background: #f9fafb;
+  border-color: var(--vt-border-strong, #d8dee8);
+  background: #f8fafc;
   color: #111827;
 }
 
 /* Scan = Veritrail teal primary, not a neutral outline. */
 .findings-v2-page .findings-v2-toolbar-btn--scan {
-  border-color: var(--vt-teal);
+  border: 1px solid var(--vt-teal);
   background: var(--vt-teal);
   color: #ffffff;
   box-shadow: 0 1px 2px rgba(13, 148, 136, 0.28);
@@ -528,20 +475,49 @@
   color: #111827;
 }
 
-/* Row multi-select checkbox — quiet until checked. */
+/* Row multi-select checkbox — custom box (native accent-color reads dull/grey).
+   Rounded, quiet border at rest; teal fill + white check when on. */
 .findings-v2-row-check {
-  width: 0.875rem;
-  height: 0.875rem;
+  appearance: none;
+  -webkit-appearance: none;
+  box-sizing: border-box;
+  width: 1rem;
+  height: 1rem;
   flex-shrink: 0;
+  margin: 0;
   cursor: pointer;
-  accent-color: var(--vt-teal, #0d9488);
-  opacity: 0.55;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 0.3125rem;
+  background: #fff;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 0.7rem 0.7rem;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
-.findings-v2-row-check:checked,
-.findings-v2-row:hover .findings-v2-row-check,
+.findings-v2-row-check:hover,
+.findings-v2-row:hover .findings-v2-row-check {
+  border-color: var(--vt-teal, #0d9488);
+}
+
+.findings-v2-row-check:checked {
+  border-color: var(--vt-teal, #0d9488);
+  background-color: var(--vt-teal, #0d9488);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none'%3E%3Cpath d='M2.5 6.25 4.75 8.5 9.5 3.75' stroke='white' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+.findings-v2-row-check:indeterminate {
+  border-color: var(--vt-teal, #0d9488);
+  background-color: var(--vt-teal, #0d9488);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none'%3E%3Cpath d='M3 6h6' stroke='white' stroke-width='1.9' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+
 .findings-v2-row-check:focus-visible {
-  opacity: 1;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.2);
 }
 
 /* Floating bulk-actions bar. */
@@ -2651,4 +2627,25 @@
     padding-left: 1rem;
   }
 
+}
+
+/* Embedded in account detail pane — same workspace, tighter shell */
+.findings-v2-page--embedded {
+  min-height: 0;
+}
+
+.findings-v2-page--embedded .findings-v2-content {
+  padding: 0;
+}
+
+.findings-v2-page--embedded .findings-v2-card {
+  border-radius: 12px;
+}
+
+.findings-v2-embedded-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.85rem;
 }

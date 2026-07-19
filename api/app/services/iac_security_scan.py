@@ -1,7 +1,7 @@
 """Native deterministic Terraform/Terragrunt security lint.
 
 No external binaries, no LLM — hand-verifiable regex/text rules over HCL, mirroring the repo's
-existing deterministic IaC parser (``terraform_iac.py``). This native ruleset is **always on**.
+existing deterministic IaC parser patterns. This native ruleset is **always on**.
 Optional Checkov/tfsec augmentation lives in ``iac_external_scan.py`` behind a flag and only
 *adds* findings; it never replaces this engine.
 

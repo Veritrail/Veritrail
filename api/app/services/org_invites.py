@@ -103,11 +103,18 @@ def create_invite(
 
 
 def block_signup_without_invite_when_pending(db: Session, email: str) -> None:
+    from app.services.workspace_creation_invites import pending_workspace_invite_for_email
+
     pending = pending_invite_for_email(db, email)
     if pending:
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,
             "You have a pending workspace invite — open the link from your email to join",
+        )
+    if pending_workspace_invite_for_email(db, email):
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "You have a pending workspace creation invite — open the link from your email to sign up",
         )
 
 

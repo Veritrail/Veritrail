@@ -13,9 +13,13 @@ services:
       - "127.0.0.1:5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER}"]
-      interval: 5s
+      # 30s steady-state keeps the Docker VM quiet at idle; start_interval
+      # preserves fast depends_on readiness during boot.
+      interval: 30s
       timeout: 5s
       retries: 4
+      start_period: 30s
+      start_interval: 2s
 
   redis:
     image: redis:7-alpine
@@ -23,9 +27,11 @@ services:
       - "127.0.0.1:6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
+      interval: 30s
       timeout: 3s
       retries: 4
+      start_period: 30s
+      start_interval: 2s
 
   api:
     build:
@@ -69,7 +75,9 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    command: watchfiles --filter python "celery -A app.worker.celery_app worker --loglevel=info --concurrency=4" app
+    # concurrency=2 for local dev — each fork is a ~50MB Python process and
+    # idle dev rarely runs more than one scan at a time.
+    command: watchfiles --filter python "celery -A app.worker.celery_app worker --loglevel=info --concurrency=2" app
     volumes:
       - ./api:/app
       - ./veritrail.json:/app/veritrail.json:ro
@@ -102,7 +110,9 @@ services:
       VITE_DEV_API_PROXY: http://api:8000
     ports:
       - "127.0.0.1:5173:5173"
-    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    # Entrypoint syncs node_modules when package-lock.json changes (see web/docker-entrypoint.sh).
+    # After pulling dependency updates, restart web: docker compose restart web
+    command: npm run dev -- --host 0.0.0.0
     volumes:
       - ./web:/app
       - /app/node_modules
@@ -138,7 +148,8 @@ services:
       OAUTH2_PROXY_SET_XAUTHREQUEST: "true"
       OAUTH2_PROXY_PASS_ACCESS_TOKEN: "false"
       OAUTH2_PROXY_SKIP_PROVIDER_BUTTON: "true"
-      OAUTH2_PROXY_EMAIL_DOMAINS: ${IAP_ALLOWED_EMAIL_DOMAIN:-cloud-castles.com}
+      # "*" = any Google account may pass the edge gate; app auth still applies.
+      OAUTH2_PROXY_EMAIL_DOMAINS: ${IAP_ALLOWED_EMAIL_DOMAIN:-*}
       OAUTH2_PROXY_CLIENT_ID: ${IAP_GOOGLE_CLIENT_ID}
       OAUTH2_PROXY_CLIENT_SECRET: ${IAP_GOOGLE_CLIENT_SECRET}
       OAUTH2_PROXY_COOKIE_SECRET: ${IAP_COOKIE_SECRET}

@@ -20,6 +20,8 @@ type SelectProps = {
   menuClassName?: string;
   menuZIndex?: number;
   maxMenuHeight?: string;
+  /** Accessible name for the trigger (label text is often outside the button). */
+  ariaLabel?: string;
 };
 
 type Coords = { top: number; left?: number; right?: number; minWidth: number };
@@ -38,6 +40,7 @@ export function Select({
   menuClassName = "",
   menuZIndex = 50,
   maxMenuHeight,
+  ariaLabel,
 }: SelectProps) {
   const [open, setOpen] = useState(false);
   const [coords, setCoords] = useState<Coords | null>(null);
@@ -97,6 +100,7 @@ export function Select({
         className={`veritrail-select__btn ${className}`}
         aria-haspopup="listbox"
         aria-expanded={open}
+        aria-label={ariaLabel}
       >
         <span className="veritrail-select__value">{selected?.label ?? "Select"}</span>
         <svg

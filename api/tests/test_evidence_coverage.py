@@ -23,17 +23,35 @@ def test_artifact_is_stale_when_period_end_passed():
     assert _artifact_is_stale(row, date(2026, 1, 1)) is True
 
 
-def test_composite_display_status_needs_evidence():
+def test_composite_display_status_pure_absence_gap_scannable_is_failing():
+    """Scannable AWS composites with only absence gaps grade as failing, not coverage gap."""
+    for check_id in (
+        "aws.vulnerability_monitoring.not_detected",
+        "aws.access_analyzer.not_enabled",
+        "guardduty.detector.not_enabled",
+        "aws.config.not_enabled",
+        "cloudtrail.trail.not_enabled",
+        "backup.plan.missing",
+    ):
+        composite = {
+            "status": "fail",
+            "check_ids": [check_id],
+            "check_tiers": {check_id: "core"},
+        }
+        open_gap = {check_id: [object()]}
+        assert (
+            _composite_display_status(composite, has_accepted=False, open_by_check=open_gap)
+            == "failing"
+        )
+
+
+def test_composite_display_status_absence_gap_with_accepted_artifact_externally_covered():
     composite = {
         "status": "fail",
         "check_ids": ["aws.vulnerability_monitoring.not_detected"],
         "check_tiers": {"aws.vulnerability_monitoring.not_detected": "core"},
     }
     open_gap = {"aws.vulnerability_monitoring.not_detected": [object()]}
-    assert (
-        _composite_display_status(composite, has_accepted=False, open_by_check=open_gap)
-        == "needs_evidence"
-    )
     assert (
         _composite_display_status(composite, has_accepted=True, open_by_check=open_gap)
         == "externally_covered"
@@ -56,6 +74,49 @@ def test_composite_display_status_gap_mapped_without_open_finding_is_not_needs_e
     assert (
         _composite_display_status(composite, has_accepted=False, open_by_check=open_other)
         == "failing"
+    )
+
+
+def test_composite_display_status_absence_gap_plus_real_failure_is_failing():
+    composite = {
+        "status": "fail",
+        "check_ids": [
+            "aws.access_analyzer.not_enabled",
+            "entra.org.mfa_not_enforced",
+        ],
+        "check_tiers": {
+            "aws.access_analyzer.not_enabled": "core",
+            "entra.org.mfa_not_enforced": "core",
+        },
+    }
+    open_both = {
+        "aws.access_analyzer.not_enabled": [object()],
+        "entra.org.mfa_not_enforced": [object()],
+    }
+    assert (
+        _composite_display_status(composite, has_accepted=False, open_by_check=open_both)
+        == "failing"
+    )
+
+
+def test_composite_display_status_pure_absence_gap_external_only_still_needs_evidence():
+    """External-only categories still need evidence — AWS scans cannot close them."""
+    composite = {
+        "status": "fail",
+        "check_ids": ["intune.device.not_encrypted"],
+        "check_tiers": {"intune.device.not_encrypted": "core"},
+    }
+    open_gap = {"intune.device.not_encrypted": [object()]}
+    base = _composite_display_status(composite, has_accepted=False, open_by_check=open_gap)
+    assert base == "failing"
+    assert (
+        _external_evidence_category_status(
+            "mdm_endpoint",
+            display_status=base,
+            has_accepted=False,
+            registry_vendor="Microsoft Intune",
+        )
+        == "needs_evidence"
     )
 
 

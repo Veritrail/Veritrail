@@ -1,9 +1,9 @@
 import { LegalSection, LegalShell } from "../components/LegalShell";
 
 const ENTITY = "Veritrail";
-const CONTACT_EMAIL = "legal@veritrail.io";
+const CONTACT_EMAIL = "support@veritrail.io";
 const GOVERNING_LAW = "the State of Israel";
-const UPDATED = "July 4, 2026";
+const UPDATED = "July 11, 2026";
 
 export default function Terms() {
   return (
@@ -16,11 +16,13 @@ export default function Terms() {
 
       <LegalSection heading="The service">
         <p>
-          Veritrail is a read-only compliance-evidence tool. You connect your cloud providers (AWS, Google Cloud, Azure)
-          and developer tools (such as GitHub, GitLab, identity providers, ticketing, and vulnerability scanners) using
-          read-only access you authorize; Veritrail collects configuration and metadata, ranks findings, maps them to
-          compliance frameworks, and produces auditor-ready evidence. Veritrail makes no changes to your resources unless
-          you explicitly enable and approve a remediation action.
+          Veritrail is a read-only, scanning-only compliance-evidence tool. You connect your cloud providers (AWS,
+          Google Cloud, Azure) and developer tools (such as GitHub, GitLab, identity providers, ticketing, and
+          vulnerability scanners) using read-only access you authorize; Veritrail collects configuration and metadata,
+          ranks findings, maps them to compliance frameworks, and produces auditor-ready evidence. Veritrail never
+          modifies your customer environments. Remediation guidance shown alongside findings is informational only —
+          any changes are made by you, in your own accounts. The "Verify fix" feature is a read-only re-check of a
+          finding after you apply a fix yourself.
         </p>
       </LegalSection>
 

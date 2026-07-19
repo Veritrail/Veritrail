@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { api, storeTokens } from "../api";
+import { api, storeTokens, storeSessionAvatarUrl } from "../api";
 import { postAuthPath } from "../lib/postAuthRedirect";
 
 const PENDING_INVITE_KEY = "veritrail_pending_invite_token";
@@ -15,11 +15,13 @@ export default function AuthCallback() {
     handled.current = true;
 
     const token = params.get("token");
+    const avatarUrl = params.get("avatar_url");
     const error = params.get("error");
 
     void (async () => {
       if (token) {
         storeTokens(token);
+        if (avatarUrl) storeSessionAvatarUrl(avatarUrl);
         const pendingInvite = sessionStorage.getItem(PENDING_INVITE_KEY);
         if (pendingInvite) {
           try {

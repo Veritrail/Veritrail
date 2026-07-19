@@ -13,7 +13,6 @@ import { api } from "../api";
 import {
   accountListSchema,
   cloudAccountListSchema,
-  policyGenerationStatusSchema,
   scanRunLatestNullableSchema,
 } from "../lib/apiSchemas";
 import { isAccountConnected } from "../lib/accountConnection";
@@ -25,32 +24,19 @@ const STORAGE_KEY = "veritrail.recheckNotifications.v3";
 const HISTORY_LIMIT = 100;
 /** Max wait after Verify (queued full recheck or stuck pending state). */
 export const RECHECK_TIMEOUT_MS = 30_000;
-const CLOUDTRAIL_POLL_MS = 30_000;
-const CLOUDTRAIL_MAX_MS = 25 * 60 * 1000;
-const SCAN_FAILURE_MONITOR_POLL_MS = 5_000;
+// Idle failure-monitor cadence. Active scans poll at 2s regardless; 30s here
+// only delays noticing a scan started elsewhere, and keeps idle tabs cheap.
+const SCAN_FAILURE_MONITOR_POLL_MS = 30_000;
 
 export type VerifyNotification = {
   id: string;
   kind: "verify";
   findingId: string;
   checkId: string;
-  status: "verified" | "unchanged";
+  status: "verified" | "unchanged" | "error";
   completedAt: number;
   readAt?: number;
-};
-
-export type CloudTrailNotification = {
-  id: string;
-  kind: "cloudtrail";
-  findingId: string;
-  accountId: string;
-  roleArn: string;
-  roleLabel: string;
-  status: "running" | "succeeded" | "failed";
-  /** When local tracking began (ms). */
-  startedAt: number;
-  completedAt: number;
-  readAt?: number;
+  /** Collection/verification error (e.g. AssumeRole denied) — verify never reached AWS. */
   message?: string;
 };
 
@@ -71,7 +57,7 @@ export type ScanFailureNotification = {
   step?: string | null;
 };
 
-export type NotificationItem = VerifyNotification | CloudTrailNotification | ScanFailureNotification;
+export type NotificationItem = VerifyNotification | ScanFailureNotification;
 
 /** @deprecated Use VerifyNotification — kept for drawer verify flash typing */
 export type RecheckOutcome = VerifyNotification;
@@ -79,14 +65,6 @@ export type RecheckOutcome = VerifyNotification;
 export type PendingRecheck = {
   findingId: string;
   checkId: string;
-  startedAt: number;
-};
-
-type PendingCloudTrail = {
-  notificationId: string;
-  findingId: string;
-  accountId: string;
-  roleArn: string;
   startedAt: number;
 };
 
@@ -115,7 +93,6 @@ export type RecheckBatchResponse = {
 
 type PersistedV3 = {
   pendingRecheck: PendingRecheck | null;
-  pendingCloudTrail: PendingCloudTrail | null;
   history: NotificationItem[];
 };
 
@@ -129,15 +106,16 @@ type PersistedLegacy = {
   outcome: Omit<VerifyNotification, "id" | "kind"> | null;
 };
 
-type PolicyGenStatusRow = { status?: string; job_id?: string };
-
 function newNotificationId(): string {
   return crypto.randomUUID();
 }
 
-export function roleLabelFromArn(roleArn: string): string {
-  const slash = roleArn.lastIndexOf("/");
-  return slash >= 0 ? roleArn.slice(slash + 1) : roleArn;
+/**
+ * Stable per-finding id so repeated verify attempts replace the existing card
+ * (latest outcome wins) instead of stacking duplicates.
+ */
+function verifyNotificationId(findingId: string): string {
+  return `verify:${findingId}`;
 }
 
 function scanFailureNotificationId({
@@ -156,16 +134,6 @@ function scanFailureNotificationId({
   return `scan_failure:${accountId ?? "unknown"}:${failedAt ?? "unknown"}:${errorType ?? ""}:${step ?? ""}:${message.slice(0, 120)}`;
 }
 
-export function isPolicyGenInFlightStatus(status: string | undefined): boolean {
-  const s = (status ?? "").toUpperCase();
-  return s === "IN_PROGRESS" || s === "RUNNING" || s === "ACTIVE";
-}
-
-function isTerminalPolicyGenStatus(status: string | undefined): boolean {
-  const s = (status ?? "").toUpperCase();
-  return s === "SUCCEEDED" || s === "FAILED" || s === "CANCELLED" || s === "TIMED_OUT";
-}
-
 function migrateLegacyV1(raw: string): PersistedV3 {
   try {
     const parsed = JSON.parse(raw) as PersistedLegacy;
@@ -173,9 +141,9 @@ function migrateLegacyV1(raw: string): PersistedV3 {
     if (parsed.outcome) {
       history.push({ ...parsed.outcome, id: newNotificationId(), kind: "verify" });
     }
-    return { pendingRecheck: parsed.pending ?? null, pendingCloudTrail: null, history };
+    return { pendingRecheck: parsed.pending ?? null, history };
   } catch {
-    return { pendingRecheck: null, pendingCloudTrail: null, history: [] };
+    return { pendingRecheck: null, history: [] };
   }
 }
 
@@ -188,12 +156,31 @@ function migrateV2(raw: string): PersistedV3 {
     }));
     return {
       pendingRecheck: parsed.pending ?? null,
-      pendingCloudTrail: null,
       history,
     };
   } catch {
-    return { pendingRecheck: null, pendingCloudTrail: null, history: [] };
+    return { pendingRecheck: null, history: [] };
   }
+}
+
+/**
+ * Collapse persisted verify entries (which historically had random UUID ids)
+ * onto the stable per-finding id, keeping only the newest per finding.
+ */
+function dedupeVerifyHistory(history: NotificationItem[]): NotificationItem[] {
+  const seen = new Set<string>();
+  const out: NotificationItem[] = [];
+  for (const item of history) {
+    if (item.kind !== "verify") {
+      out.push(item);
+      continue;
+    }
+    const id = verifyNotificationId(item.findingId);
+    if (seen.has(id)) continue;
+    seen.add(id);
+    out.push({ ...item, id });
+  }
+  return out;
 }
 
 function notificationStorageKey(orgId: string | null | undefined): string {
@@ -202,21 +189,14 @@ function notificationStorageKey(orgId: string | null | undefined): string {
 
 function loadPersisted(storageKey: string): PersistedV3 & { latestVerifyOutcome: VerifyNotification | null } {
   try {
-    let state: PersistedV3 = { pendingRecheck: null, pendingCloudTrail: null, history: [] };
+    let state: PersistedV3 = { pendingRecheck: null, history: [] };
 
     const v3 = localStorage.getItem(storageKey);
     if (v3) {
       const parsed = JSON.parse(v3) as PersistedV3;
       state = {
         pendingRecheck: parsed.pendingRecheck ?? null,
-        pendingCloudTrail: parsed.pendingCloudTrail ?? null,
-        history: Array.isArray(parsed.history)
-          ? parsed.history.map((h) =>
-              h.kind === "cloudtrail" && typeof (h as CloudTrailNotification).startedAt !== "number"
-                ? { ...h, startedAt: h.completedAt }
-                : h,
-            )
-          : [],
+        history: Array.isArray(parsed.history) ? parsed.history : [],
       };
     } else {
       const v2 = localStorage.getItem("veritrail.recheckNotifications.v2");
@@ -228,6 +208,8 @@ function loadPersisted(storageKey: string): PersistedV3 & { latestVerifyOutcome:
       }
     }
 
+    state.history = dedupeVerifyHistory(state.history);
+
     let latestVerifyOutcome: VerifyNotification | null = null;
     for (const item of state.history) {
       if (item.kind === "verify") {
@@ -238,21 +220,21 @@ function loadPersisted(storageKey: string): PersistedV3 & { latestVerifyOutcome:
 
     if (state.pendingRecheck && Date.now() - state.pendingRecheck.startedAt >= RECHECK_TIMEOUT_MS) {
       const timedOut: VerifyNotification = {
-        id: newNotificationId(),
+        id: verifyNotificationId(state.pendingRecheck.findingId),
         kind: "verify",
         findingId: state.pendingRecheck.findingId,
         checkId: state.pendingRecheck.checkId,
         status: "unchanged",
         completedAt: Date.now(),
       };
-      state.history = [timedOut, ...state.history].slice(0, HISTORY_LIMIT);
+      state.history = pushHistory(state.history, timedOut);
       latestVerifyOutcome = timedOut;
       state.pendingRecheck = null;
     }
 
     return { ...state, latestVerifyOutcome };
   } catch {
-    return { pendingRecheck: null, pendingCloudTrail: null, history: [], latestVerifyOutcome: null };
+    return { pendingRecheck: null, history: [], latestVerifyOutcome: null };
   }
 }
 
@@ -264,13 +246,28 @@ function savePersisted(storageKey: string, state: PersistedV3) {
   }
 }
 
+/**
+ * Same-id re-adds only keep the dismissed state when the outcome is unchanged —
+ * a different outcome (e.g. still-open → resolved/error) must resurface as unread.
+ */
+function sameOutcome(a: NotificationItem, b: NotificationItem): boolean {
+  if (a.kind === "verify" && b.kind === "verify") {
+    return a.status === b.status && a.message === b.message;
+  }
+  // Other kinds encode the outcome in the id (scan_failure) or never reuse ids
+  // with a different status, so a matching id means a matching outcome.
+  return true;
+}
+
 function pushHistory(history: NotificationItem[], entry: NotificationItem): NotificationItem[] {
-  return [entry, ...history.filter((h) => h.id !== entry.id)].slice(0, HISTORY_LIMIT);
+  const existing = history.find((h) => h.id === entry.id);
+  const merged =
+    existing?.readAt && sameOutcome(existing, entry) ? { ...entry, readAt: existing.readAt } : entry;
+  return [merged, ...history.filter((h) => h.id !== entry.id)].slice(0, HISTORY_LIMIT);
 }
 
 type RecheckNotificationsContextValue = {
   pendingRecheck: PendingRecheck | null;
-  pendingCloudTrail: PendingCloudTrail | null;
   recheckOutcome: VerifyNotification | null;
   notificationHistory: NotificationItem[];
   notificationCount: number;
@@ -278,23 +275,6 @@ type RecheckNotificationsContextValue = {
   applyRecheckResult: (findingId: string, checkId: string, result: RecheckResponse) => boolean;
   completeRecheck: (outcome: Omit<VerifyNotification, "completedAt" | "id" | "readAt" | "kind">) => void;
   failRecheck: (findingId: string, checkId: string) => void;
-  startCloudTrailAnalysis: (args: {
-    findingId: string;
-    accountId: string;
-    roleArn: string;
-    message?: string;
-  }) => void;
-  resumeCloudTrailPolling: (args: {
-    findingId: string;
-    accountId: string;
-    roleArn: string;
-  }) => void;
-  failCloudTrailAnalysis: (args: {
-    findingId: string;
-    accountId: string;
-    roleArn: string;
-    message: string;
-  }) => void;
   reportScanFailure: (args: {
     accountId?: string | null;
     accountLabel?: string | null;
@@ -318,153 +298,25 @@ export function RecheckNotificationsProvider({ children, orgId }: { children: Re
   const lastReportedScanFailureRef = useRef<Record<string, string>>({});
   const lastReportedCloudScanFailureRef = useRef<Record<string, string>>({});
   const [pendingRecheck, setPendingRecheck] = useState<PendingRecheck | null>(initial.pendingRecheck);
-  const [pendingCloudTrail, setPendingCloudTrail] = useState<PendingCloudTrail | null>(
-    initial.pendingCloudTrail,
-  );
   const [notificationHistory, setNotificationHistory] = useState<NotificationItem[]>(initial.history);
   const [recheckOutcome, setRecheckOutcome] = useState<VerifyNotification | null>(initial.latestVerifyOutcome);
 
   useEffect(() => {
-    savePersisted(storageKey, { pendingRecheck, pendingCloudTrail, history: notificationHistory });
-  }, [pendingRecheck, pendingCloudTrail, notificationHistory, storageKey]);
+    savePersisted(storageKey, { pendingRecheck, history: notificationHistory });
+  }, [pendingRecheck, notificationHistory, storageKey]);
 
   const recordVerifyOutcome = useCallback(
     (outcome: Omit<VerifyNotification, "completedAt" | "id" | "readAt" | "kind">) => {
       const entry: VerifyNotification = {
         ...outcome,
         kind: "verify",
-        id: newNotificationId(),
+        id: verifyNotificationId(outcome.findingId),
         completedAt: Date.now(),
       };
       setNotificationHistory((prev) => pushHistory(prev, entry));
       setRecheckOutcome(entry);
       setPendingRecheck(null);
       return entry;
-    },
-    [],
-  );
-
-  const finishCloudTrail = useCallback(
-    (notificationId: string, status: "succeeded" | "failed", message?: string) => {
-      setNotificationHistory((prev) =>
-        prev.map((item) =>
-          item.id === notificationId && item.kind === "cloudtrail"
-            ? { ...item, status, completedAt: Date.now(), message: message ?? item.message }
-            : item,
-        ),
-      );
-      setPendingCloudTrail(null);
-      void qc.invalidateQueries({ queryKey: ["generated-policy"] });
-    },
-    [qc],
-  );
-
-  const startCloudTrailAnalysis = useCallback(
-    ({ findingId, accountId, roleArn, message }: {
-      findingId: string;
-      accountId: string;
-      roleArn: string;
-      message?: string;
-    }) => {
-      const id = newNotificationId();
-      const now = Date.now();
-      const entry: CloudTrailNotification = {
-        id,
-        kind: "cloudtrail",
-        findingId,
-        accountId,
-        roleArn,
-        roleLabel: roleLabelFromArn(roleArn),
-        status: "running",
-        startedAt: now,
-        completedAt: now,
-        message,
-      };
-      setNotificationHistory((prev) => pushHistory(prev, entry));
-      setPendingCloudTrail({
-        notificationId: id,
-        findingId,
-        accountId,
-        roleArn,
-        startedAt: Date.now(),
-      });
-    },
-    [],
-  );
-
-  const resumeCloudTrailPolling = useCallback(
-    ({ findingId, accountId, roleArn }: {
-      findingId: string;
-      accountId: string;
-      roleArn: string;
-    }) => {
-      if (
-        pendingCloudTrail?.findingId === findingId &&
-        pendingCloudTrail?.roleArn === roleArn
-      ) {
-        return;
-      }
-      const existing = notificationHistory.find(
-        (h): h is CloudTrailNotification =>
-          h.kind === "cloudtrail" &&
-          h.findingId === findingId &&
-          h.roleArn === roleArn &&
-          h.status === "running",
-      );
-      if (existing) {
-        setPendingCloudTrail({
-          notificationId: existing.id,
-          findingId,
-          accountId,
-          roleArn,
-          startedAt: existing.startedAt ?? existing.completedAt,
-        });
-        return;
-      }
-      startCloudTrailAnalysis({
-        findingId,
-        accountId,
-        roleArn,
-        message: "CloudTrail policy generation is running — checking AWS job status.",
-      });
-    },
-    [notificationHistory, pendingCloudTrail, startCloudTrailAnalysis],
-  );
-
-  const failCloudTrailAnalysis = useCallback(
-    ({ findingId, accountId, roleArn, message }: {
-      findingId: string;
-      accountId: string;
-      roleArn: string;
-      message: string;
-    }) => {
-      const now = Date.now();
-      setNotificationHistory((prev) => {
-        const prior = prev.find(
-          (h) =>
-            h.kind === "cloudtrail" &&
-            h.findingId === findingId &&
-            h.roleArn === roleArn &&
-            h.status === "running",
-        );
-        const entry: CloudTrailNotification = {
-          id: newNotificationId(),
-          kind: "cloudtrail",
-          findingId,
-          accountId,
-          roleArn,
-          roleLabel: roleLabelFromArn(roleArn),
-          status: "failed",
-          startedAt:
-            prior && prior.kind === "cloudtrail"
-              ? prior.startedAt ?? prior.completedAt
-              : now,
-          completedAt: now,
-          message,
-        };
-        return pushHistory(prev, entry);
-      });
-      setPendingCloudTrail(null);
     },
     [],
   );
@@ -614,10 +466,14 @@ export function RecheckNotificationsProvider({ children, orgId }: { children: Re
       if (!result.checked) {
         return false;
       }
+      // error set means collection failed (e.g. AssumeRole denied) — verification
+      // never reached AWS, so don't claim the issue was re-detected.
+      const status = result.resolved ? "verified" : result.error ? "error" : "unchanged";
       recordVerifyOutcome({
         findingId,
         checkId: result.check_id ?? checkId,
-        status: result.resolved ? "verified" : "unchanged",
+        status,
+        message: result.error ? result.error : undefined,
       });
       void qc.invalidateQueries({ queryKey: ["findings"] });
       // A recheck changes findings, which changes compliance pass/fail — refresh the
@@ -656,7 +512,6 @@ export function RecheckNotificationsProvider({ children, orgId }: { children: Re
 
   const clearAll = useCallback(() => {
     setPendingRecheck(null);
-    setPendingCloudTrail(null);
     setRecheckOutcome(null);
     setNotificationHistory([]);
   }, []);
@@ -684,59 +539,13 @@ export function RecheckNotificationsProvider({ children, orgId }: { children: Re
     return () => window.clearInterval(interval);
   }, [pendingRecheck, openMetricsQ.data, completeRecheck, qc]);
 
-  useEffect(() => {
-    if (!pendingCloudTrail) return;
-    const { notificationId, accountId, roleArn, startedAt } = pendingCloudTrail;
-
-    const poll = async () => {
-      if (Date.now() - startedAt >= CLOUDTRAIL_MAX_MS) {
-        finishCloudTrail(notificationId, "failed", "Timed out waiting for AWS (~25 min).");
-        return;
-      }
-      try {
-        const row = await api<PolicyGenStatusRow>(
-          `/v1/accounts/${accountId}/roles/policy-generation/status?role_arn=${encodeURIComponent(roleArn)}`,
-          { schema: policyGenerationStatusSchema },
-        );
-        const st = (row.status ?? "").toUpperCase();
-        if (st === "SUCCEEDED") {
-          finishCloudTrail(
-            notificationId,
-            "succeeded",
-            "Analysis complete — rebuild suggestion to apply resource ARNs.",
-          );
-          return;
-        }
-        if (isTerminalPolicyGenStatus(row.status)) {
-          finishCloudTrail(notificationId, "failed", `Analysis ended (${st}).`);
-        }
-      } catch {
-        /* transient — keep polling */
-      }
-    };
-
-    void poll();
-    const interval = window.setInterval(() => void poll(), CLOUDTRAIL_POLL_MS);
-    return () => window.clearInterval(interval);
-  }, [pendingCloudTrail, finishCloudTrail]);
-
   const notificationCount =
     (pendingRecheck ? 1 : 0) +
-    (pendingCloudTrail ? 1 : 0) +
-    notificationHistory.filter(
-      (h) =>
-        !h.readAt &&
-        !(
-          h.kind === "cloudtrail" &&
-          h.status === "running" &&
-          pendingCloudTrail?.notificationId === h.id
-        ),
-    ).length;
+    notificationHistory.filter((h) => !h.readAt).length;
 
   const value = useMemo(
     () => ({
       pendingRecheck,
-      pendingCloudTrail,
       recheckOutcome,
       notificationHistory,
       notificationCount,
@@ -744,9 +553,6 @@ export function RecheckNotificationsProvider({ children, orgId }: { children: Re
       applyRecheckResult,
       completeRecheck,
       failRecheck,
-      startCloudTrailAnalysis,
-      resumeCloudTrailPolling,
-      failCloudTrailAnalysis,
       reportScanFailure,
       clearDrawerVerifyFlash,
       dismissNotification,
@@ -754,7 +560,6 @@ export function RecheckNotificationsProvider({ children, orgId }: { children: Re
     }),
     [
       pendingRecheck,
-      pendingCloudTrail,
       recheckOutcome,
       notificationHistory,
       notificationCount,
@@ -762,9 +567,6 @@ export function RecheckNotificationsProvider({ children, orgId }: { children: Re
       applyRecheckResult,
       completeRecheck,
       failRecheck,
-      startCloudTrailAnalysis,
-      resumeCloudTrailPolling,
-      failCloudTrailAnalysis,
       reportScanFailure,
       clearDrawerVerifyFlash,
       dismissNotification,

@@ -4,7 +4,7 @@ import { INTEGRATION_BRAND, type IntegrationBrandId } from "../lib/integrationBr
 
 export type CloudProvider = "aws" | "gcp" | "azure";
 /** Findings scope providers: cloud accounts + org-level aggregates. */
-export type ScopeProvider = CloudProvider | "github" | "gitlab" | "all_cloud" | "source_control";
+export type ScopeProvider = CloudProvider | "github" | "gitlab" | "all_cloud" | "source_control" | "identity";
 
 export type AccountOption = {
   id: string;
@@ -21,7 +21,7 @@ function ProviderBrandImg({
   className,
   variant = "wordmark",
 }: {
-  provider: Exclude<ScopeProvider, "all_cloud" | "source_control">;
+  provider: IntegrationBrandId;
   className?: string;
   variant?: "wordmark" | "compact";
 }) {
@@ -56,14 +56,6 @@ function ProviderBrandImg({
   );
 }
 
-function CloudIcon({ className }: { className?: string }) {
-  return (
-    <svg className={`${className ?? ""} text-zinc-400`} fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15a4.5 4.5 0 004.5 4.5H18a3.75 3.75 0 001.332-7.257 3 3 0 00-3.758-3.848 5.25 5.25 0 00-10.233 2.33A4.502 4.502 0 002.25 15z" />
-    </svg>
-  );
-}
-
 export function ProviderMark({
   provider,
   className,
@@ -74,10 +66,13 @@ export function ProviderMark({
   variant?: "wordmark" | "compact";
 }) {
   if (provider === "all_cloud") {
-    return <CloudIcon className={className ?? (variant === "compact" ? "h-[1.125rem] w-[1.125rem]" : "h-4 w-4")} />;
+    return null;
   }
   if (provider === "source_control") {
     return <ProviderBrandImg provider="github" className={className} variant={variant} />;
+  }
+  if (provider === "identity") {
+    return <ProviderBrandImg provider="entra" className={className} variant={variant} />;
   }
   return <ProviderBrandImg provider={provider ?? "aws"} className={className} variant={variant} />;
 }
@@ -101,9 +96,11 @@ export function providerDisplayName(provider?: ScopeProvider): string {
     case "gitlab":
       return "GitLab";
     case "all_cloud":
-      return "All cloud accounts";
+      return "All accounts";
     case "source_control":
       return "Source control";
+    case "identity":
+      return "Identity & devices";
     default:
       return "AWS";
   }
@@ -111,8 +108,9 @@ export function providerDisplayName(provider?: ScopeProvider): string {
 
 /** Primary line for account pickers (label, or formatted external id). */
 export function accountDisplayName(account: AccountOption & { scopeMeta?: string | null }): string {
-  if (account.provider === "all_cloud") return "All cloud accounts";
+  if (account.provider === "all_cloud") return account.label?.trim() || "All accounts";
   if (account.provider === "source_control") return "Source control";
+  if (account.provider === "identity") return "Identity & devices";
   if (account.label?.trim()) return account.label.trim();
   return groupAccountId(account.account_id ?? "");
 }
@@ -214,7 +212,9 @@ export function AccountSelect({
         aria-expanded={open}
         className={`${CONTEXT_PILL} max-w-[18rem] cursor-pointer gap-2.5 text-left border-zinc-200 bg-white shadow-sm shadow-zinc-950/[0.03] transition hover:border-zinc-300 hover:bg-zinc-50/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/20 focus-visible:ring-offset-2 focus-visible:ring-offset-white`}
       >
-        <ProviderMarkInternal provider={current.provider} className="h-6 w-10" />
+        {current.provider !== "all_cloud" ? (
+          <ProviderMarkInternal provider={current.provider} className="h-6 w-10" />
+        ) : null}
         <span className="min-w-0 flex-1 truncate text-[15px] font-semibold leading-none tracking-[-0.02em] text-zinc-900">
           {current.label || groupAccountId(current.account_id ?? "")}
         </span>
@@ -252,7 +252,9 @@ export function AccountSelect({
                   active ? "bg-indigo-50 text-zinc-900" : "text-zinc-700 hover:bg-zinc-50"
                 }`}
               >
-                <ProviderMarkInternal provider={a.provider} className="h-5 w-10 shrink-0" />
+                {a.provider !== "all_cloud" ? (
+                  <ProviderMarkInternal provider={a.provider} className="h-5 w-10 shrink-0" />
+                ) : null}
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-semibold leading-tight tracking-[-0.02em]">
                     {hasLabel ? a.label : groupAccountId(a.account_id ?? "")}
@@ -272,7 +274,7 @@ export function AccountSelect({
             );
           })}
           <Link
-            to="/accounts"
+            to="/home"
             onClick={() => setOpen(false)}
             className="flex items-center gap-2.5 border-t border-zinc-100 px-4 py-3 text-sm font-semibold text-indigo-600 transition hover:bg-indigo-50/40"
           >

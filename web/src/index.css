@@ -47,6 +47,16 @@
     --vt-success-soft: #ecfdf5;
     --vt-info: #2563eb;
     --vt-info-soft: #eff6ff;
+    /* Panel tokens — sidebar + dashboard cards (swap under [data-theme="dark"] later). */
+    --vt-panel-bg: #ffffff;
+    --vt-panel-fg: #111827;
+    --vt-panel-muted: #64748b;
+    --vt-panel-border: #e2e8f0;
+    --vt-panel-accent: #0d9488;
+    --vt-panel-accent-soft: rgba(13, 148, 136, 0.12);
+    --vt-sidebar-glass: rgba(6, 21, 43, 0.96);
+    --vt-sidebar-accent: #3b82ff;
+    --vt-sidebar-accent-glow: rgba(59, 130, 246, 0.38);
     --vt-radius-sm: 0.5rem;
     --vt-radius-md: 0.625rem;
     --vt-radius-lg: 0.75rem;
@@ -125,8 +135,68 @@
 @layer components {
   .veritrail-app-main {
     isolation: isolate;
+    margin-left: 348px;
+    width: calc(100% - 348px);
     background:
       linear-gradient(180deg, #fbfcff 0%, #f7f9fc 42%, #f8fafc 100%);
+  }
+
+  .veritrail-app-main.is-sidebar-collapsed {
+    margin-left: 6rem;
+    width: calc(100% - 6rem);
+  }
+
+  @media (max-width: 999px) {
+    .veritrail-app-main,
+    .veritrail-app-main.is-sidebar-collapsed {
+      margin-left: 0;
+      width: 100%;
+    }
+
+    .veritrail-app-header {
+      padding-left: 1rem;
+      padding-right: 1rem;
+    }
+
+    .veritrail-app-content {
+      padding-left: 1rem;
+      padding-right: 1rem;
+    }
+  }
+
+  .veritrail-app-header__menu-btn {
+    display: none;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.5rem;
+    background: #fff;
+    color: #334155;
+    cursor: pointer;
+  }
+
+  @media (max-width: 999px) {
+    .veritrail-app-header__menu-btn {
+      display: inline-flex;
+    }
+  }
+
+  .veritrail-app-header__menu-btn:hover {
+    border-color: #cbd5e1;
+    background: #f8fafc;
+  }
+
+  .veritrail-app-header__menu-btn:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px rgb(13 148 136 / 0.2);
+  }
+
+  .veritrail-app-header__menu-btn svg {
+    width: 1.125rem;
+    height: 1.125rem;
   }
 
   .veritrail-app-main::before {
@@ -430,6 +500,10 @@
     transform: rotate(180deg);
   }
 
+  .history-filter-dropdown--view .selector-card {
+    min-width: 10rem;
+  }
+
   .history-filter-dropdown--period .selector-card {
     max-width: 11rem;
   }
@@ -440,6 +514,36 @@
 
   .history-filter-dropdown--group .selector-card {
     max-width: 16rem;
+  }
+
+  /* Header view toggles — same shell as dropdown selector cards, with a segment control body. */
+  .selector-card--segment {
+    cursor: default;
+    min-width: 0;
+    padding: 8px 12px;
+  }
+
+  .selector-card--segment:hover {
+    border-color: #e6ebf2;
+    background: #fff;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
+  }
+
+  .selector-card__segment {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+  }
+
+  .selector-card__segment .vt-toolbar-segmented {
+    padding: 0.125rem;
+    gap: 0.0625rem;
+  }
+
+  .selector-card__segment .vt-toolbar-segment {
+    padding: 0.25rem 0.625rem;
+    font-size: 0.75rem;
+    line-height: 1.2;
   }
 
   .veritrail-list-card {
@@ -549,12 +653,17 @@
     display: flex;
     flex: 0 0 auto;
     align-items: center;
-    min-width: 12.5rem;
-    max-width: min(22rem, calc(100vw - 2rem));
+    min-width: 0;
   }
 
   .account-filter .selector-card {
-    min-width: 12.5rem;
+    max-width: 10.75rem;
+  }
+
+  .account-filter .selector-card__icon-box {
+    width: 28px;
+    min-width: 28px;
+    height: 28px;
   }
 
   .account-filter .selector-card__icon-box .account-filter__provider,
@@ -573,13 +682,36 @@
     flex-shrink: 0;
     align-items: center;
     justify-content: center;
-    width: 1.875rem;
-    height: 1.875rem;
+    box-sizing: border-box;
+    width: 28px;
+    height: 28px;
     border-radius: 0.4375rem;
     border: 1px solid #ececef;
     background: #fff;
     padding: 0.25rem;
     box-shadow: 0 1px 2px rgb(9 9 11 / 0.03);
+  }
+
+  .account-filter-card__icon-box--all-cloud,
+  .account-filter .selector-card__icon-box:has(.all-cloud-scope-icon) {
+    border: none;
+    background: transparent;
+    padding: 0;
+    box-shadow: none;
+  }
+
+  .all-cloud-scope-icon {
+    display: block;
+    width: 20px;
+    height: 20px;
+    color: #64748b;
+  }
+
+  .account-filter-card__icon-box--empty {
+    border: none;
+    background: transparent;
+    padding: 0;
+    box-shadow: none;
   }
 
   .account-filter .selector-card__icon-box .account-filter__provider--aws,
@@ -595,7 +727,6 @@
   .account-filter-card__text {
     display: flex;
     min-width: 0;
-    flex: 1;
     flex-direction: column;
     gap: 0.125rem;
   }
@@ -605,11 +736,16 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: 0.875rem;
-    font-weight: 600;
-    line-height: 1.2;
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.25;
     letter-spacing: 0;
-    color: #18181b;
+    color: #253044;
+  }
+
+  .account-filter-card--selected .account-filter-card__name {
+    font-weight: 600;
+    color: #111827;
   }
 
   .account-filter__name {
@@ -636,11 +772,11 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: 0.75rem;
-    font-weight: 400;
+    font-size: 11px;
+    font-weight: 500;
     line-height: 1.25;
-    letter-spacing: 0.01em;
-    color: #71717a;
+    letter-spacing: 0;
+    color: #8b95a7;
   }
 
   @media (max-width: 520px) {
@@ -653,8 +789,8 @@
     position: fixed;
     z-index: 120;
     display: flex;
-    min-width: 20rem;
-    max-height: min(32rem, calc(100dvh - 6rem));
+    min-width: 17rem;
+    max-height: min(28rem, calc(100dvh - 6rem));
     flex-direction: column;
     overflow: hidden;
     border-radius: 0 0 0.75rem 0.75rem;
@@ -668,16 +804,16 @@
 
   .account-filter-menu__header {
     flex-shrink: 0;
-    padding: 0.875rem 1rem 0.375rem;
+    padding: 0.625rem 0.875rem 0.25rem;
   }
 
   .account-filter-menu__heading {
     margin: 0;
-    font-size: 0.6875rem;
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: #a1a1aa;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
+    color: #8b95a7;
   }
 
   .account-filter-menu__search {
@@ -685,7 +821,7 @@
     display: flex;
     flex-shrink: 0;
     align-items: center;
-    margin: 0 0.875rem 0.625rem;
+    margin: 0 0.75rem 0.5rem;
   }
 
   .account-filter-menu__search svg {
@@ -699,15 +835,15 @@
 
   .account-filter-menu__search input {
     width: 100%;
-    height: 2.25rem;
+    height: 2rem;
     border: 1px solid #e4e4e7;
     border-radius: 0.5rem;
     background: #fafafa;
     padding: 0 0.75rem 0 2.25rem;
-    font-size: 0.8125rem;
+    font-size: 13px;
     font-weight: 400;
-    line-height: 1.25;
-    color: #27272a;
+    line-height: 1.4;
+    color: #253044;
     outline: none;
     transition:
       border-color 0.12s ease,
@@ -722,7 +858,7 @@
   }
 
   .account-filter-menu__search input::placeholder {
-    color: #a1a1aa;
+    color: #8b95a7;
     font-weight: 400;
   }
 
@@ -739,10 +875,10 @@
   .account-filter-menu__empty {
     margin: 0;
     padding: 1.25rem 0.875rem;
-    font-size: 0.8125rem;
+    font-size: 13px;
     font-weight: 500;
     line-height: 1.4;
-    color: #a1a1aa;
+    color: #8b95a7;
     text-align: center;
   }
 
@@ -755,19 +891,20 @@
   .account-filter-menu__section-heading {
     margin: 0;
     padding: 0.375rem 0.875rem 0.25rem;
-    font-size: 0.6875rem;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: #a1a1aa;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
+    color: #8b95a7;
   }
 
   .account-filter-card {
-    display: flex;
+    display: grid;
     width: 100%;
+    grid-template-columns: 26px minmax(0, 1fr) 18px;
+    column-gap: 10px;
     align-items: center;
-    gap: 0.625rem;
-    padding: 0.5rem 0.625rem 0.5rem 0.5rem;
+    padding: 0.375rem 0.5rem;
     border: 1px solid transparent;
     border-left: 2px solid transparent;
     border-radius: 0.5rem;
@@ -777,24 +914,35 @@
     color: inherit;
     text-align: left;
     transition:
-      background 0.12s ease,
-      border-color 0.12s ease,
-      box-shadow 0.12s ease;
+      background 0.15s ease,
+      border-color 0.15s ease,
+      box-shadow 0.15s ease;
   }
 
   .account-filter-card:hover {
-    background: #f0f4ff;
+    border-color: var(--vt-border);
+    background: var(--vt-surface-subtle);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.85),
+      0 1px 2px rgb(15 23 42 / 0.02);
   }
 
   .account-filter-card--selected {
     border-color: transparent;
-    border-left-color: #93c5fd;
-    background: #f5f9ff;
-    box-shadow: inset 0 0 0 1px rgb(219 234 254 / 0.65);
+    border-left-color: #3b82f6;
+    background: var(--vt-surface-muted);
+    box-shadow:
+      inset 0 0 0 1px rgb(232 237 243 / 0.9),
+      inset 0 1px 0 rgb(255 255 255 / 0.9);
   }
 
   .account-filter-card--selected:hover {
-    background: #eef2ff;
+    border-color: transparent;
+    border-left-color: #2563eb;
+    background: #f4f7fb;
+    box-shadow:
+      inset 0 0 0 1px rgb(216 222 232 / 0.75),
+      inset 0 1px 0 rgb(255 255 255 / 0.9);
   }
 
   .account-filter-card__indicator {
@@ -802,8 +950,8 @@
     flex-shrink: 0;
     align-items: center;
     justify-content: center;
-    width: 1.125rem;
-    height: 1.125rem;
+    width: 20px;
+    height: 20px;
     color: #d4d4d8;
   }
 
@@ -828,14 +976,14 @@
     gap: 0.75rem;
     border-top: 1px solid #ececef;
     background: #fafafa;
-    padding: 0.6875rem 0.875rem 0.8125rem;
+    padding: 0.5rem 0.875rem 0.5625rem;
   }
 
   .account-filter-menu__footer-meta {
-    font-size: 0.75rem;
+    font-size: 11px;
     font-weight: 500;
-    line-height: 1.25;
-    color: #71717a;
+    line-height: 1.35;
+    color: #8b95a7;
     white-space: nowrap;
   }
 
@@ -846,10 +994,10 @@
     padding: 0.3125rem 0.5rem;
     margin: -0.3125rem -0.5rem;
     border-radius: 0.375rem;
-    font-size: 0.75rem;
+    font-size: 13px;
     font-weight: 500;
     line-height: 1.25;
-    color: #52525b;
+    color: #94a3b8;
     text-decoration: none;
     transition:
       color 0.12s ease,
@@ -858,7 +1006,7 @@
   }
 
   .account-filter-menu__footer-link:hover {
-    color: #27272a;
+    color: #64748b;
     background: #f4f4f5;
   }
 
@@ -866,7 +1014,11 @@
     width: 0.9375rem;
     height: 0.9375rem;
     flex-shrink: 0;
-    color: #71717a;
+    color: #94a3b8;
+  }
+
+  .account-filter-menu__footer-link:hover svg {
+    color: #64748b;
   }
 
   /* Toolbar buttons — neutral default; explicit neutral variant below. */

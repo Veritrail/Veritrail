@@ -338,7 +338,7 @@ def test_viewer_cannot_create_account(client, monkeypatch):
         res = client.post(
             "/v1/accounts",
             headers=_auth_header("viewer", org_id),
-            json={"label": "Test", "enable_advanced_policy_generation": False},
+            json={"label": "Test"},
         )
         assert res.status_code == 403
     finally:
@@ -360,7 +360,7 @@ def test_admin_can_create_account_route_passes_rbac(client, monkeypatch):
         res = client.post(
             "/v1/accounts",
             headers=_auth_header("admin", org_id),
-            json={"label": "Test", "enable_advanced_policy_generation": False},
+            json={"label": "Test"},
         )
         assert res.status_code != 403
     finally:
@@ -506,7 +506,7 @@ def test_domain_managed_blocks_new_workspace():
 
 def test_provision_sso_user_returns_signup_pending_without_invite():
     db = MagicMock()
-    db.scalar.side_effect = [None, None]
+    db.scalar.side_effect = [None, None, None]  # user, org invite, workspace invite
 
     with pytest.raises(HTTPException) as exc:
         provision_sso_user(db, email="new@gmail.com", google_id="gid-1")
@@ -523,7 +523,8 @@ def test_signup_pending_token_roundtrip():
     assert payload["google_id"] == "g123"
 
 
-def test_complete_signup_creates_org(client):
+def test_complete_signup_without_invite_is_rejected(client):
+    """Self-registration is disabled — complete-signup requires a workspace invite."""
     from app.core.db import get_db
     from app.core.security import issue_signup_pending_token
 
@@ -539,11 +540,9 @@ def test_complete_signup_creates_org(client):
             "/v1/auth/complete-signup",
             json={"signup_token": signup_token, "org_name": "My Workspace"},
         )
-        assert res.status_code == 200
-        body = res.json()
-        assert body["access_token"]
-        assert body["org_id"]
-        assert db.add_all.called or db.add.call_count >= 2
+        assert res.status_code == 403
+        assert "invite-only" in res.json()["detail"]
+        assert not db.add_all.called
     finally:
         client.app.dependency_overrides.clear()
 

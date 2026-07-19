@@ -91,6 +91,7 @@ def list_cloud_accounts(db: Session, org_id: uuid.UUID) -> list[dict]:
                 "label": (acc.label or acc.account_id or "AWS account").strip(),
                 "status": acc.status,
                 "last_scan_at": acc.last_scan_at,
+                "last_error": acc.last_error,
                 "open_findings_count": account_open_findings_count(
                     db, org_id=org_id, provider="aws", resource_id=acc.id
                 ),
@@ -109,6 +110,7 @@ def list_cloud_accounts(db: Session, org_id: uuid.UUID) -> list[dict]:
                 "label": (proj.label or proj.project_id).strip(),
                 "status": proj.status,
                 "last_scan_at": proj.last_scan_at,
+                "last_error": proj.last_error,
                 "open_findings_count": account_open_findings_count(
                     db, org_id=org_id, provider="gcp", resource_id=proj.id
                 ),
@@ -129,6 +131,7 @@ def list_cloud_accounts(db: Session, org_id: uuid.UUID) -> list[dict]:
                 "label": (sub.label or sub.subscription_id).strip(),
                 "status": sub.status,
                 "last_scan_at": sub.last_scan_at,
+                "last_error": sub.last_error,
                 "open_findings_count": account_open_findings_count(
                     db, org_id=org_id, provider="azure", resource_id=sub.id
                 ),

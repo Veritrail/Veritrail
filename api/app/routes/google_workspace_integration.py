@@ -7,7 +7,8 @@ from urllib.parse import quote, urlencode
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import RedirectResponse
-from jose import JWTError, jwt
+import jwt
+from jwt import PyJWTError as JWTError
 from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -28,6 +29,7 @@ from app.services.google_workspace_tokens import (
     apply_oauth_tokens,
     ensure_google_workspace_token,
 )
+from app.services.integration_sync_scan import resolve_integration_sync_findings_on_disconnect
 
 router = APIRouter()
 settings = get_settings()
@@ -284,6 +286,7 @@ def sync_google_workspace(body: GoogleWorkspaceSyncIn, _rbac: RequireAdmin, p=De
         raise HTTPException(status.HTTP_400_BAD_REQUEST, f"Google Workspace sync failed: {detail}") from e
     except ValueError as e:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e)) from e
+
     return GoogleWorkspaceSyncOut(**stats.__dict__)
 
 
@@ -291,5 +294,6 @@ def sync_google_workspace(body: GoogleWorkspaceSyncIn, _rbac: RequireAdmin, p=De
 def disconnect_google_workspace(_rbac: RequireAdmin, p=Depends(current_principal), db: Session = Depends(get_db)):
     provider = _provider_for_org(db, p["org_id"])
     if provider:
+        resolve_integration_sync_findings_on_disconnect(db, uuid.UUID(p["org_id"]), "google_workspace")
         db.delete(provider)
         db.commit()

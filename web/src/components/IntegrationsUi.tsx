@@ -132,6 +132,30 @@ export function OpStatusRow({ items }: { items: OpStatus[] }) {
   );
 }
 
+/** Catalog card primary action — link styled as a pill button (not inline text). */
+export function IntegrationCatalogConnectLink({
+  href,
+  label = "Connect",
+}: {
+  href: string;
+  label?: string;
+}) {
+  return (
+    <Link to={href} className="integrations-connect-btn">
+      {label}
+    </Link>
+  );
+}
+
+/** Catalog card placeholder for integrations not yet available. */
+export function IntegrationCatalogComingSoonButton() {
+  return (
+    <button type="button" disabled className="integration-catalog-card__soon-btn">
+      Coming soon
+    </button>
+  );
+}
+
 export function CapabilityTags({ tags }: { tags: string[] }) {
   return (
     <div className="flex flex-wrap gap-1.5">
@@ -442,14 +466,6 @@ export function AzureMark({ className = "h-4 w-4" }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" aria-hidden fill="currentColor">
       <path d="M5.4 4.2h8.28l-1.02 5.58 5.94-2.78L8.9 19.8 7.2 12.6l-4.5 2.1L5.4 4.2z" />
-    </svg>
-  );
-}
-
-export function OktaMark({ className = "h-4 w-4" }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" aria-hidden fill="currentColor">
-      <path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 3.2a6.8 6.8 0 1 1 0 13.6 6.8 6.8 0 0 1 0-13.6z" />
     </svg>
   );
 }

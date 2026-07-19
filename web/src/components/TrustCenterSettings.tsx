@@ -24,7 +24,7 @@ const AVAILABLE_FRAMEWORKS = [
 ];
 
 const DEFAULT_FRAMEWORKS = ["soc2", "iso27001", "cis_aws_l1"];
-const TRUST_FRAMEWORK_KEYS = new Set(DEFAULT_FRAMEWORKS);
+const TRUST_FRAMEWORK_KEYS = new Set(["soc2", "iso27001", "cis_aws_l1"]);
 
 function normalizeFrameworks(keys: string[] | undefined): string[] {
   const filtered = (keys ?? []).filter((key) => TRUST_FRAMEWORK_KEYS.has(key));

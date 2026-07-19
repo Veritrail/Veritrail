@@ -105,8 +105,15 @@ def findings_for_pack_at(
     # Org-level source-control findings (Secure SDLC) belong in the evidence
     # pack alongside the account's cloud findings, or the audit PDF would show
     # SDLC passing while the live control fails.
+    if not acc:
+        return []
     rows = db.scalars(
-        select(Finding).where(with_source_control_for_audit(Finding.account_id == account_id))
+        select(Finding).where(
+            with_source_control_for_audit(
+                Finding.account_id == account_id,
+                org_id=acc.org_id,
+            )
+        )
     ).all()
     events_map = load_events_by_finding(db, [f.id for f in rows])
     out: list[tuple[Finding, str]] = []

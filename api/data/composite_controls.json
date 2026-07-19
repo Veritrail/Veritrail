@@ -30,11 +30,6 @@
       "google_workspace.admin.unreviewed",
       "google_workspace.org.mfa_not_enforced",
       "google_workspace.user.inactive_90d",
-      "okta.admin.unreviewed",
-      "okta.org.mfa_not_enforced",
-      "okta.user.inactive_90d",
-      "okta.app.overprivileged_grant",
-      "okta.service.api_token_stale",
       "intune.device.not_encrypted",
       "jamf.device.not_encrypted",
       "iam.access_inventory_gap",
@@ -98,7 +93,7 @@
     "id": "asset_inventory",
     "control_id": "COMPOSITE.ASSET_INVENTORY",
     "title": "Identity & Access Inventory",
-    "description": "Confirms IAM principals, identity-provider accounts, and access credentials are inventoried, active, and attributable to owners.",
+    "description": "Surfaces inactive and dormant identities, unused credentials, and access-inventory gaps across connected identity sources.",
     "guidance": "Review dormant users, unassumed roles, unused keys, and access-inventory gaps across AWS and connected identity providers.",
     "soc2_criteria": [
       "CC6.1"
@@ -108,7 +103,6 @@
       "github.org.dormant_members",
       "gitlab.org.dormant_members",
       "google_workspace.user.inactive_90d",
-      "okta.user.inactive_90d",
       "iam.access_inventory_gap",
       "iam.access_key.unused_45d",
       "iam.role.unassumed_90d",
@@ -156,8 +150,8 @@
     "id": "change_management",
     "control_id": "COMPOSITE.CHANGE_MANAGEMENT",
     "title": "Change Management",
-    "description": "Confirms production changes are reviewed, approved, and traceable.",
-    "guidance": "Require deployment approvals and retain infrastructure change audit trails.",
+    "description": "Checks source-control review and branch-protection safeguards, plus observable CloudTrail coverage for selected infrastructure changes.",
+    "guidance": "Require code review, protect deployment branches, and retain CloudTrail records for the infrastructure changes Veritrail checks.",
     "soc2_criteria": [
       "CC6",
       "CC8"
@@ -336,8 +330,8 @@
     "id": "vulnerability_management",
     "control_id": "COMPOSITE.VULNERABILITY_MANAGEMENT",
     "title": "Vulnerability Management",
-    "description": "Confirms vulnerability monitoring exists and produces evidence for systems, dependencies, images, or runtime resources.",
-    "guidance": "Track and remediate vulnerabilities across compute, dependencies, and runtimes.",
+    "description": "Checks cloud and container vulnerability-monitoring coverage, plus selected infrastructure hygiene signals.",
+    "guidance": "Enable AWS Inspector or an equivalent supported source, enable ECR image scanning, and keep AMIs and Lambda runtimes current.",
     "soc2_criteria": [
       "CC6.8",
       "CC7"
@@ -360,8 +354,8 @@
     "id": "logging_monitoring",
     "control_id": "COMPOSITE.LOGGING_MONITORING",
     "title": "Logging & Monitoring",
-    "description": "Checks audit logging, monitoring, and alerting coverage across connected AWS services.",
-    "guidance": "Enable CloudTrail, GuardDuty, Config, and flow logs where applicable.",
+    "description": "Checks audit logging, configuration monitoring, and security-service coverage across connected cloud providers.",
+    "guidance": "Enable CloudTrail, Config, Security Hub, GuardDuty, flow logs, and equivalent provider logging where applicable.",
     "soc2_criteria": [
       "CC7"
     ],
@@ -415,9 +409,9 @@
   {
     "id": "incident_response",
     "control_id": "COMPOSITE.INCIDENT_RESPONSE",
-    "title": "Incident Response Readiness",
-    "description": "Confirms threat detection services are enabled and producing findings that are triaged, with alert routing in place for timely response.",
-    "guidance": "Keep GuardDuty and Security Hub enabled, triage open detector findings, and route alerts to your team via configured destinations.",
+    "title": "Threat Detection",
+    "description": "Checks whether supported cloud threat-detection services are enabled and surfaces their open findings.",
+    "guidance": "Enable the supported detection services and investigate open findings. Incident response plans, triage workflows, and alert routing require separate evidence.",
     "soc2_criteria": [
       "CC7"
     ],
@@ -440,8 +434,8 @@
     "id": "backup_resilience",
     "control_id": "COMPOSITE.BACKUP_RESILIENCE",
     "title": "Backup & Data Resilience",
-    "description": "Confirms backups, recovery settings, retention, and resilience controls are configured where applicable.",
-    "guidance": "Enable automated backups, PITR, and snapshot access controls.",
+    "description": "Checks configured backups, point-in-time recovery, deletion protection, and selected resilience safeguards where applicable.",
+    "guidance": "Configure backups, point-in-time recovery, and deletion protection where applicable, and keep snapshots private and encrypted.",
     "soc2_criteria": [
       "CC7"
     ],
@@ -486,7 +480,9 @@
     "title": "Device Management (MDM)",
     "description": "Corporate device enrollment, encryption, and compliance live outside AWS. Veritrail cannot verify MDM from cloud posture alone — connect Intune or Jamf for supplemental device sync, and upload accepted manual evidence for audit.",
     "guidance": "Upload a device compliance report from your MDM platform and declare the vendor in Workspace → Evidence.\n\n- Microsoft Intune and Jamf Pro can be connected for live device inventory sync, but audit coverage still requires accepted external evidence\n- Auditors want proof that in-scope laptops and mobile devices are enrolled with disk encryption and screen-lock enforcement\n- Include a recent export dated within your audit period\n\nIf no managed devices are in your audit boundary, mark this control out of scope with a rationale instead.",
-    "soc2_criteria": ["CC6"],
+    "soc2_criteria": [
+      "CC6"
+    ],
     "checks": [],
     "cis_criteria": [],
     "iso_criteria": []
@@ -497,10 +493,15 @@
     "title": "HR & Security Awareness Training",
     "description": "Security awareness and role-based training completion for personnel.",
     "guidance": "Upload annual security training completion report or LMS export. Declare your HR/training platform in Workspace → Evidence.",
-    "soc2_criteria": ["CC1", "CC2"],
+    "soc2_criteria": [
+      "CC1",
+      "CC2"
+    ],
     "checks": [],
     "cis_criteria": [],
-    "iso_criteria": ["A.7.2.2"]
+    "iso_criteria": [
+      "A.7.2.2"
+    ]
   },
   {
     "id": "vendor_risk",
@@ -508,9 +509,13 @@
     "title": "Vendor Risk Management",
     "description": "Third-party vendor security assessments and ongoing monitoring.",
     "guidance": "Upload vendor risk register, SOC reports, or questionnaire responses for critical vendors.",
-    "soc2_criteria": ["CC9"],
+    "soc2_criteria": [
+      "CC9"
+    ],
     "checks": [],
     "cis_criteria": [],
-    "iso_criteria": ["A.15.1.1"]
+    "iso_criteria": [
+      "A.15.1.1"
+    ]
   }
 ]

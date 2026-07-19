@@ -7,56 +7,54 @@ Each narrative describes what the control covers and what evidence Veritrail col
 NARRATIVES: dict[str, str] = {
     # ── SOC2 CC6 ────────────────────────────────────────────────────────────
     "CC6.1": (
-        "Logical access to production systems is restricted and continuously monitored. "
-        "Veritrail collects evidence of IAM user activity, role usage, and access key last-used dates from AWS IAM. "
+        "Veritrail supports logical-access monitoring aspects of CC6.1 by collecting evidence of "
+        "IAM user activity, role usage, and access key last-used dates from AWS IAM. "
         "Dormant identities (no activity in 90+ days) are flagged as findings. "
         "GitHub and GitLab member activity is monitored where integrated. "
         "Evidence is collected at each scan and retained for the selected audit period."
     ),
     "CC6.2": (
-        "System credentials are issued only to registered, authorized users. "
-        "Veritrail verifies that no root access keys exist, that each IAM user holds at most one active access key, "
+        "Veritrail supports credential-issuance aspects of CC6.2 by verifying that no root access keys "
+        "exist, that each IAM user holds at most one active access key, "
         "that the account IAM password policy meets minimum complexity (length, reuse, and related fields), "
-        "and that MFA is enforced at the organization level in GitHub and GitLab where integrated. "
+        "and that org MFA requirement settings are present in GitHub and GitLab where integrated. "
         "Outside collaborators with direct repository access are enumerated and flagged for review."
     ),
     "CC6.3": (
-        "Access to protected resources is restricted based on least-privilege principles. "
-        "Veritrail collects evidence of IAM roles and policies, flagging wildcard Resource scopes "
-        "on customer-managed policies, external-account role trust, unused granted services, "
-        "and roles granted write permissions to services they have never called. "
+        "Veritrail supports least-privilege aspects of CC6.3 by collecting evidence of IAM roles and "
+        "policies, flagging wildcard Resource scopes on customer-managed policies, external-account "
+        "role trust, unused granted services, and roles granted write permissions to services they have "
+        "never called. "
         "Evidence includes inline policy documents, attached managed policy names, service last-accessed data, "
         "and IAM Identity Center user roster snapshots where enabled. "
         "User deprovisioning workflow attestation remains outside automated scope."
     ),
     "CC6.6": (
-        "Logical access controls prevent unauthorized access from outside the organization. "
-        "Veritrail monitors IAM permission usage (granted vs. actually used) using AWS access advisor data, "
-        "flags roles and users with excessive unused permissions, and checks that EC2 security groups "
+        "Veritrail supports external-access control aspects of CC6.6 by monitoring IAM permission usage "
+        "(granted vs. actually used) using AWS access advisor data, "
+        "flagging roles and users with excessive unused permissions, and checking that EC2 security groups "
         "do not expose sensitive ports (SSH/RDP) to 0.0.0.0/0. "
-        "GitHub and GitLab branch protection enforcement is included where integrated."
+        "GitHub and GitLab branch protection settings are collected as supporting SCM evidence where integrated."
     ),
     "CC6.7": (
-        "Transmission and storage of data is protected using encryption controls. "
-        "Veritrail verifies S3 bucket default encryption (SSE-S3 or SSE-KMS), KMS key rotation status, "
-        "HTTPS-only bucket policies, EBS volume encryption, RDS instance storage encryption, "
-        "and account-level S3 public access block settings."
+        "Veritrail supports encryption aspects of CC6.7 by verifying S3 bucket default encryption "
+        "(SSE-S3 or SSE-KMS), KMS key rotation status, HTTPS-only bucket policies, EBS volume encryption, "
+        "RDS instance storage encryption, and account-level S3 public access block settings."
     ),
     "CC6.8": (
-        "Controls protect against unauthorized or malicious software. "
-        "Veritrail verifies GuardDuty detector status across regions and Security Hub enablement. "
+        "Veritrail supports malware and unauthorized-software detection aspects of CC6.8 by verifying "
+        "GuardDuty detector status across regions and Security Hub enablement. "
         "IMDSv2 enforcement on EC2 instances is checked to mitigate SSRF-based metadata exfiltration. "
         "VPC flow log enablement is verified for network traffic visibility."
     ),
     "CC7.1": (
-        "Configuration changes that can introduce vulnerabilities are detected and monitored. "
-        "Veritrail verifies CloudTrail is enabled with log file validation and KMS encryption, "
-        "AWS Config recorder status and rule compliance, ACM certificate expiry, and "
-        "deprecated Lambda runtimes that may lack security patches."
+        "Veritrail supports configuration-change detection aspects of CC7.1 by verifying CloudTrail is "
+        "enabled with log file validation and KMS encryption, AWS Config recorder status and rule "
+        "compliance, ACM certificate expiry, and deprecated Lambda runtimes that may lack security patches."
     ),
     "CC7.2": (
-        "Security events and anomalies are detected and monitored. "
-        "Veritrail verifies that AWS CloudTrail is enabled, covers all regions, and has log file validation active. "
+        "Veritrail supports security-event monitoring aspects of CC7.2 by verifying that AWS CloudTrail "
+        "is enabled, covers all regions, and has log file validation active. "
         "AWS Config (including non-compliant managed rules), GuardDuty detector enablement, "
         "active GuardDuty findings, and Security Hub enablement are checked. "
         "CloudTrail write events (IAM changes, security group modifications, S3 policy changes) "
@@ -64,23 +62,31 @@ NARRATIVES: dict[str, str] = {
         "Evidence packs include a coverage indicator when the selected audit window predates Veritrail monitoring."
     ),
     "CC8.1": (
-        "Changes to infrastructure and application code are authorized before production use. "
-        "Veritrail collects GitHub and GitLab evidence for branch protection on default branches, "
-        "required pull request reviews, absence of self-merged PRs, and protected deployment environments. "
+        "Veritrail supports change-authorization aspects of CC8.1 by collecting GitHub and GitLab evidence "
+        "for branch protection on default branches, required pull request reviews, absence of self-merged "
+        "PRs, and protected deployment environments. "
         "CloudTrail write events for infrastructure changes are included in evidence packs for correlation."
     ),
     "CC1.1": (
-        "The entity demonstrates commitment to integrity and ethical values. "
-        "Security awareness training completion and HR onboarding attestations are tracked via "
-        "external evidence uploads in the HR & training category."
+        "Veritrail supports integrity and ethical-values aspects of CC1.1 when security awareness training "
+        "completion and HR onboarding attestations are uploaded as external evidence in the HR & training "
+        "category. Automated cloud scans alone do not fulfill this control."
     ),
     "CC1.2": (
-        "Board and management exercise oversight of internal control development and performance. "
-        "Upload training and policy attestation evidence to support CC1 criteria."
+        "Veritrail supports oversight aspects of CC1.2 when training and policy attestation evidence is "
+        "uploaded. Board and management oversight itself remains a customer attestation."
+    ),
+    "CC7.5": (
+        "Veritrail supports recovery-readiness aspects of CC7.5 by collecting evidence of configured "
+        "AWS Backup plans, RDS automated backup retention, DynamoDB point-in-time recovery, and RDS "
+        "deletion protection as a preventive safeguard. "
+        "Evidence is collected at each scan and retained for the audit period; successful restore "
+        "testing is not inferred from configuration — DR test records are attached as external evidence."
     ),
     "CC9.1": (
-        "The entity identifies, assesses, and manages risks associated with vendors and business partners. "
-        "Vendor risk questionnaires, SOC reports, and monitoring attestations are collected as external evidence."
+        "Veritrail supports vendor-risk aspects of CC9.1 when vendor risk questionnaires, SOC reports, and "
+        "monitoring attestations are collected as external evidence. Automated cloud scans alone do not "
+        "fulfill this control."
     ),
 
     # ── CIS AWS L1 ──────────────────────────────────────────────────────────
@@ -367,45 +373,27 @@ NARRATIVES: dict[str, str] = {
         "Block Public Access at account and bucket level."
     ),
     "A.12.3.1": (
-        "Veritrail verifies backup-related controls: RDS deletion protection enabled and "
-        "DynamoDB Point-in-Time Recovery enabled on tables."
+        "Veritrail verifies collected data-protection settings: DynamoDB Point-in-Time Recovery "
+        "for restoration and RDS deletion protection as a preventive safeguard."
     ),
     "A.17.2.1": (
         "Veritrail verifies RDS Multi-AZ deployment for production databases requiring "
         "high availability and automatic failover."
     ),
-    # ── SOC2 Availability (A-series) ────────────────────────────────────────
-    "A1.1": (
-        "Processing capacity is monitored and managed to meet demand. "
-        "Automated AWS capacity evidence is limited by design; capacity dashboards, scaling "
-        "policies, and utilization reviews are attached as external evidence where the "
-        "Availability criteria are in scope."
-    ),
-    "A1.2": (
-        "Data backup processes and recovery infrastructure are configured and monitored. "
-        "Veritrail verifies AWS Backup plan coverage, RDS automated backups, Multi-AZ "
-        "deployment, deletion protection on stateful services, and DynamoDB point-in-time "
-        "recovery. Evidence is collected at each scan and retained for the audit period."
-    ),
-    "A1.3": (
-        "Recovery procedures are tested to support system recovery objectives. "
-        "Restore tests and disaster-recovery exercises are performed by the customer team; "
-        "test reports and runbook execution records are attached as external evidence "
-        "alongside the automated backup-configuration evidence Veritrail collects."
-    ),
 }
 
 
 SHORT_ANSWERS: dict[str, str] = {
-    "CC6.1": "Logical access is restricted; Veritrail continuously monitors IAM and integrated identity providers for MFA and dormant accounts.",
-    "CC6.2": "Credentials are issued only to authorized users; root keys, access key limits, and org MFA are verified each scan.",
-    "CC6.3": "Least-privilege access is enforced; wildcard actions/resources, external trust, and unused permissions are flagged with policy evidence.",
-    "CC6.6": "External access paths are controlled via permission-usage analysis, security group checks, and branch protection evidence.",
-    "CC6.7": "Encryption at rest is verified for S3, KMS, EBS, and RDS using collected configuration snapshots.",
-    "CC6.8": "Malware and threat detection controls include GuardDuty, Security Hub, IMDSv2, and VPC flow log checks.",
-    "CC7.1": "Configuration change detection via CloudTrail, AWS Config, certificate and runtime hygiene signals.",
-    "CC7.2": "Security monitoring is active; CloudTrail, Config rules, GuardDuty findings, and Security Hub status are verified each scan.",
-    "CC8.1": "SCM branch protection and review evidence from GitHub/GitLab; CloudTrail write events support authorized infrastructure changes.",
+    "CC6.1": "Veritrail supports CC6.1 access-monitoring aspects by continuously collecting IAM and integrated identity evidence for MFA gaps and dormant accounts.",
+    "CC6.2": "Veritrail supports CC6.2 credential aspects by verifying root keys, access key limits, and org MFA settings each scan.",
+    "CC6.3": "Veritrail supports least-privilege aspects of CC6.3 by flagging wildcard actions/resources, external trust, and unused permissions with policy evidence.",
+    "CC6.6": "Veritrail supports external-access aspects of CC6.6 via permission-usage analysis, security group checks, and branch protection evidence.",
+    "CC6.7": "Veritrail supports encryption aspects of CC6.7 by verifying S3, KMS, EBS, and RDS configuration snapshots.",
+    "CC6.8": "Veritrail supports threat-detection aspects of CC6.8 with GuardDuty, Security Hub, IMDSv2, and VPC flow log checks.",
+    "CC7.1": "Veritrail supports configuration-change detection aspects of CC7.1 via CloudTrail, AWS Config, certificate and runtime hygiene signals.",
+    "CC7.2": "Veritrail supports security-monitoring aspects of CC7.2 by verifying CloudTrail, Config rules, GuardDuty findings, and Security Hub status each scan.",
+    "CC7.5": "Veritrail supports recovery-readiness aspects of CC7.5 with AWS Backup, RDS backup, DynamoDB PITR, and deletion-protection configuration evidence collected each scan.",
+    "CC8.1": "Veritrail supports change-authorization aspects of CC8.1 with SCM branch protection and review evidence from GitHub/GitLab plus CloudTrail write events.",
     "CIS 1.5": "Root account MFA is verified from the IAM account summary at each scan.",
     "CIS 1.8": "IAM password policy minimum length and complexity are verified each scan.",
     "CIS 1.9": "IAM password policy reuse prevention is verified each scan.",

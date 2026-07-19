@@ -11,6 +11,10 @@ http {
     # Per-IP rate limits (edge protection before fail2ban)
     limit_req_zone $binary_remote_addr zone=veritrail_general:10m rate=20r/s;
     limit_req_zone $binary_remote_addr zone=veritrail_probe:10m rate=2r/s;
+    # Admin origin: much tighter. Auth endpoints get 10 req/min per IP,
+    # everything else on the admin host 5 req/s.
+    limit_req_zone $binary_remote_addr zone=veritrail_admin_auth:10m rate=10r/m;
+    limit_req_zone $binary_remote_addr zone=veritrail_admin:10m rate=5r/s;
     limit_req_status 429;
 
     log_format veritrail_combined '$remote_addr - $remote_user [$time_local] '
@@ -20,7 +24,9 @@ http {
     access_log /var/log/nginx/access.log veritrail_combined;
     error_log  /var/log/nginx/error.log warn;
 
-    # Security headers (shared)
+    # Security headers (shared). NOTE nginx add_header inheritance: any server/
+    # location that declares its own add_header (e.g. per-host CSP) loses these,
+    # so every server block below re-declares the full set alongside its CSP.
     add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
     add_header X-Content-Type-Options "nosniff" always;
     add_header X-Frame-Options "DENY" always;
@@ -31,7 +37,7 @@ http {
     # HTTP → HTTPS redirect for all hosts
     server {
         listen 80;
-        server_name __DOMAIN__ __API_DOMAIN__;
+        server_name __DOMAIN__ __API_DOMAIN__ __ADMIN_DOMAIN__;
         limit_req zone=veritrail_general burst=30 nodelay;
 
         location / {
@@ -50,6 +56,11 @@ http {
         ssl_ciphers         HIGH:!aNULL:!MD5;
 
         add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://__API_DOMAIN__; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" always;
+        add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-Frame-Options "DENY" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+        add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
 
         location ~* \.(env|sql|php|bak|ini|old|orig|backup|swp|git|yml|yaml|aws|credentials)(/|$) {
             limit_req zone=veritrail_probe burst=3 nodelay;
@@ -76,6 +87,69 @@ http {
         }
     }
 
+    # Platform admin — __ADMIN_DOMAIN__ (static SPA + same-origin /v1 API proxy).
+    # SPA lives in the veritrail-admin repo (github.com/Veritrail/veritrail-admin);
+    # the dashboard is gated server-side by PLATFORM_ADMIN_EMAILS + mandatory TOTP.
+    server {
+        listen 443 ssl;
+        server_name __ADMIN_DOMAIN__;
+
+        ssl_certificate     /etc/letsencrypt/live/__CERT_NAME__/fullchain.pem;
+        ssl_certificate_key /etc/letsencrypt/live/__CERT_NAME__/privkey.pem;
+        ssl_protocols       TLSv1.2 TLSv1.3;
+        ssl_ciphers         HIGH:!aNULL:!MD5;
+
+        # Strict CSP: the SPA ships zero inline script/style (admin.js/admin.css).
+        add_header Content-Security-Policy "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'" always;
+        add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-Frame-Options "DENY" always;
+        add_header Referrer-Policy "no-referrer" always;
+        add_header Permissions-Policy "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()" always;
+        add_header X-Robots-Tag "noindex, nofollow" always;
+
+        # IP allowlist — rendered from ADMIN_ALLOWED_IPS by scripts/bootstrap-ec2.sh.
+        # When unset the origin stays open (auth still applies); set
+        # ADMIN_ALLOWED_IPS="203.0.113.10,198.51.100.20" in .env.prod and re-run
+        # the bootstrap (--deploy-only) to restrict. Non-allowed IPs get 403.
+        __ADMIN_IP_ALLOWLIST__
+
+        # Aggressive brute-force limit on the auth surface of this origin.
+        location /v1/auth/ {
+            limit_req zone=veritrail_admin_auth burst=5 nodelay;
+            proxy_pass         http://api:8000;
+            proxy_http_version 1.1;
+            proxy_set_header   Host $host;
+            proxy_set_header   X-Real-IP $remote_addr;
+            proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header   X-Forwarded-Proto $scheme;
+            proxy_read_timeout 60s;
+        }
+
+        # Same-origin API proxy — the admin SPA gets its own refresh cookie on
+        # this host, no CORS involved.
+        location /v1/ {
+            limit_req zone=veritrail_admin burst=20 nodelay;
+            proxy_pass         http://api:8000;
+            proxy_http_version 1.1;
+            proxy_set_header   Host $host;
+            proxy_set_header   X-Real-IP $remote_addr;
+            proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header   X-Forwarded-Proto $scheme;
+            proxy_read_timeout 120s;
+        }
+
+        location / {
+            limit_req zone=veritrail_admin burst=20 nodelay;
+            proxy_pass         http://admin:80;
+            proxy_http_version 1.1;
+            proxy_set_header   Host $host;
+            proxy_set_header   X-Real-IP $remote_addr;
+            proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header   X-Forwarded-Proto $scheme;
+        }
+    }
+
     # API — __API_DOMAIN__
     server {
         listen 443 ssl;
@@ -87,6 +161,11 @@ http {
         ssl_ciphers         HIGH:!aNULL:!MD5;
 
         add_header Content-Security-Policy "default-src 'none'; frame-ancestors 'none'; base-uri 'none'" always;
+        add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-Frame-Options "DENY" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+        add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
 
         location ~* \.(env|sql|php|bak|ini|old|orig|backup|swp|git|yml|yaml|aws|credentials)(/|$) {
             limit_req zone=veritrail_probe burst=3 nodelay;

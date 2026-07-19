@@ -14,7 +14,7 @@ import {
   summarizeRefreshOutcome,
   waitForRecheckUpdate,
 } from "../lib/recheckPoll";
-import { remediationSummaryForFinding } from "../data/remediationSummaries";
+import { resourceAffectedReason, resourceAffectedReasonParts } from "../lib/resourceAffectedReason";
 import type { JiraIssueStatus } from "../hooks/useJiraIssueStatus";
 import {
   isJiraDoneBeforeVerification,
@@ -44,31 +44,6 @@ export type ResourcesTabFinding = {
   account_name?: string | null;
   account_provider?: string | null;
 };
-
-const RESOURCE_AFFECTED_DETAIL: Record<string, string> = {
-  "s3.bucket.public_access_not_blocked": "Bucket allows public access via all public access settings.",
-  "s3.account.public_access_not_blocked":
-    "Account level guardrails are off. One bucket misconfiguration can expose data.",
-  "s3.bucket.no_https_policy": "No HTTPS only bucket policy. Objects may be read over HTTP.",
-  "s3.bucket.no_kms": "Objects are stored without SSE KMS at rest.",
-  "s3.bucket.no_logging": "Object-level reads and writes are not recorded to a log bucket.",
-};
-
-/** One-line reason for the Resources table — scoped to this resource, not the finding title. */
-function resourceAffectedReason(finding: ResourcesTabFinding): string {
-  const override = RESOURCE_AFFECTED_DETAIL[finding.check_id];
-  if (override) return override;
-
-  if (finding.check_id === "iam.role.least_privilege_policy") {
-    const scope = finding.evidence?.scope;
-    if (scope === "full_admin") return "Action:* + Resource:*";
-    if (scope === "wildcard_action") return "Action:* (wildcard)";
-    return "Broader than observed usage";
-  }
-
-  const summary = remediationSummaryForFinding(finding);
-  return (summary.risk || summary.impact).replace(/\s*—\s*/g, ". ");
-}
 
 function formatResourceTableDate(iso: string, mode: "first" | "last"): { primary: string; sub: string } {
   const d = new Date(iso);
@@ -216,26 +191,32 @@ function StripMetric({
 }
 
 function ResourceWhyAffectedCompact({ finding }: { finding: ResourcesTabFinding }) {
-  const reason = resourceAffectedReason(finding);
+  const reason = resourceAffectedReasonParts(finding);
+  const accessibleReason = reason.detail ? `${reason.title}. ${reason.detail}` : reason.title;
+  const detailParts = reason.detail.split(" · ").filter(Boolean);
+  const severity = finding.severity.trim().toLowerCase();
+  const severityClass = ["critical", "high", "medium", "low"].includes(severity)
+    ? `is-${severity}`
+    : "is-neutral";
   return (
-    <div className="flex min-w-0 items-center gap-2.5 rounded-lg border border-rose-100 bg-rose-50 px-3.5 py-3">
-      <svg
-        className="h-4 w-4 shrink-0 text-red-500"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth={1.5}
-        viewBox="0 0 24 24"
-        aria-hidden
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"
-        />
-      </svg>
-      <p className="min-w-0 flex-1 hyphens-none text-[13px] font-semibold leading-snug text-red-600">
-        {reason}
-      </p>
+    <div
+      className={`finding-resources-tab__reason ${severityClass}`}
+      title={accessibleReason}
+      data-severity={severity || "unknown"}
+    >
+      <div className="finding-resources-tab__reason-copy">
+        <p className="finding-resources-tab__reason-title">{reason.title}</p>
+        {detailParts.length ? (
+          <p className="finding-resources-tab__reason-detail">
+            <span>{detailParts[0]}</span>
+            {detailParts.slice(1).map((part, index) => (
+              <span key={`${part}-${index}`} className="finding-resources-tab__reason-evidence">
+                {part}
+              </span>
+            ))}
+          </p>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -373,7 +354,9 @@ function ResourcesPostureStrip({
             </p>
             <p className="mt-1.5 text-[15px] font-semibold leading-relaxed text-zinc-900">{summaryAction}</p>
             {summaryRisk ? (
-              <p className="mt-2 text-[13px] leading-relaxed text-zinc-500">{summaryRisk}</p>
+              <p className="mt-2 max-w-4xl text-pretty text-[13px] font-normal leading-5 tracking-[-0.006em] text-zinc-600 lg:min-h-[3.75rem]">
+                {summaryRisk}
+              </p>
             ) : null}
             {onViewRemediation ? (
               <button
@@ -885,21 +868,23 @@ export function FindingResourcesTab({
   }
 
   return (
-    <div className="finding-resources-tab space-y-3">
-      <ResourcesPostureStrip
-        selectedFinding={selectedFinding}
-        groupFindings={groupFindings}
-        summaryRisk={summaryRisk}
-        summaryAction={summaryAction}
-        onViewRemediation={onViewRemediation}
-        jiraIssue={jiraIssue}
-        jiraStatus={jiraStatus}
-        jiraStatusFetching={jiraStatusFetching}
-        onRemoveJira={onRemoveJira}
-      />
+    <div className="finding-resources-tab flex min-h-0 flex-1 flex-col gap-3">
+      <div className="shrink-0">
+        <ResourcesPostureStrip
+          selectedFinding={selectedFinding}
+          groupFindings={groupFindings}
+          summaryRisk={summaryRisk}
+          summaryAction={summaryAction}
+          onViewRemediation={onViewRemediation}
+          jiraIssue={jiraIssue}
+          jiraStatus={jiraStatus}
+          jiraStatusFetching={jiraStatusFetching}
+          onRemoveJira={onRemoveJira}
+        />
+      </div>
 
       {/* Toolbar — separate controls on one line, no shared card */}
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex shrink-0 flex-wrap items-center gap-2">
         <div className="relative w-full min-w-[10rem] max-w-[17rem] sm:max-w-[19rem]">
           <svg
             className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400"
@@ -1044,19 +1029,19 @@ export function FindingResourcesTab({
       </div>
 
       {/* Resource list — single merged card, rows divided by lines */}
-      <div className="overflow-hidden rounded-xl border border-zinc-200/90 bg-white shadow-sm shadow-zinc-950/[0.03]">
-        <div className="overflow-x-auto">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-zinc-200/90 bg-white shadow-sm shadow-zinc-950/[0.03]">
+        <div className="min-h-0 flex-1 overflow-auto overscroll-contain">
           <table className="finding-resources-tab__table min-w-[56rem] w-full border-collapse text-left">
             <colgroup>
               {selectionEnabled ? <col className="w-10" /> : null}
               <col className="finding-resources-tab__resource-col" />
               <col className="finding-resources-tab__type-col" />
-              <col className="min-w-[7.5rem]" />
-              <col />
-              <col />
-              <col className="min-w-[14rem]" />
+              <col className="finding-resources-tab__account-col" />
+              <col className="finding-resources-tab__seen-col" />
+              <col className="finding-resources-tab__seen-col" />
+              <col className="finding-resources-tab__reason-col" />
             </colgroup>
-            <thead>
+            <thead className="sticky top-0 z-10 bg-white shadow-[0_1px_0_0_theme(colors.zinc.100)]">
               <tr className="border-b border-zinc-100 text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
                 {selectionEnabled ? (
                   <th className="w-10 px-3 pb-2.5 pt-3 text-left align-bottom font-semibold">
@@ -1173,7 +1158,7 @@ export function FindingResourcesTab({
                       </p>
                       <p className="mt-1 text-[11px] leading-4 text-zinc-500">{last.sub}</p>
                     </td>
-                    <td className="px-4 py-4 align-middle">
+                    <td className="finding-resources-tab__reason-cell px-4 py-4 align-middle">
                       <ResourceWhyAffectedCompact finding={f} />
                     </td>
                   </tr>

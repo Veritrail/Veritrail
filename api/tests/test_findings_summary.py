@@ -116,3 +116,34 @@ def test_findings_summary_all_cloud_and_source_control(db_session):
     out_scm = findings_summary(provider="source_control", p=principal, db=db_session)
     assert out_all_cloud.total == 1
     assert out_scm.total == 1
+
+
+def test_list_findings_include_total_false_skips_count(db_session):
+    """Cursor walks can skip COUNT; total is 0 when include_total=false."""
+    from app.routes.findings import list_findings
+
+    org, user = _seed_org_user(db_session)
+    db_session.add(_finding(org.id, severity="high"))
+    db_session.add(_finding(org.id, severity="critical", resource_arn="arn:aws:iam::123456789012:user/bob"))
+    db_session.flush()
+
+    principal = {"org_id": str(org.id), "sub": str(user.id)}
+    with_total = list_findings(
+        status_filter="open",
+        include_total=True,
+        limit=100,
+        cursor=None,
+        p=principal,
+        db=db_session,
+    )
+    without_total = list_findings(
+        status_filter="open",
+        include_total=False,
+        limit=100,
+        cursor=None,
+        p=principal,
+        db=db_session,
+    )
+    assert with_total.total >= 2
+    assert without_total.total == 0
+    assert len(without_total.items) == len(with_total.items)

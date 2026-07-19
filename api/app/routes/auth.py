@@ -52,6 +52,11 @@ from app.services.user_session import (
 router = APIRouter()
 settings = get_settings()
 
+# Self-registration is disabled — accounts are created via workspace invites
+# (or SSO/SAML into an existing workspace). Marketing "request access" goes to
+# support@veritrail.io.
+SIGNUPS_DISABLED_MESSAGE = "Signups are invite-only — contact support@veritrail.io"
+
 
 def _normalize_backup_code(code: str) -> str:
     return "".join(c for c in code.lower() if c.isalnum())
@@ -180,84 +185,50 @@ class WorkspaceSwitchIn(BaseModel):
 @router.post("/signup")
 @limiter.limit("5/minute")
 def signup(request: Request, body: SignupIn, db: Session = Depends(get_db)):
-    from app.services.org_invites import block_signup_without_invite_when_pending, consume_invite_for_signup
+    """Create an account from a workspace invite. Public self-registration is disabled."""
     from app.services.org_activity import log_org_activity
     from app.services.org_membership import add_membership
+    from app.services.signup_invites import consume_signup_invite
+
+    if not body.invite_token:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, SIGNUPS_DISABLED_MESSAGE)
 
     if db.scalar(select(User).where(User.email == body.email)):
         raise HTTPException(status.HTTP_409_CONFLICT, "email already registered")
 
-    if body.invite_token:
-        org, role = consume_invite_for_signup(db, body.invite_token, str(body.email))
-        user = User(
-            id=uuid.uuid4(),
-            org_id=org.id,
-            email=str(body.email).lower(),
-            display_name=default_display_name_for_email(str(body.email)),
-            password_hash=hash_password(body.password),
-            role=role,
-        )
-        db.add(user)
-        add_membership(db, user.id, org.id, role)
-        log_org_activity(
+    org, role, workspace_invite = consume_signup_invite(
+        db, body.invite_token, str(body.email), org_name=body.org_name
+    )
+    user = User(
+        id=uuid.uuid4(),
+        org_id=org.id,
+        email=str(body.email).lower(),
+        display_name=default_display_name_for_email(str(body.email)),
+        password_hash=hash_password(body.password),
+        role=role,
+    )
+    db.add(user)
+    add_membership(db, user.id, org.id, role)
+    log_org_activity(
+        db,
+        org_id=org.id,
+        actor_user_id=user.id,
+        action="member.invite_accepted",
+        target_type="user",
+        target_id=str(user.id),
+        detail={"email": user.email, "role": role},
+    )
+    if workspace_invite is not None:
+        from app.services.workspace_creation_invites import audit_workspace_invite_accepted
+
+        audit_workspace_invite_accepted(
             db,
-            org_id=org.id,
-            actor_user_id=user.id,
-            action="member.invite_accepted",
-            target_type="user",
-            target_id=str(user.id),
-            detail={"email": user.email, "role": role},
+            invite=workspace_invite,
+            org=org,
+            user=user,
+            source="password_signup",
+            request=request,
         )
-    else:
-        from app.services.org_domain import (
-            assert_domain_available_for_new_workspace,
-            auto_join_target_for_email,
-            email_domain,
-        )
-
-        block_signup_without_invite_when_pending(db, str(body.email))
-        auto = auto_join_target_for_email(db, str(body.email))
-        if auto:
-            # Email is on a DNS-verified, auto-join-enabled org domain — join it
-            # at the admin-configured role (never owner) instead of a new workspace.
-            org, role = auto
-            user = User(
-                id=uuid.uuid4(),
-                org_id=org.id,
-                email=str(body.email).lower(),
-                display_name=default_display_name_for_email(str(body.email)),
-                password_hash=hash_password(body.password),
-                role=role,
-            )
-            db.add(user)
-            add_membership(db, user.id, org.id, role)
-            log_org_activity(
-                db,
-                org_id=org.id,
-                actor_user_id=user.id,
-                action="member.domain_auto_join",
-                target_type="user",
-                target_id=str(user.id),
-                detail={"email": user.email, "role": role, "domain": email_domain(user.email)},
-            )
-        else:
-            from app.services.org_provision import unique_org_slug
-
-            assert_domain_available_for_new_workspace(db, str(body.email))
-            if not body.org_name.strip():
-                raise HTTPException(status.HTTP_400_BAD_REQUEST, "org_name is required")
-            org_name = body.org_name.strip()
-            org = Org(id=uuid.uuid4(), name=org_name, slug=unique_org_slug(db, org_name))
-            user = User(
-                id=uuid.uuid4(),
-                org_id=org.id,
-                email=str(body.email).lower(),
-                display_name=default_display_name_for_email(str(body.email)),
-                password_hash=hash_password(body.password),
-                role="owner",
-            )
-            db.add_all([org, user])
-            add_membership(db, user.id, org.id, "owner")
 
     db.commit()
     return _issue_login_tokens(request, db, user, remember_me=True)
@@ -266,11 +237,13 @@ def signup(request: Request, body: SignupIn, db: Session = Depends(get_db)):
 @router.post("/complete-signup")
 @limiter.limit("10/minute")
 def complete_signup(request: Request, body: CompleteSignupIn, db: Session = Depends(get_db)):
-    from app.services.org_domain import assert_domain_available_for_new_workspace
-    from app.services.org_invites import consume_invite_for_signup
+    """Finish SSO sign-up from a workspace invite. New-workspace creation is disabled."""
     from app.services.org_activity import log_org_activity
     from app.services.org_membership import add_membership
-    from app.services.org_provision import unique_org_slug
+    from app.services.signup_invites import consume_signup_invite
+
+    if not body.invite_token:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, SIGNUPS_DISABLED_MESSAGE)
 
     payload = decode_signup_pending_token(body.signup_token)
     email = payload["email"]
@@ -278,49 +251,45 @@ def complete_signup(request: Request, body: CompleteSignupIn, db: Session = Depe
         raise HTTPException(status.HTTP_409_CONFLICT, "email already registered")
 
     identity_fields: dict[str, str] = {}
-    for field in ("google_id", "github_id", "gitlab_id", "display_name"):
+    for field in ("google_id", "github_id", "gitlab_id", "display_name", "avatar_url"):
         if payload.get(field):
             identity_fields[field] = payload[field]
     if "display_name" not in identity_fields:
         identity_fields["display_name"] = default_display_name_for_email(email)
 
-    if body.invite_token:
-        org, role = consume_invite_for_signup(db, body.invite_token, email)
-        user = User(
-            id=uuid.uuid4(),
-            org_id=org.id,
-            email=email,
-            password_hash="",
-            role=role,
-            **identity_fields,
-        )
-        db.add(user)
-        add_membership(db, user.id, org.id, role)
-        log_org_activity(
+    org, role, workspace_invite = consume_signup_invite(
+        db, body.invite_token, email, org_name=body.org_name
+    )
+    user = User(
+        id=uuid.uuid4(),
+        org_id=org.id,
+        email=email,
+        password_hash="",
+        role=role,
+        **identity_fields,
+    )
+    db.add(user)
+    add_membership(db, user.id, org.id, role)
+    log_org_activity(
+        db,
+        org_id=org.id,
+        actor_user_id=user.id,
+        action="member.invite_accepted",
+        target_type="user",
+        target_id=str(user.id),
+        detail={"email": user.email, "role": role, "via": "sso_complete_signup"},
+    )
+    if workspace_invite is not None:
+        from app.services.workspace_creation_invites import audit_workspace_invite_accepted
+
+        audit_workspace_invite_accepted(
             db,
-            org_id=org.id,
-            actor_user_id=user.id,
-            action="member.invite_accepted",
-            target_type="user",
-            target_id=str(user.id),
-            detail={"email": user.email, "role": role, "via": "sso_complete_signup"},
+            invite=workspace_invite,
+            org=org,
+            user=user,
+            source="sso_complete_signup",
+            request=request,
         )
-    else:
-        if not body.org_name.strip():
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, "org_name is required")
-        assert_domain_available_for_new_workspace(db, email)
-        org_name = body.org_name.strip()
-        org = Org(id=uuid.uuid4(), name=org_name, slug=unique_org_slug(db, org_name))
-        user = User(
-            id=uuid.uuid4(),
-            org_id=org.id,
-            email=email,
-            password_hash="",
-            role="owner",
-            **identity_fields,
-        )
-        db.add_all([org, user])
-        add_membership(db, user.id, org.id, "owner")
 
     db.commit()
     return _issue_login_tokens(request, db, user, remember_me=True)
@@ -569,6 +538,7 @@ class MeOut(BaseModel):
     id: str
     email: str
     display_name: str
+    avatar_url: str | None = None
     role: str
     evidence_role: str
     org_id: str
@@ -580,6 +550,7 @@ class MeOut(BaseModel):
     totp_enabled: bool
     has_password: bool
     mfa_backup_codes_remaining: int = 0
+    platform_admin: bool = False
 
 
 class SessionOut(BaseModel):
@@ -631,17 +602,26 @@ def get_current_user(
 def get_me(principal: dict = Depends(current_principal), db: Session = Depends(get_db)):
     from app.core.evidence_rbac import membership_evidence_role
     from app.core.rbac import normalize_role
+    from app.routes.platform_admin import is_platform_admin as _is_platform_admin
     from app.services.org_membership import list_memberships
 
     user = db.get(User, uuid.UUID(principal["sub"]))
     if not user:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "user not found")
+    from app.services.user_display_name import resolve_user_avatar_url
+
+    raw_avatar = user.avatar_url
+    had_avatar = bool(isinstance(raw_avatar, str) and raw_avatar.strip())
+    avatar_url = resolve_user_avatar_url(user, persist_fallback=True)
+    if not had_avatar and avatar_url:
+        db.commit()
     has_workspace = bool(list_memberships(db, user.id))
     org = db.get(Org, user.org_id)
     return MeOut(
         id=str(user.id),
         email=user.email,
         display_name=resolve_user_display_name(user),
+        avatar_url=avatar_url,
         role=normalize_role(user.role),
         evidence_role=membership_evidence_role(
             db, user.id, user.org_id, fallback_org_role=user.role
@@ -655,6 +635,7 @@ def get_me(principal: dict = Depends(current_principal), db: Session = Depends(g
         totp_enabled=user.totp_enabled,
         has_password=bool(user.password_hash),
         mfa_backup_codes_remaining=len(user.mfa_backup_codes or []),
+        platform_admin=_is_platform_admin(user.email),
     )
 
 

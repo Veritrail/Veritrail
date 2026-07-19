@@ -138,29 +138,6 @@ def test_clean_managed_with_deny_statements_preserved():
     assert cleaned[0]["Action"] == "s3:DeleteBucket"
 
 
-def test_clean_managed_with_aa_resources():
-    """CloudTrail resource ARNs applied to cleaned managed policy."""
-    attached = [{
-        "policy_arn": "arn:aws:iam::123456789012:policy/DynamoPolicy",
-        "policy_name": "DynamoPolicy",
-        "policy_type": "customer_managed",
-        "statements": [
-            {"Effect": "Allow", "Action": ["dynamodb:GetItem", "dynamodb:PutItem"], "Resource": "*"},
-        ],
-    }]
-    aa_statements = [{
-        "actions": ["dynamodb:GetItem", "dynamodb:PutItem"],
-        "resources": ["arn:aws:dynamodb:us-east-1:123456789012:table/orders"],
-        "placeholder_resources": [],
-    }]
-
-    result = _clean_managed_policies(attached, set(), set(), [], aa_statements)
-
-    # Resource should be scoped to the specific table
-    stmts = result["DynamoPolicy"]["cleaned_statements"]
-    assert stmts[0]["Resource"] == "arn:aws:dynamodb:us-east-1:123456789012:table/orders"
-
-
 def test_empty_managed_policies():
     """Empty list returns empty result."""
     result = _clean_managed_policies([], set(), set(), [])
@@ -185,18 +162,13 @@ def test_clean_managed_policy_no_statements_field():
 
 # ── generate_role_policy integration ───────────────────────────────
 
-@patch("app.routes.accounts_analysis._resolve_advanced_policy_generation")
-def test_generate_role_policy_with_only_managed(mock_resolve):
+def test_generate_role_policy_with_only_managed():
     """Role with only managed policies → has_managed_policies=True, has_inline_policies=False."""
     from app.routes.accounts_analysis import generate_role_policy
-
-    mock_resolve.return_value = {"available": False, "reason": "no_generation", "note": "none"}
 
     acc = MagicMock()
     acc.id = uuid.uuid4()
     acc.org_id = uuid.uuid4()
-    acc.enable_advanced_policy_generation = False
-    acc.advanced_policy_generation_deployed = False
     acc.role_arn = "arn:aws:iam::123456789012:role/TestRole"
     acc.external_id = "ext"
 
@@ -232,7 +204,6 @@ def test_generate_role_policy_with_only_managed(mock_resolve):
         account_id=str(acc.id),
         role_arn="arn:aws:iam::123456789012:role/TestRole",
         threshold_days=90,
-        advanced=False,
         p=principal,
         db=db,
     )
@@ -249,18 +220,13 @@ def test_generate_role_policy_with_only_managed(mock_resolve):
     assert result["note"] is None  # Should be None when policies exist
 
 
-@patch("app.routes.accounts_analysis._resolve_advanced_policy_generation")
-def test_generate_role_policy_with_both_inline_and_managed(mock_resolve):
+def test_generate_role_policy_with_both_inline_and_managed():
     """Role with both inline and managed policies → both sections present."""
     from app.routes.accounts_analysis import generate_role_policy
-
-    mock_resolve.return_value = {"available": False, "reason": "no_generation", "note": "none"}
 
     acc = MagicMock()
     acc.id = uuid.uuid4()
     acc.org_id = uuid.uuid4()
-    acc.enable_advanced_policy_generation = False
-    acc.advanced_policy_generation_deployed = False
     acc.role_arn = "arn:aws:iam::123456789012:role/TestRole"
     acc.external_id = "ext"
 
@@ -300,7 +266,6 @@ def test_generate_role_policy_with_both_inline_and_managed(mock_resolve):
         account_id=str(acc.id),
         role_arn="arn:aws:iam::123456789012:role/TestRole",
         threshold_days=90,
-        advanced=False,
         p=principal,
         db=db,
     )
@@ -314,18 +279,13 @@ def test_generate_role_policy_with_both_inline_and_managed(mock_resolve):
     assert "ManagedB" in result["managed_policies"]
 
 
-@patch("app.routes.accounts_analysis._resolve_advanced_policy_generation")
-def test_generate_role_policy_with_neither(mock_resolve):
+def test_generate_role_policy_with_neither():
     """Role with no inline and no managed policies → both false, note present."""
     from app.routes.accounts_analysis import generate_role_policy
-
-    mock_resolve.return_value = {"available": False, "reason": "no_generation", "note": "none"}
 
     acc = MagicMock()
     acc.id = uuid.uuid4()
     acc.org_id = uuid.uuid4()
-    acc.enable_advanced_policy_generation = False
-    acc.advanced_policy_generation_deployed = False
     acc.role_arn = "arn:aws:iam::123456789012:role/TestRole"
     acc.external_id = "ext"
 
@@ -344,7 +304,6 @@ def test_generate_role_policy_with_neither(mock_resolve):
         account_id=str(acc.id),
         role_arn="arn:aws:iam::123456789012:role/TestRole",
         threshold_days=90,
-        advanced=False,
         p=principal,
         db=db,
     )
@@ -355,18 +314,13 @@ def test_generate_role_policy_with_neither(mock_resolve):
     assert "no inline policies" in result["note"]
 
 
-@patch("app.routes.accounts_analysis._resolve_advanced_policy_generation")
-def test_generate_role_policy_managed_summary_counts_types(mock_resolve):
+def test_generate_role_policy_managed_summary_counts_types():
     """Managed summary correctly counts customer_managed vs aws_managed policies."""
     from app.routes.accounts_analysis import generate_role_policy
-
-    mock_resolve.return_value = {"available": False, "reason": "no_generation", "note": "none"}
 
     acc = MagicMock()
     acc.id = uuid.uuid4()
     acc.org_id = uuid.uuid4()
-    acc.enable_advanced_policy_generation = False
-    acc.advanced_policy_generation_deployed = False
     acc.role_arn = "arn:aws:iam::123456789012:role/TestRole"
     acc.external_id = "ext"
 
@@ -411,7 +365,6 @@ def test_generate_role_policy_managed_summary_counts_types(mock_resolve):
         account_id=str(acc.id),
         role_arn="arn:aws:iam::123456789012:role/TestRole",
         threshold_days=90,
-        advanced=False,
         p=principal,
         db=db,
     )

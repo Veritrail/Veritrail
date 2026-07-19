@@ -37,6 +37,27 @@ function SidebarIcon({ name }: { name: SidebarIconName }) {
   return <span className="app-sidebar__icon" style={style} aria-hidden />;
 }
 
+/** House for Home — no PNG in the sidebar set; drawn inline and dimmed to
+ *  sit flush with the masked-PNG icons. */
+function HomeNavIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.5}
+      opacity={0.9}
+      aria-hidden
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M3.5 10.5 12 3.75l8.5 6.75M5.25 9.25V19a1 1 0 0 0 1 1h3.5v-5.25a1 1 0 0 1 1-1h2.5a1 1 0 0 1 1 1V20h3.5a1 1 0 0 0 1-1V9.25"
+      />
+    </svg>
+  );
+}
+
 type AccountRow = { status: string; account_id: string | null };
 
 const DEFAULT_HISTORY_FRAMEWORK = "soc2";
@@ -85,6 +106,7 @@ export default function Layout() {
   const queryClient = useQueryClient();
   const [authReady, setAuthReady] = useState(false);
   const [headerSlot, setHeaderSlot] = useState<HTMLDivElement | null>(null);
+  const [sidebarMobileOpen, setSidebarMobileOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     if (typeof window === "undefined") return false;
     return window.localStorage.getItem("veritrail-sidebar-collapsed") === "1";
@@ -114,6 +136,19 @@ export default function Layout() {
   useEffect(() => {
     window.localStorage.setItem("veritrail-sidebar-collapsed", sidebarCollapsed ? "1" : "0");
   }, [sidebarCollapsed]);
+
+  useEffect(() => {
+    setSidebarMobileOpen(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    if (!sidebarMobileOpen) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setSidebarMobileOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [sidebarMobileOpen]);
 
   useEffect(() => {
     let cancelled = false;
@@ -187,7 +222,18 @@ export default function Layout() {
 
   return (
     <div className="min-h-screen bg-[#F6F8FB] text-[#111827]">
-      <aside className={`app-sidebar${sidebarCollapsed ? " is-collapsed" : ""}`}>
+      {sidebarMobileOpen ? (
+        <button
+          type="button"
+          className="app-sidebar__backdrop"
+          aria-label="Close menu"
+          onClick={() => setSidebarMobileOpen(false)}
+        />
+      ) : null}
+
+      <aside
+        className={`app-sidebar${sidebarCollapsed ? " is-collapsed" : ""}${sidebarMobileOpen ? " is-mobile-open" : ""}`}
+      >
         <div className="app-sidebar__brand">
           <img src={SIDEBAR_LOGO_SRC} alt="" className="app-sidebar__logo" decoding="async" />
           <span className="app-sidebar__wordmark">Veritrail</span>
@@ -195,9 +241,9 @@ export default function Layout() {
 
         <nav className="app-sidebar__nav">
           {canManageAccounts && (
-            <SidebarNavLink to="/accounts" title="Accounts">
-              <SidebarIcon name="accounts" />
-              <span className="app-sidebar__label">Accounts</span>
+            <SidebarNavLink to="/accounts" title="Home">
+              <HomeNavIcon />
+              <span className="app-sidebar__label">Home</span>
             </SidebarNavLink>
           )}
 
@@ -234,6 +280,7 @@ export default function Layout() {
             <SidebarUserCard
               email={meQ.data.email}
               displayName={meQ.data.display_name}
+              avatarUrl={meQ.data.avatar_url}
               orgName={meQ.data.org_name ?? "Workspace"}
               role={meQ.data.role}
               planLabel={planUsageQ.data?.plan_label}
@@ -287,12 +334,22 @@ export default function Layout() {
       </aside>
 
       <main
-        className={`veritrail-app-main relative flex min-h-screen min-w-0 flex-col overflow-hidden transition-[margin-left,width] duration-200 ease-out ${sidebarCollapsed ? "ml-24 w-[calc(100%-6rem)]" : "ml-80 w-[calc(100%-20rem)]"}`}
+        className={`veritrail-app-main relative flex min-h-screen min-w-0 flex-col overflow-hidden transition-[margin-left,width] duration-200 ease-out${sidebarCollapsed ? " is-sidebar-collapsed" : ""}`}
       >
         <RecheckNotificationsProvider key={meQ.data?.org_id ?? "no-org"} orgId={meQ.data?.org_id ?? null}>
           <div data-app-scroll className="relative z-10 flex flex-1 flex-col overflow-auto">
-            {/* App-wide header bar: section title + a left slot pages fill via <HeaderSlot>, help + bell on the right. */}
             <div className="veritrail-app-header sticky top-0 z-30 flex flex-nowrap items-center gap-4 px-8">
+              <button
+                type="button"
+                className="veritrail-app-header__menu-btn"
+                aria-label="Open menu"
+                aria-expanded={sidebarMobileOpen}
+                onClick={() => setSidebarMobileOpen(true)}
+              >
+                <svg fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" d="M4 7h16M4 12h16M4 17h16" />
+                </svg>
+              </button>
               <AppHeaderTitle pathname={location.pathname} />
               <div
                 ref={setHeaderSlot}

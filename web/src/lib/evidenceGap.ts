@@ -56,7 +56,7 @@ const ABSENCE_GAP_ACTIONS: Record<string, AbsenceGapActions> = {
     externalOption:
       "Attest that the organization analyzer lives in your management account — unverified until that account is connected — or provide evidence of equivalent external-access review coverage.",
     awsOption:
-      "Connect the management (or delegated administrator) account and re-scan: organization analyzers are deployed only there and leave zero API trace in member accounts, so this account can never show one. Veritrail verifies it automatically once that account is scanned.",
+      "Connect the IAM Access Analyzer — if using an AWS Organization, connect the delegated admin or management account.",
   },
   "cloudtrail.trail.not_enabled": {
     externalOption:
@@ -191,6 +191,9 @@ export function findingsHrefForAbsenceGaps(
   return `/findings?checks=${encodeURIComponent(gaps.join(","))}`;
 }
 
+/** Whether open absence-gap checks could be closed via external evidence intake.
+ *  Does not drive composite display status — scannable AWS composites with only
+ *  absence gaps show Failing; external-only composites use externalEvidenceCompositeDisplayStatus. */
 export function compositeNeedsExternalEvidence(
   groupStatus: "pass" | "fail" | "at_risk" | "no_data",
   checkIds: string[],

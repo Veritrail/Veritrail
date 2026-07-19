@@ -1,45 +1,77 @@
-"""Unauthenticated public endpoints (token-based actions only)."""
+"""Unauthenticated public endpoints (token-based actions + marketing-site forms)."""
 from __future__ import annotations
 
-import uuid
-
-from fastapi import APIRouter, Depends, HTTPException, Header, Query
+import structlog
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import HTMLResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.core.db import get_db
+from app.core.ratelimit import limiter
 from app.models.org import Org
-from app.services.remediation_execution_store import record_execution_result
 
 router = APIRouter()
+log = structlog.get_logger()
 
 
-class RemediationExecutionIn(BaseModel):
-    plan_id: str
-    content_sha256: str
-    result: dict
+class AccessRequestIn(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    email: EmailStr
+    company: str = Field(min_length=1, max_length=200)
+    message: str = Field(default="", max_length=2000)
 
 
-@router.post("/remediation-execution")
-def remediation_execution_webhook(
-    body: RemediationExecutionIn,
-    x_veritrail_content_sha256: str | None = Header(default=None, alias="X-Veritrail-Content-Sha256"),
-    db: Session = Depends(get_db),
-):
-    """Execution callback: record outcome keyed by plan_id (verified via content_sha256)."""
-    if not x_veritrail_content_sha256 or x_veritrail_content_sha256 != body.content_sha256:
-        raise HTTPException(status_code=401, detail="content_sha256 header mismatch")
-    row = record_execution_result(
-        db,
-        plan_id=body.plan_id,
-        content_sha256=body.content_sha256,
-        result=body.result,
+class AccessRequestOut(BaseModel):
+    ok: bool = True
+
+
+@router.post("/access-request", status_code=status.HTTP_202_ACCEPTED, response_model=AccessRequestOut)
+@limiter.limit("5/minute")
+def request_access(request: Request, body: AccessRequestIn, db: Session = Depends(get_db)):
+    """Marketing-site "request access" form — stored for the platform-admin
+    dashboard and emailed to support. Public and rate-limited per IP; no
+    account is created.
+    """
+    from app.models.access_request import AccessRequest
+    from app.services.mail import send_mail
+
+    name = body.name.strip()
+    company = body.company.strip()
+    note = body.message.strip()
+
+    text = (
+        "New access request from veritrail.io\n\n"
+        f"Name: {name}\n"
+        f"Work email: {body.email}\n"
+        f"Company: {company}\n"
     )
-    if not row:
-        raise HTTPException(status_code=404, detail="Unknown plan_id or checksum mismatch")
-    return {"status": "recorded", "plan_id": row.plan_id, "execution_status": row.status}
+    if note:
+        text += f"\nMessage:\n{note}\n"
+
+    settings = get_settings()
+    sent, mail_err = send_mail(
+        to=settings.ACCESS_REQUEST_EMAIL,
+        subject=f"Veritrail access request — {company}",
+        text=text,
+    )
+    if not sent:
+        log.warning("access_request.mail_failed", email=str(body.email), company=company, error=mail_err)
+
+    db.add(
+        AccessRequest(
+            name=name,
+            email=str(body.email).lower(),
+            company=company,
+            message=note or None,
+            mail_sent=sent,
+        )
+    )
+    db.commit()
+    log.info("access_request.received", email=str(body.email), company=company, mail_sent=sent)
+    return AccessRequestOut()
 
 
 def _find_org_by_digest_token(db: Session, token: str) -> Org | None:

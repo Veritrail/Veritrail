@@ -7,7 +7,8 @@ from urllib.parse import urlencode
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import RedirectResponse
-from jose import JWTError, jwt
+import jwt
+from jwt import PyJWTError as JWTError
 from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -20,6 +21,7 @@ from app.services.integration_health import check_gitlab_health
 from app.services.gitlab_sync import provider_config, set_provider_config, sync_gitlab_provider
 from app.services.integration_repos import RepoInScopeOut, count_protected_repos, list_repos_in_scope
 from app.services.gitlab_tokens import GitLabReconnectRequired, apply_oauth_tokens, ensure_gitlab_token
+from app.services.source_control_scan import resolve_source_control_findings_on_disconnect
 from app.core.route_deps import RequireAdmin
 
 router = APIRouter()
@@ -394,5 +396,6 @@ def sync_gitlab(body: GitLabSyncIn, _rbac: RequireAdmin, p=Depends(current_princ
 def disconnect_gitlab(_rbac: RequireAdmin, p=Depends(current_principal), db: Session = Depends(get_db)):
     provider = _provider_for_org(db, p["org_id"])
     if provider:
+        resolve_source_control_findings_on_disconnect(db, uuid.UUID(p["org_id"]), "gitlab")
         db.delete(provider)
         db.commit()

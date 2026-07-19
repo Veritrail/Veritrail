@@ -162,5 +162,10 @@ def sync_entra_provider(
     set_provider_config(provider, config)
     provider.status = "connected"
     provider.last_synced_at = now
+    db.flush()
+
+    from app.services.integration_sync_scan import run_integration_checks
+
+    run_integration_checks(db, provider.org_id, "entra_id")
     db.commit()
     return stats

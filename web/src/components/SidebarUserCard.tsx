@@ -1,23 +1,27 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { logout } from "../api";
+import {
+  formatSidebarAccountsCount,
+  formatSidebarAccountsStatus,
+  getSidebarAccountsBarFill,
+} from "../hooks/useAccountsPlanUsage";
 import { resolveUserDisplayName } from "../lib/displayNames";
 
-function SidebarUserGlyph() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} aria-hidden>
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M15.75 8.25a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.5 20.25a7.5 7.5 0 0 1 15 0"
-      />
-    </svg>
-  );
-}
+const NULL_AVATAR_ICON = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.65} aria-hidden>
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.5 19.5a7.5 7.5 0 0 1 15 0v.75H4.5v-.75Z"
+    />
+  </svg>
+);
 
 type SidebarUserCardProps = {
   email: string;
   displayName?: string | null;
+  avatarUrl?: string | null;
   orgName: string;
   /** Workspace role from GET /v1/auth/me (`role`). */
   role?: string;
@@ -35,11 +39,23 @@ type SidebarUserCardProps = {
 export default function SidebarUserCard({
   email,
   displayName,
+  avatarUrl,
   orgName,
+  planLabel,
+  used = 0,
+  maxAccounts = null,
+  planLoading = false,
 }: SidebarUserCardProps) {
   const [open, setOpen] = useState(false);
+  const [avatarFailed, setAvatarFailed] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const name = resolveUserDisplayName(email, displayName);
+  const trimmedAvatarUrl = avatarUrl?.trim() ?? "";
+  const showAvatar = Boolean(trimmedAvatarUrl) && !avatarFailed;
+
+  useEffect(() => {
+    setAvatarFailed(false);
+  }, [trimmedAvatarUrl]);
 
   useEffect(() => {
     if (!open) return;
@@ -56,6 +72,13 @@ export default function SidebarUserCard({
   }, [open]);
 
   const close = () => setOpen(false);
+  const showAccountsBar = planLoading || planLabel != null;
+  const accountsCount = planLoading ? "…" : formatSidebarAccountsCount(used, maxAccounts);
+  const accountsBarFill = getSidebarAccountsBarFill(used, maxAccounts);
+  const accountsUnlimited = !planLoading && maxAccounts == null;
+  const accountsAriaLabel = planLoading
+    ? "Accounts connected, loading"
+    : formatSidebarAccountsStatus(used, maxAccounts, planLabel);
 
   const signOut = () => {
     close();
@@ -66,6 +89,40 @@ export default function SidebarUserCard({
 
   return (
     <div className="app-sidebar__user" ref={ref}>
+      {showAccountsBar ? (
+        <div
+          className={[
+            "app-sidebar__accounts-status",
+            planLoading ? "app-sidebar__accounts-status--loading" : "",
+            accountsUnlimited ? "app-sidebar__accounts-status--unlimited" : "",
+          ]
+            .filter(Boolean)
+            .join(" ")}
+          role="progressbar"
+          aria-busy={planLoading || undefined}
+          aria-label={accountsAriaLabel}
+          aria-valuemin={0}
+          aria-valuemax={maxAccounts ?? undefined}
+          aria-valuenow={planLoading ? undefined : used}
+          aria-valuetext={planLoading ? undefined : accountsCount}
+        >
+          <div className="app-sidebar__accounts-status-row">
+            <span className="app-sidebar__accounts-status-label">Accounts connected</span>
+            <span className="app-sidebar__accounts-status-count">{accountsCount}</span>
+          </div>
+          <div className="app-sidebar__accounts-status-track">
+            {planLoading ? (
+              <div className="app-sidebar__accounts-status-fill app-sidebar__accounts-status-fill--indeterminate" />
+            ) : (
+              <div
+                className="app-sidebar__accounts-status-fill"
+                style={{ width: `${accountsBarFill}%` }}
+              />
+            )}
+          </div>
+        </div>
+      ) : null}
+
       {open ? (
         <div className="sidebar-user-panel" role="menu">
           <div className="sidebar-user-panel__menu">
@@ -103,9 +160,15 @@ export default function SidebarUserCard({
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
       >
-        <span className="app-sidebar__workspace-avatar" aria-hidden>
-          <SidebarUserGlyph />
-          <span className="app-sidebar__workspace-status" />
+        <span
+          className={`app-sidebar__workspace-avatar${showAvatar ? " app-sidebar__workspace-avatar--photo" : ""}`}
+          aria-hidden
+        >
+          {showAvatar ? (
+            <img src={trimmedAvatarUrl} alt="" onError={() => setAvatarFailed(true)} />
+          ) : (
+            NULL_AVATAR_ICON
+          )}
         </span>
         <span className="app-sidebar__workspace-copy">
           <span className="app-sidebar__workspace-name">{name}</span>

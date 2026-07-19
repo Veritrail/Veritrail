@@ -41,7 +41,9 @@ def write_external_evidence_to_pack(
     files_written = 0
 
     for row in rows:
-        group = _zip_segment(row.composite_control_id)
+        # Control-tagged uploads (e.g. CC7.4 runbook) have no composite id —
+        # file them under their framework control ref, not "unscoped".
+        group = _zip_segment(row.composite_control_id or row.control_ref)
         entry: dict[str, Any] = {
             "id": str(row.id),
             "title": row.title,

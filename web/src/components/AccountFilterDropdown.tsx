@@ -8,6 +8,7 @@ import {
   ProviderMark,
   type AccountOption,
 } from "./AccountSelect";
+import { AllCloudScopeIcon } from "./AllCloudScopeIcon";
 import { SelectorCard } from "./SelectorCard";
 
 export type AccountFilterGroup = {
@@ -18,7 +19,7 @@ export type AccountFilterGroup = {
 type MenuPosition = { top: number; left: number; width: number };
 
 /** Menu panel minimum — wider than short trigger chips so labels are readable. */
-const ACCOUNT_FILTER_MENU_MIN_WIDTH = 320;
+const ACCOUNT_FILTER_MENU_MIN_WIDTH = 272;
 
 function accountMatchesQuery(account: AccountOption, query: string): boolean {
   const q = query.trim().toLowerCase();
@@ -51,6 +52,8 @@ function AccountFilterRow({
   active: boolean;
   onSelect: () => void;
 }) {
+  const isAllCloud = account.provider === "all_cloud";
+
   return (
     <button
       type="button"
@@ -59,13 +62,19 @@ function AccountFilterRow({
       onClick={onSelect}
       className={accountFilterRowClass(active)}
     >
-      <span className="account-filter-card__icon-box">
-        <ProviderMark
-          provider={account.provider}
-          variant="compact"
-          className={`account-filter-card__provider account-filter-card__provider--${account.provider ?? "aws"}`}
-        />
-      </span>
+      {isAllCloud ? (
+        <span className="account-filter-card__icon-box account-filter-card__icon-box--all-cloud" aria-hidden>
+          <AllCloudScopeIcon />
+        </span>
+      ) : (
+        <span className="account-filter-card__icon-box">
+          <ProviderMark
+            provider={account.provider}
+            variant="compact"
+            className={`account-filter-card__provider account-filter-card__provider--${account.provider ?? "aws"}`}
+          />
+        </span>
+      )}
       <span className="account-filter-card__text">
         <span className="account-filter-card__name">{accountDisplayName(account)}</span>
         <span className="account-filter-card__meta">{accountDisplayId(account)}</span>
@@ -287,7 +296,7 @@ export function AccountFilterDropdown({
                     ? "account"
                     : "accounts"}
               </span>
-              <Link to="/accounts" className="account-filter-menu__footer-link" onClick={() => setOpen(false)}>
+              <Link to="/home" className="account-filter-menu__footer-link" onClick={() => setOpen(false)}>
                 <svg fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden>
                   <path
                     strokeLinecap="round"
@@ -309,11 +318,15 @@ export function AccountFilterDropdown({
       <SelectorCard
         ref={triggerRef}
         icon={
-          <ProviderMark
-            provider={current.provider}
-            variant="compact"
-            className={`account-filter__provider account-filter__provider--${current.provider ?? "aws"}`}
-          />
+          current.provider === "all_cloud" ? (
+            <AllCloudScopeIcon />
+          ) : (
+            <ProviderMark
+              provider={current.provider}
+              variant="compact"
+              className={`account-filter__provider account-filter__provider--${current.provider ?? "aws"}`}
+            />
+          )
         }
         label="Account"
         value={accountDisplayName(current)}

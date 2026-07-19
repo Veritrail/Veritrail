@@ -2,14 +2,10 @@
  * Client-side CFN deploy URLs/CLI — mirrors api/app/routes/accounts.py (_launch_url, _cli_command).
  * Used for instant UI updates while connection options save in the background.
  */
-import {
-  REMEDIATION_MODULE_SPECS,
-  type RemediationModules,
-} from "../data/remediationModules";
+import { type RemediationModules } from "../data/remediationModules";
 import { CONNECTOR_STACK_NAME, SCANNER_ROLE_NAME, displayConnectorStackName } from "./connectionPosture";
 
 export type CfnConnectionOptions = {
-  enable_advanced_policy_generation: boolean;
   remediation_modules: RemediationModules;
 };
 
@@ -25,18 +21,6 @@ type CfnAccountSlice = {
   cfn_stack_name: string;
   status: string;
 };
-
-function yesNo(flag: boolean): string {
-  return flag ? "Yes" : "No";
-}
-
-function childTemplateUrl(templateUrl: string, templateName: string): string {
-  const marker = "/infra/";
-  if (templateUrl.includes(marker)) {
-    return `${templateUrl.split(marker)[0]}/infra/2026.06/${templateName}`;
-  }
-  return `https://amzn-s3-veritrail.s3.${cfnConsoleRegion(templateUrl)}.amazonaws.com/infra/2026.06/${templateName}`;
-}
 
 /** Infer console region from S3 template host (e.g. .s3.us-east-1.amazonaws.com). */
 export function cfnConsoleRegion(templateUrl: string): string {
@@ -78,10 +62,7 @@ export function buildCfnStackListUrl(acc: CfnAccountSlice, variant: CfnDeployVar
   return `${base}#/stacks?filteringText=${encodeURIComponent(stackName)}&filteringStatus=active`;
 }
 
-function buildCreateLaunchUrl(
-  acc: CfnAccountSlice,
-  opts: CfnConnectionOptions,
-): string {
+function buildCreateLaunchUrl(acc: CfnAccountSlice): string {
   const stackName = stackNameForVariant(acc, "create");
   const meta = parseCfnLaunchMeta(acc.cfn_launch_url);
   const params = new URLSearchParams();
@@ -90,22 +71,12 @@ function buildCreateLaunchUrl(
   params.set("param_ExternalId", acc.external_id);
   params.set("param_VeritrailAccountPrincipal", meta.trustPrincipalArn);
   params.set("param_RoleName", meta.scannerRoleName);
-  params.set("param_CoreScannerTemplateURL", childTemplateUrl(acc.cfn_template_url, "veritrail-core-scanner.yaml"));
-  params.set("param_RemediationTemplateURL", childTemplateUrl(acc.cfn_template_url, "veritrail-remediation-ssm.yaml"));
-  params.set(
-    "param_EnableAdvancedPolicyGeneration",
-    yesNo(opts.enable_advanced_policy_generation),
-  );
-  for (const spec of REMEDIATION_MODULE_SPECS) {
-    params.set(`param_${spec.cfnParameter}`, yesNo(opts.remediation_modules[spec.id]));
-  }
   const base = cfnConsoleBase(acc.cfn_template_url);
   return `${base}#/stacks/create/review?${params.toString()}`;
 }
 
 export function buildCfnCliCommand(
   acc: CfnAccountSlice,
-  opts: CfnConnectionOptions,
   variant: CfnDeployVariant,
 ): string {
   const stackName = stackNameForVariant(acc, variant);
@@ -120,16 +91,8 @@ export function buildCfnCliCommand(
     `    ParameterKey=ExternalId,ParameterValue=${acc.external_id} \\`,
     `    ParameterKey=VeritrailAccountPrincipal,ParameterValue=${meta.trustPrincipalArn} \\`,
     `    ParameterKey=RoleName,ParameterValue=${meta.scannerRoleName} \\`,
-    `    ParameterKey=CoreScannerTemplateURL,ParameterValue=${childTemplateUrl(acc.cfn_template_url, "veritrail-core-scanner.yaml")} \\`,
-    `    ParameterKey=RemediationTemplateURL,ParameterValue=${childTemplateUrl(acc.cfn_template_url, "veritrail-remediation-ssm.yaml")} \\`,
-    `    ParameterKey=EnableAdvancedPolicyGeneration,ParameterValue=${yesNo(opts.enable_advanced_policy_generation)} \\`,
+    "  --capabilities CAPABILITY_NAMED_IAM",
   ];
-  for (const spec of REMEDIATION_MODULE_SPECS) {
-    lines.push(
-      `    ParameterKey=${spec.cfnParameter},ParameterValue=${yesNo(opts.remediation_modules[spec.id])} \\`,
-    );
-  }
-  lines.push("  --capabilities CAPABILITY_NAMED_IAM");
   return lines.join("\n");
 }
 
@@ -149,9 +112,8 @@ export function resolveDeployArtifacts(
     };
   }
   return {
-    consoleUrl:
-      variant === "update" ? stackListUrl : buildCreateLaunchUrl(acc, connectionOptions),
-    cliCommand: buildCfnCliCommand(acc, connectionOptions, variant),
+    consoleUrl: variant === "update" ? stackListUrl : buildCreateLaunchUrl(acc),
+    cliCommand: buildCfnCliCommand(acc, variant),
     stackListUrl,
     stackName,
   };

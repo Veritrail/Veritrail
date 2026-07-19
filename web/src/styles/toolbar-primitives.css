@@ -87,3 +87,30 @@
 .vt-toolbar-search__icon {
   flex-shrink: 0;
 }
+
+.vt-toolbar-search__suggestion {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.625rem;
+  border: 0;
+  background: transparent;
+  padding: 0.625rem 0.75rem;
+  color: #344054;
+  font-family: inherit;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.25rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.vt-toolbar-search__suggestion svg {
+  color: #98a2b3;
+}
+
+.vt-toolbar-search__suggestion:hover,
+.vt-toolbar-search__suggestion.is-active {
+  background: #f5f7fa;
+  color: #111827;
+}

@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 from app.models import AwsAccount, ScanRun
 from app.models.org import Org
 from app.services.check_settings import is_check_enabled
-from app.checks.registry import ALL_CHECKS, is_source_control_check
+from app.checks.registry import ALL_CHECKS, is_integration_sync_check, is_source_control_check
 from app.worker.snapshot_builder import build_snapshots_from_schema
 from app.services.snapshot_provenance import attach_provenance
 from app.checks.persist import persist_findings
@@ -340,6 +340,8 @@ class ScanPipeline:
             # Source-control checks run on git sync (org-scoped), not the cloud
             # scan — keeps SDLC out of the per-account scope entirely.
             and not is_source_control_check(mod.CHECK_ID)
+            # Identity integration checks run on provider sync (org-scoped).
+            and not is_integration_sync_check(mod.CHECK_ID)
         ]
 
         tracker = ScanProgressTracker(self.run, enabled_checks, self.db)
@@ -373,12 +375,37 @@ class ScanPipeline:
         tracker.set_step_name("write_evidence_snapshots")
         snap_count = tracker.step("write_evidence_snapshots", lambda: self._write_snapshots())
 
+        # Post-scan coverage sync (cheap; keeps Controls/coverage fresh without evidence pack)
+        try:
+            from app.services.control_coverage_store import sync_coverages_after_scan
+
+            sync_coverages_after_scan(
+                self.db,
+                self.account.org_id,
+                self.account.id,
+                framework="soc2",
+                checks_run=check_result.check_ids_run,
+                check_errors=check_result.check_errors,
+            )
+        except Exception:
+            log.warning(
+                "scan.coverage_sync_failed",
+                account_id=str(self.account.id),
+                exc_info=True,
+            )
+
         # Finalize run metadata and stats (tracker.finalize is the single writer for run.stats)
+        from app.services.cloud_normalization import account_open_findings_count
+
+        open_count = account_open_findings_count(
+            self.db, org_id=self.account.org_id, provider="aws", resource_id=self.account.id
+        )
         tracker._stats |= {
             "checks_run": list(check_result.check_ids_run),
             "drafts": len(check_result.drafts),
             "snapshots": snap_count,
             "checks_total": len(ALL_CHECKS),
+            "open_findings_count": open_count,
         }
         if check_result.check_errors:
             tracker._stats["check_errors"] = check_result.check_errors
@@ -391,6 +418,28 @@ class ScanPipeline:
         self.account.last_scan_at = self.run.finished_at
         tracker.finalize()
         final_stats = self.run.stats
+
+        # Activation milestones (ops-only; first successful scan / first finding)
+        try:
+            from app.services.org_activity import record_activation_milestone
+
+            if org_obj:
+                record_activation_milestone(
+                    self.db,
+                    org_obj,
+                    "first_scan_completed_at",
+                    detail={"account_id": str(self.account.id), "provider": "aws"},
+                )
+                if opened > 0:
+                    record_activation_milestone(
+                        self.db,
+                        org_obj,
+                        "first_finding_at",
+                        detail={"opened": opened, "provider": "aws"},
+                    )
+        except Exception:
+            log.warning("scan.activation_milestone_failed", account_id=str(self.account.id), exc_info=True)
+
         self.db.commit()
 
         return ScanResult(

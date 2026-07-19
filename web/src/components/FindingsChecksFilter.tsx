@@ -7,17 +7,6 @@ function checkLabel(tag: string, checkLabels: Record<string, string>): string {
   return checkLabels[tag] ?? tag;
 }
 
-export function formatCheckFilterSummary(
-  tags: string[],
-  checkLabels: Record<string, string>,
-  maxNames = 3,
-): string {
-  const names = tags.map((tag) => checkLabel(tag, checkLabels));
-  if (names.length <= maxNames) return names.join(", ");
-  const shown = names.slice(0, maxNames).join(", ");
-  return `${shown} +${names.length - maxNames} more`;
-}
-
 export function FindingsChecksFilter({
   tags,
   checkLabels,
@@ -33,7 +22,7 @@ export function FindingsChecksFilter({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const count = tags.length;
-  const label = count === 1 ? "Checks 1" : `Checks ${count}`;
+  const label = "Checks";
 
   const updateMenuPosition = useCallback(() => {
     const btn = triggerRef.current;
@@ -143,10 +132,13 @@ export function FindingsChecksFilter({
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="dialog"
         aria-expanded={open}
-        aria-label={`${label} active`}
+        aria-label={`${label}, ${count} active`}
         className="findings-v2-filter-trigger findings-v2-checks-trigger is-active"
       >
         <span className="truncate">{label}</span>
+        <span className="findings-v2-checks-trigger__count" aria-hidden>
+          · {count}
+        </span>
         <svg
           className={`h-3.5 w-3.5 shrink-0 text-[#98a2b3] transition-transform ${open ? "rotate-180" : ""}`}
           fill="none"
@@ -159,53 +151,6 @@ export function FindingsChecksFilter({
         </svg>
       </button>
       {menu}
-    </div>
-  );
-}
-
-export function FindingsChecksFilterSummary({
-  tags,
-  checkLabels,
-  displayGroupCount,
-  onClear,
-}: {
-  tags: string[];
-  checkLabels: Record<string, string>;
-  /** Rows shown after grouping checks into finding types; clarifies check count vs table rows. */
-  displayGroupCount?: number;
-  onClear: () => void;
-}) {
-  if (tags.length === 0) return null;
-
-  const count = tags.length;
-  const namesText = formatCheckFilterSummary(tags, checkLabels);
-  const groupHint =
-    displayGroupCount !== undefined &&
-    displayGroupCount > 0 &&
-    displayGroupCount < count
-      ? `${displayGroupCount} finding group${displayGroupCount === 1 ? "" : "s"} shown`
-      : null;
-
-  return (
-    <div className="findings-v2-checks-summary">
-      <p className="findings-v2-checks-summary__text">
-        {count === 1 ? "1 check filter active" : `${count} check filters active`}
-        {groupHint ? (
-          <>
-            <span className="findings-v2-checks-summary__sep" aria-hidden>
-              ·
-            </span>
-            {groupHint}
-          </>
-        ) : null}
-        <span className="findings-v2-checks-summary__sep" aria-hidden>
-          ·
-        </span>
-        {namesText}
-      </p>
-      <button type="button" className="findings-v2-checks-summary__clear" onClick={onClear}>
-        Clear all
-      </button>
     </div>
   );
 }

@@ -130,3 +130,48 @@ def test_log_org_activity_returns_entry_without_actor(db_session):
     assert entry.id is not None
     rows = list_org_activity(db_session, org.id)
     assert rows[0]["actor_email"] is None
+
+
+def test_record_activation_milestone_idempotent(db_session):
+    from app.services.org_activity import get_activation, record_activation_milestone
+
+    org, user = _org_and_admin(db_session)
+    assert record_activation_milestone(
+        db_session,
+        org,
+        "first_integration_at",
+        actor_user_id=user.id,
+        detail={"provider": "aws"},
+    )
+    db_session.flush()
+    assert not record_activation_milestone(
+        db_session,
+        org,
+        "first_integration_at",
+        detail={"provider": "github"},
+    )
+    db_session.flush()
+
+    activation = get_activation(org)
+    assert activation["first_integration_at"]
+    assert activation["first_scan_completed_at"] is None
+
+    rows = list_org_activity(db_session, org.id)
+    assert any(r["action"] == "integration.connected" for r in rows)
+    connected = next(r for r in rows if r["action"] == "integration.connected")
+    assert "duration_seconds" in connected["detail"]
+    assert connected["detail"]["provider"] == "aws"
+
+
+def test_get_org_activation_route(db_session):
+    from app.routes.audit_log import get_org_activation
+    from app.services.org_activity import record_activation_milestone
+
+    org, user = _org_and_admin(db_session)
+    record_activation_milestone(db_session, org, "first_scan_completed_at")
+    db_session.flush()
+
+    out = get_org_activation(user=user, db=db_session)
+    assert out.first_scan_completed_at
+    assert out.first_integration_at is None
+    assert out.org_created_at

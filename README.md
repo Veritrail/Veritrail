@@ -69,6 +69,8 @@ docker compose up api worker web
 
 Open **http://localhost:5173**.
 
+After `git pull` changes `web/package-lock.json`, restart the web service so the entrypoint reinstalls deps in the container volume: `docker compose restart web`.
+
 AWS in dev: mount `~/.aws` (already in `compose.yml`) and set `AWS_PROFILE` in `.env`.
 
 ---
@@ -115,6 +117,8 @@ ENV_FILE=.env.prod docker compose \
 If `IAP_ENABLED=true`, also add `--profile iap` to start `oauth2-proxy`; `scripts/launch-prod.sh` (which delegates to `scripts/bootstrap-ec2.sh` — the shared VPS bootstrap script) does this automatically. After bootstrap, `source .compose.prod.env` before manual compose commands.
 
 `nginx/nginx.conf` and `nginx/iap/iap.*.conf` are generated on the host from `nginx/nginx.conf.template` and `infra/nginx/iap/` during bootstrap/redeploy — they are gitignored and should not be edited in git.
+
+**Platform-admin dashboard** (`admin.veritrail.io`): the SPA lives in its own private repo, [veritrail-admin](https://github.com/Veritrail/veritrail-admin) — clone it next to this checkout on the prod host (`git clone git@github.com:Veritrail/veritrail-admin.git ../veritrail-admin`); the `admin` service in `compose.prod.yml` builds from that sibling directory. The backing API (`api/app/routes/platform_admin.py`) is gated by `PLATFORM_ADMIN_EMAILS`, requires admins to have TOTP enrolled, rate limits per IP, and audits every call to `platform_audit_logs`. Optionally set `ADMIN_ALLOWED_IPS` in `.env.prod` to restrict the admin origin to trusted IPs at the nginx edge.
 
 Compose file roles:
 
@@ -374,7 +378,7 @@ api/
                     iac_snippets, remediation_plan, remediation_dispatch, remediation_iam
     worker/       celery_app + tasks (run_scan, scan_all_accounts, recheck_finding, send_weekly_digests)
   migrations/     Alembic (0001 → 0079)
-web/              React + Vite + Tailwind + TanStack Query
+web/              React 19 + Vite 8 + Tailwind v4 + TypeScript 6 + TanStack Query
                   pages: Findings, Activity log, Compliance timeline, Controls, Accounts, …
 tools/
   hclpatch/       Go HCL patcher for repo-aware Terraform PRs (S3 checks)
@@ -385,6 +389,21 @@ docs/             hetzner-vault-rolesanywhere.md, remediation-automation.md, evi
 compose.yml       base dev/shared compose file
 compose.prod.yml  production override (Hetzner/VPS)
 ```
+
+---
+
+## Repository CI
+
+Active development on **`dev`**; merge **`dev` → `main`** for releases. Workflows run on push and pull requests to `main`, `staging`, and `dev`.
+
+| Workflow | What it does |
+|----------|----------------|
+| `.github/workflows/ci.yml` | API tests (Postgres + Redis + pytest), mypy (non-blocking), frontend build + TypeScript lint, **`env-file-guard`** (fails if `.env`, `.env.prod`, or `.env.local` are tracked) |
+| `.github/workflows/dependency-scan.yml` | On push/PR: `npm audit` (web) and `pip-audit` (api; critical findings fail CI) |
+
+**Dependency updates:** [Dependabot](.github/dependabot.yml) opens weekly update PRs against **`dev`** for npm (`web/`), pip (`api/`), Docker, and GitHub Actions. Major **redis** bumps on `api/` are ignored (Celery compatibility). This repo does not use Snyk for dependency management — Dependabot plus the audit workflows above cover it. (Snyk is an optional **customer** vulnerability scanner integration in the product, not repo CI.)
+
+We previously ran gitleaks in CI; that was removed because gitleaks-action requires a paid org license on the Veritrail GitHub organization. The **`env-file-guard`** job is the remaining secret hygiene check — it blocks committed env files, not leaked tokens in source history.
 
 ---
 
@@ -407,7 +426,7 @@ Shipped in-repo (narrow design-partner launch):
 | **Root pass-state snapshots** | `account_summary` entity per scan (`GetAccountSummary` for `iam.root.*`) |
 | **CIS honesty** | `cis_benchmark_coverage.json` in CIS packs; PDF meta shows mapped vs CIS v5 L1 total (40) |
 | **Pack integrity** | `checksum_manifest.json` — SHA-256 per artifact (manifest not self-hashed) |
-| **CI** | `.github/workflows/ci.yml` — API tests, frontend build, no tracked `.env` |
+| **CI** | `.github/workflows/ci.yml` + `dependency-scan.yml`; Dependabot → `dev`; see [Repository CI](#repository-ci) |
 | **Historical packs** | Control status at `as_of` from finding events; benchmark-only fail; roster from snapshots |
 | **Coverage honesty** | `days_with_data` = union of successful scan days + snapshot days (not elapsed since first scan) |
 | **Activity Log** | Multi-region CloudTrail; compliance filter + operational-noise toggle; `/timeline` |
@@ -437,7 +456,7 @@ Most of the **deepsearch v3** phase 1–2 and navigation (phase 5) recommendatio
 | Customer-owned SSM Automation document | **Done** — [`infra/cfn/veritrail-remediation-ssm.yaml`](infra/cfn/veritrail-remediation-ssm.yaml) |
 | Execution per `plan_id` | **Partial** — dispatch is recorded; SSM output remains in customer account unless a callback is added |
 | `noindex` on app shell | **Done** |
-| Move long-form reference to external docs site | **Not done** |
+| Move long-form reference to external docs site | **In progress** — static site at [`sites/docs/`](sites/docs/), to be served at docs.veritrail.io |
 
 Still manual / planned (not blockers for first design partners):
 
@@ -468,7 +487,7 @@ See [`docs/deepsearch-v4-map.md`](docs/deepsearch-v4-map.md) for the full featur
 | Repo-aware Terraform beyond S3/KMS patch | **Partial** |
 | Docs said vault “scaffold only” | **Fixed** — code was ahead of docs |
 
-**Reference docs:** Hetzner/VPS deploy: [`docs/hetzner-vault-rolesanywhere.md`](docs/hetzner-vault-rolesanywhere.md). Remediation runbook: [`docs/remediation-automation.md`](docs/remediation-automation.md). Vault design: [`docs/evidence-vault.md`](docs/evidence-vault.md). Product assessment: [`docs/product-assessment-2026-06.md`](docs/product-assessment-2026-06.md). SOC 2 coverage map: [`docs/soc2-coverage-map.md`](docs/soc2-coverage-map.md). Multi-cloud collectors: [`docs/multi-cloud-collectors.md`](docs/multi-cloud-collectors.md). Integrations overview: [`docs/integrations-overview.md`](docs/integrations-overview.md).
+**Reference docs:** Hetzner/VPS deploy: [`docs/hetzner-vault-rolesanywhere.md`](docs/hetzner-vault-rolesanywhere.md). Remediation runbook: [`docs/remediation-automation.md`](docs/remediation-automation.md). Vault design: [`docs/evidence-vault.md`](docs/evidence-vault.md). SOC 2 coverage map: [`docs/soc2-coverage-map.md`](docs/soc2-coverage-map.md). Multi-cloud collectors: [`docs/multi-cloud-collectors.md`](docs/multi-cloud-collectors.md). Integrations overview: [`docs/integrations-overview.md`](docs/integrations-overview.md).
 
 **Ops hygiene:** Never distribute repo archives with `.env` / `.env.prod`. Use `git archive` or CI artifacts. Rotate any secret that ever appeared in a shared ZIP.
 

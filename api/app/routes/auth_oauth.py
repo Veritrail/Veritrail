@@ -6,24 +6,32 @@ from urllib.parse import quote, urlencode
 
 import httpx
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import RedirectResponse
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.responses import JSONResponse, RedirectResponse
+from pydantic import BaseModel
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
+from app.core.admin_sso import consume_admin_sso_code, create_admin_sso_code
 from app.core.config import get_settings
 from app.core.db import get_db
-from app.core.auth_cookies import attach_refresh_cookie
+from app.core.auth_cookies import attach_refresh_cookie, refresh_cookie_enabled
+from app.core.ratelimit import limiter
 from app.core.security import (
     current_principal,
     issue_mfa_challenge_token,
     issue_refresh_token,
-    issue_signup_pending_token,
     issue_token,
 )
 from app.models import AwsAccount, Org, User
 from app.services.org_invites import provision_sso_user
-from app.services.user_display_name import apply_display_name_if_empty, oauth_display_name_from_profile
+from app.services.user_display_name import (
+    apply_avatar_url_from_profile,
+    apply_display_name_if_empty,
+    oauth_avatar_url_from_profile,
+    oauth_display_name_from_profile,
+    resolve_user_avatar_url,
+)
 from app.services.user_session import record_user_session
 from app.routes.github_integration import (
     handle_github_integration_callback,
@@ -44,6 +52,11 @@ _GITHUB_USER_URL = "https://api.github.com/user"
 _GITHUB_EMAIL_URL = "https://api.github.com/user/emails"
 
 _GITLAB_COM = "https://gitlab.com"
+
+# OAuth state marking a login started from the platform-admin origin
+# (GET /v1/auth/google?origin=admin). The callback hands the session off to
+# the admin origin via a one-time code instead of issuing tokens on the spot.
+_ADMIN_STATE = "admin-login"
 
 
 def _google_callback_uri() -> str:
@@ -117,7 +130,13 @@ def _oauth_login_redirect(
     if request is not None and db is not None:
         record_user_session(db, user.id, refresh, request, auth_method=auth_method)
         db.commit()
-    resp = RedirectResponse(f"{_frontend_url()}/auth/callback?token={quote(token, safe='')}")
+    callback_params = {"token": token}
+    avatar_url = resolve_user_avatar_url(user)
+    if avatar_url:
+        callback_params["avatar_url"] = avatar_url
+    resp = RedirectResponse(
+        f"{_frontend_url()}/auth/callback?{urlencode(callback_params, quote_via=quote)}"
+    )
     attach_refresh_cookie(resp, refresh, remember_me=remember_me)
     return resp
 
@@ -153,10 +172,14 @@ def _callback_error(state: str | None, provider: str, error: str) -> RedirectRes
     """Redirect an OAuth callback error to the right page based on flow.
 
     Link flow → /account (user is logged in).
+    Admin flow → the admin origin login page.
     Login flow → /login (user is not).
     """
     if _is_link_state(state):
         return _link_error_redirect(provider, error)
+    if state == _ADMIN_STATE:
+        base = get_settings().admin_url or _frontend_url()
+        return RedirectResponse(f"{base}/?sso_error={quote(error, safe='')}")
     return RedirectResponse(f"{_frontend_url()}/login?error={quote(error, safe='')}")
 
 
@@ -165,22 +188,27 @@ def _provision_sso_user_or_redirect(
     db: Session,
     *,
     email: str,
+    state: str | None = None,
     **identity_fields,
 ) -> tuple[User, bool] | RedirectResponse:
     try:
         return provision_sso_user(db, email=email, **identity_fields)
     except HTTPException as exc:
         if exc.status_code == 403 and exc.detail == "signup_pending":
+            invite_token = _invite_token_from_oauth_state(state)
+            if not invite_token:
+                log.warning("oauth.signup.blocked_invite_only", provider=provider, email=email)
+                return RedirectResponse(f"{_frontend_url()}/login?error=signups_disabled")
+            from app.core.security import issue_signup_pending_token
+
             signup_token = issue_signup_pending_token(email, **identity_fields)
-            log.info("oauth.signup.pending", provider=provider, email=email)
-            qs = urlencode(
-                {
-                    "mode": "onboard",
-                    "signup_token": signup_token,
-                    "email": email,
-                }
-            )
-            return RedirectResponse(f"{_frontend_url()}/login?{qs}")
+            params = {
+                "mode": "onboard",
+                "signup_token": signup_token,
+                "invite_token": invite_token,
+                "email": email,
+            }
+            return RedirectResponse(f"{_frontend_url()}/login?{urlencode(params)}")
         if exc.status_code == 403:
             log.warning("oauth.signup.blocked", provider=provider, email=email)
             return RedirectResponse(f"{_frontend_url()}/login?error=no_account_for_idp")
@@ -257,10 +285,17 @@ def google_login(
     remember: str | None = None,
     invite_token: str | None = None,
     pick_account: str | None = None,
+    origin: str | None = None,
 ):
     if not settings.GOOGLE_CLIENT_ID:
         raise HTTPException(400, "Google OAuth not configured")
-    if _valid_link_token(link_token):
+    if origin == "admin":
+        # Platform-admin origin: reuses this same registered redirect URI; the
+        # callback hands off to the admin origin via a one-time code.
+        if not get_settings().admin_url:
+            raise HTTPException(400, "Admin SSO not configured")
+        state = _ADMIN_STATE
+    elif _valid_link_token(link_token):
         state = f"link:{link_token}"
     else:
         state = _oauth_login_state(remember=remember, invite_token=invite_token)
@@ -273,8 +308,6 @@ def google_login(
         "prompt": "select_account login" if pick_account else "select_account",
         "state": state,
     }
-    if settings.APP_ENV == "production" and settings.GOOGLE_ALLOWED_DOMAIN:
-        params["hd"] = settings.GOOGLE_ALLOWED_DOMAIN
     return RedirectResponse(f"{_GOOGLE_AUTH_URL}?{urlencode(params)}")
 
 
@@ -314,14 +347,21 @@ def google_callback(
         if not email or not google_id:
             return _callback_error(state, "google", "no_email")
 
-        if settings.APP_ENV == "production" and settings.GOOGLE_ALLOWED_DOMAIN and not email.endswith(f"@{settings.GOOGLE_ALLOWED_DOMAIN}"):
-            return _callback_error(state, "google", "domain_not_allowed")
+        # admin flow: hand the session off to the platform-admin origin
+        if state == _ADMIN_STATE:
+            return _handle_admin_google_callback(
+                db,
+                email=email,
+                google_id=google_id,
+                display_name=display_name,
+                avatar_url=oauth_avatar_url_from_profile(info),
+            )
 
         # link flow: attach google_id to existing account
         if state and state.startswith("link:"):
             link_token_val = state[5:]
             try:
-                from jose import jwt as _jwt
+                import jwt as _jwt
                 payload = _jwt.decode(link_token_val, settings.JWT_SECRET, algorithms=[settings.JWT_ALG])
                 user_id = payload["sub"]
             except Exception:
@@ -337,6 +377,7 @@ def google_callback(
                 return _link_error_redirect("google", "not_found")
             user.google_id = google_id
             apply_display_name_if_empty(user, display_name)
+            apply_avatar_url_from_profile(user, info)
             db.commit()
             return _oauth_link_redirect(user, "google")
 
@@ -348,8 +389,11 @@ def google_callback(
             identity_fields: dict[str, str] = {"google_id": google_id}
             if display_name:
                 identity_fields["display_name"] = display_name
+            avatar_url = oauth_avatar_url_from_profile(info)
+            if avatar_url:
+                identity_fields["avatar_url"] = avatar_url
             provisioned = _provision_sso_user_or_redirect(
-                "google", db, email=email, **identity_fields
+                "google", db, email=email, state=state, **identity_fields
             )
             if isinstance(provisioned, RedirectResponse):
                 return provisioned
@@ -373,6 +417,7 @@ def google_callback(
                 google_id=google_id,
             )
         apply_display_name_if_empty(user, display_name)
+        apply_avatar_url_from_profile(user, info)
         db.commit()
 
         try:
@@ -395,6 +440,104 @@ def google_callback(
     except Exception as e:
         log.exception("google.callback_error", error=str(e))
         return _callback_error(state, "google", "server_error")
+
+
+# ── Platform-admin Google SSO ─────────────────────────────────────────────────
+#
+# The admin SPA (admin.veritrail.io) starts login at
+# GET /v1/auth/google?origin=admin. The Google callback stays on the API origin
+# (same registered redirect URI as app login — no new Google Console entry),
+# then redirects to {admin_url}/?sso_code=<one-time code>. The SPA redeems the
+# code same-origin, so its refresh cookie is scoped to the admin host only.
+
+
+def _handle_admin_google_callback(
+    db: Session,
+    *,
+    email: str,
+    google_id: str,
+    display_name: str | None,
+    avatar_url: str | None = None,
+) -> RedirectResponse:
+    from app.routes.platform_admin import is_platform_admin
+
+    admin_url = get_settings().admin_url
+    if not admin_url:
+        return RedirectResponse(f"{_frontend_url()}/login?error=oauth_failed")
+
+    user = db.scalar(select(User).where(User.google_id == google_id))
+    if not user:
+        user = db.scalar(select(User).where(User.email == email))
+
+    # Never provisions accounts: the user must already exist AND be on the
+    # PLATFORM_ADMIN_EMAILS allowlist. (/v1/auth/me already exposes the
+    # platform_admin flag to signed-in users, so this reveals nothing new.)
+    if not user or not is_platform_admin(user.email):
+        log.warning("admin_sso.google.denied", email=email)
+        return RedirectResponse(f"{admin_url}/?sso_error=not_admin")
+
+    if not user.google_id:
+        user.google_id = google_id
+        log.info(
+            "oauth.idp_attached_by_email",
+            provider="google",
+            user_id=str(user.id),
+            email=email,
+            google_id=google_id,
+        )
+    apply_display_name_if_empty(user, display_name)
+    if avatar_url:
+        user.avatar_url = avatar_url
+    db.commit()
+
+    code = create_admin_sso_code(str(user.id))
+    log.info("admin_sso.google.code_issued", user_id=str(user.id))
+    return RedirectResponse(f"{admin_url}/?sso_code={quote(code, safe='')}")
+
+
+class AdminSsoExchangeIn(BaseModel):
+    code: str
+
+
+@router.post("/google/admin-exchange")
+@limiter.limit("10/minute")
+def google_admin_exchange(
+    request: Request,
+    body: AdminSsoExchangeIn,
+    db: Session = Depends(get_db),
+):
+    """Redeem a one-time admin SSO code for a session on the admin origin.
+
+    Skips the in-app TOTP challenge: Google enforces its own 2FA, matching the
+    SAML precedent (auth_saml._login_redirect). The platform-admin endpoints
+    still require TOTP *enrollment* (current_platform_admin), so the dashboard
+    gate itself is unchanged.
+    """
+    from app.routes.platform_admin import is_platform_admin
+
+    user_id = consume_admin_sso_code(body.code)
+    if not user_id:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "sign-in code expired or already used — try again")
+    user = db.get(User, uuid.UUID(user_id))
+    # Re-check the allowlist at redemption time (it may have changed since the code was minted).
+    if not user or not is_platform_admin(user.email):
+        log.warning("admin_sso.exchange.denied", user_id=user_id)
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "not authorized")
+
+    uid, oid = str(user.id), str(user.org_id)
+    access = issue_token(uid, oid)
+    # Short session-length refresh window on the admin surface — never remember-me.
+    refresh = issue_refresh_token(uid, oid, remember_me=False)
+    record_user_session(db, user.id, refresh, request, auth_method="google")
+    db.commit()
+    log.info("admin_sso.exchange.ok", user_id=uid)
+
+    payload: dict = {"access_token": access, "org_id": oid, "refresh_token": ""}
+    if not refresh_cookie_enabled():
+        payload["refresh_token"] = refresh
+    resp = JSONResponse(content=payload)
+    attach_refresh_cookie(resp, refresh, remember_me=False)
+    return resp
 
 
 # ── GitHub ────────────────────────────────────────────────────────────────────
@@ -473,7 +616,7 @@ def github_callback(
             link_token_val = state[5:]
             try:
                 from app.core.security import get_settings as _gs
-                from jose import jwt as _jwt
+                import jwt as _jwt
                 s = get_settings()
                 payload = _jwt.decode(link_token_val, s.JWT_SECRET, algorithms=[s.JWT_ALG])
                 user_id = payload["sub"]
@@ -491,6 +634,7 @@ def github_callback(
 
             user.github_id = github_id
             apply_display_name_if_empty(user, display_name)
+            apply_avatar_url_from_profile(user, gh_user)
             db.commit()
             return _oauth_link_redirect(user, "github")
 
@@ -505,8 +649,11 @@ def github_callback(
             identity_fields: dict[str, str] = {"github_id": github_id}
             if display_name:
                 identity_fields["display_name"] = display_name
+            avatar_url = oauth_avatar_url_from_profile(gh_user)
+            if avatar_url:
+                identity_fields["avatar_url"] = avatar_url
             provisioned = _provision_sso_user_or_redirect(
-                "github", db, email=email, **identity_fields
+                "github", db, email=email, state=state, **identity_fields
             )
             if isinstance(provisioned, RedirectResponse):
                 return provisioned
@@ -531,6 +678,7 @@ def github_callback(
             )
 
         apply_display_name_if_empty(user, display_name)
+        apply_avatar_url_from_profile(user, gh_user)
         db.commit()
 
         try:
@@ -638,7 +786,7 @@ def gitlab_callback(
         if state and state.startswith("link:"):
             link_token_val = state[5:]
             try:
-                from jose import jwt as _jwt
+                import jwt as _jwt
                 payload = _jwt.decode(link_token_val, settings.JWT_SECRET, algorithms=[settings.JWT_ALG])
                 user_id = payload["sub"]
             except Exception:
@@ -655,6 +803,7 @@ def gitlab_callback(
 
             user.gitlab_id = gitlab_id
             apply_display_name_if_empty(user, display_name)
+            apply_avatar_url_from_profile(user, gl_user)
             db.commit()
             return _oauth_link_redirect(user, "gitlab")
 
@@ -668,8 +817,11 @@ def gitlab_callback(
             identity_fields: dict[str, str] = {"gitlab_id": gitlab_id}
             if display_name:
                 identity_fields["display_name"] = display_name
+            avatar_url = oauth_avatar_url_from_profile(gl_user)
+            if avatar_url:
+                identity_fields["avatar_url"] = avatar_url
             provisioned = _provision_sso_user_or_redirect(
-                "gitlab", db, email=email, **identity_fields
+                "gitlab", db, email=email, state=state, **identity_fields
             )
             if isinstance(provisioned, RedirectResponse):
                 return provisioned
@@ -694,6 +846,7 @@ def gitlab_callback(
             )
 
         apply_display_name_if_empty(user, display_name)
+        apply_avatar_url_from_profile(user, gl_user)
         db.commit()
 
         try:

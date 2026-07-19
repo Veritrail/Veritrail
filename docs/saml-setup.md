@@ -1,10 +1,10 @@
 # SAML 2.0 Enterprise SSO — dark/internal
 
-**Search terms:** SAML, SSO, Okta, Azure AD, `auth_saml.py`, `OrgSamlConfig`, ACS, IdP, `python3-saml`, xmlsec, migration 0045
+**Search terms:** SAML, SSO, Entra ID, Azure AD, `auth_saml.py`, `OrgSamlConfig`, ACS, IdP, `python3-saml`, xmlsec, migration 0045
 
 SAML is backend-capable but intentionally hidden from the product UI. Veritrail's current product boundary is AWS-native SOC 2 CC6/CC7 evidence and evidence packs, not enterprise identity administration.
 
-> **Status:** dark/internal. Code-complete, **not yet tested against a live IdP**, and not part of the current launch surface. Do one real round-trip (Okta or Azure AD) in staging before exposing this to users. See [Limitations](#limitations).
+> **Status:** dark/internal. Code-complete, **not yet tested against a live IdP**, and not part of the current launch surface. Do one real round-trip (Entra ID or Azure AD) in staging before exposing this to users. See [Limitations](#limitations).
 
 ## Code map
 
@@ -72,11 +72,11 @@ After saving, the **Service provider details** card shows the four values to han
 
 NameID format expected: **emailAddress**. If the IdP can't send an email NameID, send email as an attribute — the ACS accepts `email`, `Email`, `mail`, `user.email`, `urn:oid:0.9.2342.19200300.100.1.3`, or the WS-Fed `.../emailaddress` claim.
 
-### Okta (SAML 2.0 app)
+### Entra ID (SAML 2.0 enterprise app)
 - Single sign-on URL → **ACS URL**
 - Audience URI (SP Entity ID) → **SP entity ID**
 - Name ID format → EmailAddress; Application username → Email
-- Copy Okta's **Identity Provider Issuer** → *IdP entity ID*, **Sign-On URL** → *IdP SSO URL*, **x509 cert** → *certificate*.
+- Copy the IdP **Entity ID** → *IdP entity ID*, **Sign-On URL** → *IdP SSO URL*, **x509 cert** → *certificate*.
 
 ### Azure AD (Enterprise app → SAML)
 - Identifier (Entity ID) → **SP entity ID**
@@ -101,7 +101,7 @@ Behavior:
 
 ## Limitations
 
-- **Untested against a live IdP.** Unit tests (`tests/test_saml_acs.py`) mock the OneLogin auth object — they cover provisioning/redirect/error logic, **not** signature/crypto validation. Do a real Okta/Azure round-trip before going live.
+- **Untested against a live IdP.** Unit tests (`tests/test_saml_acs.py`) mock the OneLogin auth object — they cover provisioning/redirect/error logic, **not** signature/crypto validation. Do a real Entra/Azure round-trip before going live.
 - **Replay protection = assertion `NotOnOrAfter` only.** No one-time-use assertion-ID store yet — a captured assertion could be replayed within its (short) validity window. Add ID tracking before high-assurance use.
 - **SP-initiated only** — no IdP-initiated login.
 - **No SLO** (single logout); sessions are local JWT + refresh cookie as with OAuth.

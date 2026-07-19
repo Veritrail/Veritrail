@@ -1,5 +1,4 @@
 import {
-  anyRemediationEnabled,
   type RemediationModules,
 } from "../data/remediationModules";
 import { extractAccountIdFromIamRoleArn } from "./awsArn";
@@ -23,6 +22,7 @@ export function scannerRoleArnExample(
 /** Legacy split-stack policy-gen role; new deploys use one connector role only. */
 export const POLICY_GENERATION_ROLE_NAME = "VeritrailPolicyGenerationRole";
 export const SCANNER_ROLE_NAME_LEGACY = "VeritrailReadOnlyScannerRole";
+/** @deprecated Write remediation retired — kept for UI type compatibility. */
 export const REMEDIATION_AUTOMATION_ROLE_NAME = "VeritrailRemediationAutomationRole";
 export const CONNECTOR_STACK_NAME = "VeritrailAccountConnector";
 export const CONNECTOR_STACK_LEGACY = "VeritrailReadOnly";
@@ -38,12 +38,11 @@ export function displayConnectorStackName(acc: {
   return acc.cfn_stack_name || CONNECTOR_STACK_NAME;
 }
 
-export function connectionPosture(opts: {
-  enable_advanced_policy_generation: boolean;
-  remediation_modules: RemediationModules;
+export function connectionPosture(opts?: {
+  remediation_modules?: RemediationModules;
 }): ConnectionPosture {
-  if (anyRemediationEnabled(opts.remediation_modules)) return "scoped-write";
-  if (opts.enable_advanced_policy_generation) return "read-only-analysis";
+  // Advanced policy generation and write remediation are retired — always read-only.
+  void opts?.remediation_modules;
   return "read-only";
 }
 
@@ -68,3 +67,4 @@ export function connectionPostureBadgeClass(posture: ConnectionPosture): string 
       return "rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-900 ring-1 ring-amber-200/60";
   }
 }
+

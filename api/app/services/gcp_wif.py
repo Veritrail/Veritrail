@@ -6,8 +6,7 @@ import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from jose import jwt
-from jose.constants import ALGORITHMS
+import jwt
 
 from app.core.config import get_settings
 
@@ -33,7 +32,7 @@ def _dev_signing_material() -> tuple[str, str, str]:
         format=serialization.PrivateFormat.PKCS8,
         encryption_algorithm=serialization.NoEncryption(),
     ).decode()
-    _DEV_SIGNING = (pem, ALGORITHMS.RS256, "veritrail-wif-dev")
+    _DEV_SIGNING = (pem, "RS256", "veritrail-wif-dev")
     return _DEV_SIGNING
 
 
@@ -59,7 +58,7 @@ def _signing_key_and_alg() -> tuple[str, str, str]:
     pem = (settings.GCP_WIF_JWT_PRIVATE_KEY or "").strip()
     kid = (settings.GCP_WIF_JWT_KEY_ID or "veritrail-wif-1").strip()
     if pem:
-        return pem, ALGORITHMS.RS256, kid
+        return pem, "RS256", kid
     if settings.APP_ENV == "dev":
         return _dev_signing_material()
     raise ValueError(

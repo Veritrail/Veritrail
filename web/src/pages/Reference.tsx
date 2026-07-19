@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { INTEGRATION_SCOPES } from "../data/integrationScopes";
 
 type ReferenceRow = {
   key: string;
@@ -6,6 +7,8 @@ type ReferenceRow = {
   examples: string[];
   group: string;
 };
+
+type TabId = "keys" | "integrations";
 
 const rows: ReferenceRow[] = [
   { key: "iam.root", value: "AWS account root identity findings, including MFA, root access key, and root usage checks.", examples: ["iam.root.no_mfa", "iam.root.has_access_keys", "iam.root.usage"], group: "IAM" },
@@ -56,6 +59,7 @@ const rows: ReferenceRow[] = [
 ];
 
 export default function Reference() {
+  const [tab, setTab] = useState<TabId>("keys");
   const [query, setQuery] = useState("");
 
   const filteredRows = useMemo(() => {
@@ -66,6 +70,14 @@ export default function Reference() {
         .join(" ")
         .toLowerCase()
         .includes(q)
+    );
+  }, [query]);
+
+  const filteredIntegrations = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return INTEGRATION_SCOPES;
+    return INTEGRATION_SCOPES.filter((row) =>
+      [row.integration, row.auth, row.scopesOrRoles, row.purpose].join(" ").toLowerCase().includes(q)
     );
   }, [query]);
 
@@ -80,7 +92,9 @@ export default function Reference() {
       <div className="mb-7 flex items-start justify-between gap-6 pt-1">
         <div className="min-w-0">
           <h1 className="text-2xl font-bold tracking-tight text-zinc-950">Reference</h1>
-          <p className="mt-1 text-sm text-zinc-500">Search keys, AWS identifiers, and finding terms supported by Veritrail.</p>
+          <p className="mt-1 text-sm text-zinc-500">
+            Search keys, AWS identifiers, finding terms, and integration scopes.
+          </p>
         </div>
         <div className="flex h-10 w-80 items-center rounded-xl border border-zinc-200 bg-white px-3 shadow-sm focus-within:border-zinc-400 focus-within:ring-2 focus-within:ring-zinc-950/[0.06]">
           <svg className="mr-2 h-4 w-4 shrink-0 text-zinc-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
@@ -89,31 +103,63 @@ export default function Reference() {
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search reference..."
+            placeholder={tab === "integrations" ? "Search integrations..." : "Search reference..."}
             className="min-w-0 flex-1 bg-transparent text-sm text-zinc-800 outline-none placeholder:text-zinc-400"
           />
         </div>
       </div>
 
-      <div className="mb-5 flex flex-wrap gap-2">
-        <span className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm font-semibold text-zinc-700 shadow-sm">
-          {rows.length} keys
-        </span>
-        {byService.map(([service, count]) => (
-          <span key={service} className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-500 shadow-sm">
-            <span className="font-semibold text-zinc-700">{service}</span> {count}
+      <div className="mb-5 flex flex-wrap items-center gap-2">
+        <div className="mr-2 flex rounded-xl border border-zinc-200 bg-white p-1 shadow-sm" role="tablist" aria-label="Reference sections">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === "keys"}
+            onClick={() => setTab("keys")}
+            className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition ${
+              tab === "keys" ? "bg-zinc-950 text-white" : "text-zinc-600 hover:bg-zinc-50"
+            }`}
+          >
+            Search keys
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === "integrations"}
+            onClick={() => setTab("integrations")}
+            className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition ${
+              tab === "integrations" ? "bg-zinc-950 text-white" : "text-zinc-600 hover:bg-zinc-50"
+            }`}
+          >
+            Integrations
+          </button>
+        </div>
+        {tab === "keys" ? (
+          <>
+            <span className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm font-semibold text-zinc-700 shadow-sm">
+              {rows.length} keys
+            </span>
+            {byService.map(([service, count]) => (
+              <span key={service} className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-500 shadow-sm">
+                <span className="font-semibold text-zinc-700">{service}</span> {count}
+              </span>
+            ))}
+          </>
+        ) : (
+          <span className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm font-semibold text-zinc-700 shadow-sm">
+            {INTEGRATION_SCOPES.length} integrations
           </span>
-        ))}
+        )}
       </div>
 
-      {filteredRows.length === 0 && (
+      {tab === "keys" && filteredRows.length === 0 && (
         <div className="rounded-xl border border-zinc-200 bg-white px-4 py-16 text-center">
           <p className="text-sm font-semibold text-zinc-700">No matching reference entry</p>
           <p className="mt-1 text-sm text-zinc-400">Try a service, resource key, check id, ARN prefix, or region.</p>
         </div>
       )}
 
-      {filteredRows.length > 0 && (
+      {tab === "keys" && filteredRows.length > 0 && (
         <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm shadow-zinc-950/[0.04]">
           <div className="grid grid-cols-[190px_minmax(0,1fr)_minmax(260px,0.9fr)] gap-4 border-b border-zinc-100 bg-zinc-50 px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-400">
             <div>Key</div>
@@ -135,6 +181,37 @@ export default function Reference() {
                     </span>
                   ))}
                 </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {tab === "integrations" && filteredIntegrations.length === 0 && (
+        <div className="rounded-xl border border-zinc-200 bg-white px-4 py-16 text-center">
+          <p className="text-sm font-semibold text-zinc-700">No matching integration</p>
+          <p className="mt-1 text-sm text-zinc-400">Try a provider name, OAuth scope, or IAM role.</p>
+        </div>
+      )}
+
+      {tab === "integrations" && filteredIntegrations.length > 0 && (
+        <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm shadow-zinc-950/[0.04]">
+          <div className="grid grid-cols-[140px_160px_minmax(0,1.2fr)_minmax(0,1fr)] gap-4 border-b border-zinc-100 bg-zinc-50 px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-400">
+            <div>Integration</div>
+            <div>Auth</div>
+            <div>Scopes / Roles</div>
+            <div>Purpose</div>
+          </div>
+          <div className="divide-y divide-zinc-100">
+            {filteredIntegrations.map((row) => (
+              <div
+                key={row.integration}
+                className="grid grid-cols-[140px_160px_minmax(0,1.2fr)_minmax(0,1fr)] gap-4 px-5 py-4 hover:bg-zinc-50/70"
+              >
+                <div className="text-sm font-semibold text-zinc-900">{row.integration}</div>
+                <div className="text-sm text-zinc-600">{row.auth}</div>
+                <div className="font-mono text-xs leading-5 text-zinc-700">{row.scopesOrRoles}</div>
+                <div className="text-sm leading-6 text-zinc-600">{row.purpose}</div>
               </div>
             ))}
           </div>

@@ -5,7 +5,115 @@
 }
 
 .finding-resources-tab__table col.finding-resources-tab__resource-col {
-  width: min(18rem, 26%);
+  width: min(17rem, 24%);
+}
+
+.finding-resources-tab__table col.finding-resources-tab__account-col {
+  width: 7rem;
+}
+
+.finding-resources-tab__table col.finding-resources-tab__seen-col {
+  width: 6.75rem;
+}
+
+.finding-resources-tab__table col.finding-resources-tab__reason-col {
+  width: 28%;
+  min-width: 16rem;
+}
+
+.finding-resources-tab__table .finding-resources-tab__reason-cell {
+  max-width: 0;
+  overflow: hidden;
+}
+
+.finding-resources-tab__reason {
+  --resource-reason-severity: #a1a1aa;
+  position: relative;
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 0.625rem;
+  padding: 0.75rem 0.875rem 0.75rem 1rem;
+  overflow: hidden;
+  border: 1px solid #e4e4e7;
+  border-radius: 0.5rem;
+  background: #fff;
+}
+
+.finding-resources-tab__reason::before {
+  position: absolute;
+  top: 0.5rem;
+  bottom: 0.5rem;
+  left: 0;
+  width: 2px;
+  border-radius: 0 999px 999px 0;
+  background: var(--resource-reason-severity);
+  content: "";
+}
+
+.finding-resources-tab__reason.is-critical {
+  --resource-reason-severity: #dc2626;
+}
+
+.finding-resources-tab__reason.is-high {
+  --resource-reason-severity: #ef4444;
+}
+
+.finding-resources-tab__reason.is-medium {
+  --resource-reason-severity: #f59e0b;
+}
+
+.finding-resources-tab__reason.is-low {
+  --resource-reason-severity: #3b82f6;
+}
+
+.finding-resources-tab__reason-copy {
+  min-width: 0;
+  flex: 1;
+}
+
+.finding-resources-tab__reason-title,
+.finding-resources-tab__reason-detail {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.finding-resources-tab__reason-title {
+  color: #27272a;
+  font-weight: 600;
+}
+
+.finding-resources-tab__reason-detail {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.3rem;
+  margin-top: 0.125rem;
+  color: #71717a;
+  font-weight: 400;
+}
+
+.finding-resources-tab__reason-detail > span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.finding-resources-tab__reason-evidence {
+  display: inline-block;
+  min-width: 0;
+  overflow: hidden;
+  color: #52525b;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .finding-resources-tab__table .finding-resources-tab__resource-cell {
@@ -93,24 +201,41 @@
 }
 
 .finding-resources-tab__toolbar-selection-count {
-  font-weight: 500;
-  color: #71717a;
+  font-weight: 400;
+  color: #a1a1aa;
   white-space: nowrap;
 }
 
 .finding-resources-tab__toolbar-selection-sep {
-  color: #a1a1aa;
+  color: #d4d4d8;
 }
 
 .finding-resources-tab__toolbar-selection-clear {
-  font-weight: 500;
-  color: #71717a;
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-weight: 600;
+  color: #2563eb;
+  cursor: pointer;
   white-space: nowrap;
-  transition: color 120ms ease;
+  text-decoration: underline;
+  text-decoration-color: rgba(37, 99, 235, 0.35);
+  text-underline-offset: 2px;
+  transition:
+    color 120ms ease,
+    text-decoration-color 120ms ease;
 }
 
 .finding-resources-tab__toolbar-selection-clear:hover {
-  color: #52525b;
+  color: #1d4ed8;
+  text-decoration-color: #1d4ed8;
+}
+
+.finding-resources-tab__toolbar-selection-clear:focus-visible {
+  outline: 2px solid rgba(37, 99, 235, 0.35);
+  outline-offset: 2px;
+  border-radius: 2px;
 }
 
 .finding-resources-tab__toolbar-selection-cap {

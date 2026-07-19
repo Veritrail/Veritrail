@@ -6,9 +6,10 @@ import uuid
 from fastapi import HTTPException, status
 from sqlalchemy import or_
 
+from app.checks.registry import INTEGRATION_SYNC_PREFIXES
 from app.models import Finding
 
-ORG_PROVIDER_VALUES = frozenset({"github", "gitlab", "source_control", "all_cloud"})
+ORG_PROVIDER_VALUES = frozenset({"github", "gitlab", "source_control", "identity", "all_cloud"})
 
 
 def validate_findings_scope_params(
@@ -82,6 +83,11 @@ def apply_findings_scope(
                 Finding.check_id.like("github.%"),
                 Finding.check_id.like("gitlab.%"),
             ),
+        )
+    if provider == "identity":
+        return q.where(
+            Finding.account_id.is_(None),
+            or_(*(Finding.check_id.like(f"{prefix}%") for prefix in INTEGRATION_SYNC_PREFIXES)),
         )
     if provider == "all_cloud":
         return q.where(

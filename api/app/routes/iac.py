@@ -1,7 +1,6 @@
-"""IaC routes: remediation patch preview + deterministic security lint (deepsearch v5).
+"""IaC routes: deterministic security lint (scan-only).
 
 Endpoints:
-  * POST /terraform/preview-patch — match a finding to Terraform, emit a deterministic patch.
   * POST /scan                    — native security lint (+ optional Checkov/tfsec) over pasted
                                     files or a connected GitHub/GitLab repo.
   * POST /webhook/github          — HMAC-verified GitHub push/PR trigger that scans changed .tf/.hcl.
@@ -31,7 +30,6 @@ from app.services.github_repo_tf import fetch_terraform_files
 from app.services.github_webhook import changed_iac_paths, event_context, verify_github_signature
 from app.services.github_webhook_feedback import post_webhook_feedback
 from app.services.gitlab_repo_tf import fetch_terraform_files as fetch_gitlab_terraform_files
-from app.services.hcl_patch import hcl_patch_preview, hcl_validate_syntax
 from app.services.iac_external_scan import combined_scan
 
 router = APIRouter()
@@ -44,46 +42,11 @@ class TfFileIn(BaseModel):
     content: str
 
 
-class TerraformPreviewIn(BaseModel):
-    check_id: str
-    bucket_name: str | None = None
-    files: list[TfFileIn] = Field(default_factory=list, max_length=20)
-
-
 class IacScanIn(BaseModel):
     files: list[TfFileIn] = Field(default_factory=list, max_length=40)
     repo: str | None = None  # owner/name — fetch from the org's connected GitHub integration
     ref: str | None = None
     engines: list[str] = Field(default_factory=list, max_length=2)  # optional: checkov / tfsec
-
-
-@router.post("/terraform/preview-patch")
-def terraform_preview_patch(body: TerraformPreviewIn):
-    """Match a finding to Terraform resources in pasted file(s). No Git clone yet."""
-    files = [{"path": f.path, "content": f.content} for f in body.files]
-    return hcl_patch_preview(
-        check_id=body.check_id,
-        bucket_name=body.bucket_name,
-        files=files,
-    )
-
-
-def _github_provider_for_org(db: Session, org_id: str) -> IdentityProvider | None:
-    return db.scalars(
-        select(IdentityProvider).where(
-            IdentityProvider.org_id == uuid.UUID(org_id),
-            IdentityProvider.type == "github",
-        )
-    ).first()
-
-
-def _gitlab_provider_for_org(db: Session, org_id: str) -> IdentityProvider | None:
-    return db.scalars(
-        select(IdentityProvider).where(
-            IdentityProvider.org_id == uuid.UUID(org_id),
-            IdentityProvider.type == "gitlab",
-        )
-    ).first()
 
 
 def _supported_provider_for_org(db: Session, org_id: str) -> IdentityProvider | None:
@@ -121,19 +84,6 @@ def iac_scan(body: IacScanIn, p=Depends(current_principal), db: Session = Depend
         raise HTTPException(status_code=400, detail="No Terraform/HCL files supplied or found")
     engines = [e for e in body.engines if e in _ALLOWED_ENGINES]
     return combined_scan(files, engines)
-
-
-@router.post("/validate-syntax")
-def validate_syntax(body: IacScanIn):
-    """Validate pasted HCL/Terraform syntax before scanning.
-
-    Returns {"ok": true} for valid syntax, or {"ok": false, "error": "..."}
-    with per-file details when the HCL parser reports syntax errors.
-    """
-    files = [{"path": f.path, "content": f.content} for f in body.files]
-    if not files:
-        return {"ok": False, "error": "No files provided"}
-    return hcl_validate_syntax(files)
 
 
 @router.post("/webhook/github")

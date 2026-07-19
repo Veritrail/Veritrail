@@ -8,7 +8,6 @@ from app.core.config import get_settings
 from app.core.db import get_db
 from app.core.route_deps import RequireAdmin
 from app.core.security import current_principal
-from app.data.remediation_modules import remediation_modules_dict
 from app.models import AwsAccount
 from app.routes.accounts import (
     AccountOut,
@@ -89,7 +88,6 @@ def get_connector_update_artifacts(
     if not acc or str(acc.org_id) != p["org_id"]:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "account not found")
 
-    modules = remediation_modules_dict(acc)
     version = next(v for v in CONNECTOR_VERSIONS if v.tag == tag)
     stack_name = _update_stack_name(acc)
 
@@ -103,8 +101,6 @@ def get_connector_update_artifacts(
             external_id=acc.external_id,
             stack_name=stack_name,
             version_tag=tag,
-            enable_advanced_policy_generation=acc.enable_advanced_policy_generation,
-            remediation_modules=modules,
         ),
         current_version_tag=get_settings().CFN_TEMPLATE_VERSION,
         recommended_version_tag=RECOMMENDED_CONNECTOR_VERSION,
@@ -148,6 +144,20 @@ def verify(account_id: str, body: VerifyIn, _rbac: RequireAdmin, p=Depends(curre
     from app.services.account_capabilities import apply_capability_verification
 
     apply_capability_verification(acc)
+
+    from app.models.org import Org
+    from app.services.org_activity import record_activation_milestone
+
+    org = db.get(Org, acc.org_id)
+    if org:
+        record_activation_milestone(
+            db,
+            org,
+            "first_integration_at",
+            actor_user_id=uuid.UUID(p["sub"]) if p.get("sub") else None,
+            detail={"provider": "aws", "account_id": str(acc.id)},
+        )
+
     db.commit()
 
     if not role_update:
@@ -160,7 +170,7 @@ def verify(account_id: str, body: VerifyIn, _rbac: RequireAdmin, p=Depends(curre
 
 @router.post("/{account_id}/verify-capabilities")
 def verify_capabilities(account_id: str, _rbac: RequireAdmin, p=Depends(current_principal), db: Session = Depends(get_db)):
-    """Confirm optional CFN nested stacks are deployed (assume advanced role, check remediation runner)."""
+    """Confirm optional CFN capabilities are deployed (advanced policy generation)."""
     from app.services.account_capabilities import apply_capability_verification
 
     acc = db.get(AwsAccount, uuid.UUID(account_id))

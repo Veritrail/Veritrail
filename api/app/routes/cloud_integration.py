@@ -40,6 +40,7 @@ class CloudAccountOut(BaseModel):
     label: str
     status: str
     last_scan_at: datetime | None = None
+    last_error: str | None = None
     open_findings_count: int = 0
 
 

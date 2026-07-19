@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { api, BASE, consumeSignedOut, formatApiError, restoreSession, storeTokens, token } from "../api";
+import { api, BASE, consumeSignedOut, formatApiError, publicApi, restoreSession, storeTokens, token } from "../api";
 import { accessTokenSchema, loginResponseSchema, tokenPairSchema } from "../lib/apiSchemas";
 import { postAuthPath } from "../lib/postAuthRedirect";
 import "../styles/login-auth.css";
@@ -11,6 +11,16 @@ const MFA_STORAGE_KEY = "veritrail_mfa_token";
 const PENDING_CREDENTIALS_KEY = "veritrail_pending_credentials";
 
 const PENDING_INVITE_KEY = "veritrail_pending_invite_token";
+
+type InvitePreview = {
+  org_name: string;
+  email: string;
+  role: string;
+  expires_at: string | null;
+  create_workspace?: boolean;
+  plan?: string | null;
+  suggested_org_name?: string | null;
+};
 
 function oauthErrorMessage(code: string): string {
   switch (code) {
@@ -26,10 +36,10 @@ function oauthErrorMessage(code: string): string {
       return "That GitLab account is already linked to another user.";
     case "google_already_linked":
       return "That Google account is already linked to another user.";
-    case "domain_not_allowed":
-      return "Google sign-in is restricted to company accounts only.";
     case "no_account_for_idp":
-      return "No account matches that sign-in. Sign up first, then connect this provider.";
+      return "No account matches that sign-in. Ask a workspace admin for an invite.";
+    case "signups_disabled":
+      return "Signups are invite-only — contact support@veritrail.io";
     case "domain_managed":
       return "This email domain already has a Veritrail workspace. Ask your admin for an invite, or choose a different workspace name.";
     case "invite_accept_failed":
@@ -199,11 +209,11 @@ function AuthLegalFooter({ mode }: { mode: AuthMode }) {
   return (
     <p className="auth-footer-legal">
       By {verb}, you agree to our{" "}
-      <a href="/terms">
+      <a href="https://veritrail.io/terms">
         Terms
       </a>{" "}
       and{" "}
-      <a href="/privacy">
+      <a href="https://veritrail.io/privacy">
         Privacy Policy
       </a>
       .
@@ -222,13 +232,14 @@ export default function Login() {
     if (params.get("mode") === "forgot") return "forgot";
     if (params.get("mode") === "onboard" || params.get("signup_token")) return "onboard";
     if (params.get("mode") === "login") return "login";
-    if (params.get("mode") === "signup") return "signup";
-    if (params.get("invite_token")) return "login";
+    // Self-registration is disabled — signup mode exists only for invite links.
+    if (params.get("mode") === "signup" && params.get("invite_token")) return "signup";
     return "login";
   });
   const [email, setEmail] = useState(() => inviteEmail ?? params.get("email") ?? "");
   const [password, setPassword] = useState("");
   const [orgName, setOrgName] = useState("");
+  const [invitePreview, setInvitePreview] = useState<InvitePreview | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -266,8 +277,33 @@ export default function Login() {
     window.history.replaceState(null, "", "/login");
   }, [location.state]);
 
+  const isWorkspaceCreationInvite = Boolean(invitePreview?.create_workspace);
+
   useEffect(() => {
     if (inviteToken) sessionStorage.setItem(PENDING_INVITE_KEY, inviteToken);
+  }, [inviteToken]);
+
+  useEffect(() => {
+    if (!inviteToken) {
+      setInvitePreview(null);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const data = await publicApi<InvitePreview>(`/v1/members/invites/preview/${inviteToken}`);
+        if (cancelled) return;
+        setInvitePreview(data);
+        if (data.create_workspace && data.suggested_org_name && !orgName.trim()) {
+          setOrgName(data.suggested_org_name);
+        }
+      } catch {
+        if (!cancelled) setInvitePreview(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [inviteToken]);
 
   useEffect(() => {
@@ -276,7 +312,7 @@ export default function Login() {
       try {
         if (freshSignIn) return;
         if (token()) {
-          if (inviteToken) {
+          if (inviteToken && !isWorkspaceCreationInvite) {
             try {
               const access = await acceptInviteAfterLogin(token()!);
               storeTokens(access);
@@ -298,7 +334,7 @@ export default function Login() {
     return () => {
       cancelled = true;
     };
-  }, [nav, freshSignIn, inviteToken]);
+  }, [nav, freshSignIn, inviteToken, isWorkspaceCreationInvite]);
 
   useEffect(() => {
     const token = params.get("mfa_token");
@@ -397,6 +433,10 @@ export default function Login() {
       setErr("Signup session expired — sign in again.");
       return;
     }
+    if ((mode === "onboard" || (mode === "signup" && isWorkspaceCreationInvite)) && !orgName.trim()) {
+      setErr("Enter your workspace name.");
+      return;
+    }
     if (!inviteToken && !orgName.trim()) {
       setErr("Enter your organization name.");
       return;
@@ -407,7 +447,7 @@ export default function Login() {
         method: "POST",
         body: JSON.stringify({
           signup_token: signupToken,
-          org_name: inviteToken ? "" : orgName,
+          org_name: isWorkspaceCreationInvite || !inviteToken ? orgName : "",
           ...(inviteToken ? { invite_token: inviteToken } : {}),
         }),
         schema: accessTokenSchema,
@@ -445,6 +485,10 @@ export default function Login() {
       setPasswordError("Password must be at least 12 characters.");
       return;
     }
+    if (mode === "signup" && isWorkspaceCreationInvite && !orgName.trim()) {
+      setErr("Enter your workspace name.");
+      return;
+    }
     if (mode === "signup" && !inviteToken && !orgName.trim()) {
       setErr("Enter your organization name.");
       return;
@@ -480,7 +524,7 @@ export default function Login() {
           : {
               email: emailValue,
               password: passwordValue,
-              org_name: inviteToken ? "" : orgName,
+              org_name: isWorkspaceCreationInvite || !inviteToken ? orgName : "",
               ...(inviteToken ? { invite_token: inviteToken } : {}),
             };
       const res = await api(path, { method: "POST", body: JSON.stringify(body), schema: loginResponseSchema });
@@ -627,7 +671,7 @@ export default function Login() {
             </header>
 
             <form noValidate onSubmit={submitOnboard}>
-              {!inviteToken && (
+              {(isWorkspaceCreationInvite || !inviteToken) && (
                 <div className="auth-field">
                   <label htmlFor="organization" className="auth-field__label">
                     Workspace name
@@ -639,21 +683,27 @@ export default function Login() {
                     className="auth-field__input !px-3"
                     value={orgName}
                     onChange={e => setOrgName(e.target.value)}
+                    placeholder={invitePreview?.suggested_org_name ?? undefined}
                     required
                     autoFocus
                   />
                 </div>
               )}
-              {inviteToken && (
+              {inviteToken && !isWorkspaceCreationInvite && (
                 <p className="auth-invite-note">
-                  You&apos;re joining via workspace invite. Organization is set by your inviter.
+                  You&apos;re joining an existing workspace via invite.
+                </p>
+              )}
+              {isWorkspaceCreationInvite && (
+                <p className="auth-invite-note">
+                  Name your new workspace to finish accepting this invite.
                 </p>
               )}
 
               {err && <div className="auth-alert">{err}</div>}
 
               <button type="submit" className="auth-submit" disabled={loading || !signupToken}>
-                {loading ? "Please wait…" : inviteToken ? "Join workspace" : "Create workspace"}
+                {loading ? "Please wait…" : isWorkspaceCreationInvite ? "Create workspace" : inviteToken ? "Join workspace" : "Create workspace"}
               </button>
             </form>
           </div>
@@ -746,10 +796,10 @@ export default function Login() {
             autoComplete={mode === "login" && !autofillEnabled ? "off" : mode === "login" ? "on" : "off"}
             onSubmit={submit}
           >
-            {mode === "signup" && !inviteToken && (
+            {(mode === "signup" && (isWorkspaceCreationInvite || !inviteToken)) && (
               <div className="auth-field">
                 <label htmlFor="organization" className="auth-field__label">
-                  Organization name
+                  Workspace name
                 </label>
                 <input
                   id="organization"
@@ -758,13 +808,19 @@ export default function Login() {
                   className="auth-field__input !px-3"
                   value={orgName}
                   onChange={e => setOrgName(e.target.value)}
+                  placeholder={invitePreview?.suggested_org_name ?? undefined}
                   required
                 />
               </div>
             )}
-            {mode === "signup" && inviteToken && (
+            {mode === "signup" && inviteToken && !isWorkspaceCreationInvite && (
               <p className="auth-invite-note">
-                You&apos;re joining via workspace invite. Organization is set by your inviter.
+                You&apos;re joining an existing workspace via invite.
+              </p>
+            )}
+            {mode === "signup" && isWorkspaceCreationInvite && (
+              <p className="auth-invite-note">
+                This invite is bound to your email. Choose a workspace name to continue.
               </p>
             )}
 
@@ -912,18 +968,20 @@ export default function Login() {
           <AuthOAuthButtons rememberMe={rememberMe} inviteToken={inviteToken} pickAccount={freshSignIn} />
           <AuthLegalFooter mode={mode} />
 
-          <div className="auth-mode-switch">
-            <button
-              type="button"
-              onClick={() => switchMode(mode === "login" ? "signup" : "login")}
-            >
-              {mode === "login" ? (
-                <>Don&apos;t have an account? <span className="auth-mode-switch__cta">Sign up</span></>
-              ) : (
-                <>Already have an account? <span className="auth-mode-switch__cta">Sign in</span></>
-              )}
-            </button>
-          </div>
+          {inviteToken ? (
+            <div className="auth-mode-switch">
+              <button
+                type="button"
+                onClick={() => switchMode(mode === "login" ? "signup" : "login")}
+              >
+                {mode === "login" ? (
+                  <>New here? <span className="auth-mode-switch__cta">Accept your invite</span></>
+                ) : (
+                  <>Already have an account? <span className="auth-mode-switch__cta">Sign in</span></>
+                )}
+              </button>
+            </div>
+          ) : null}
         </div>
       </div>
     </div>

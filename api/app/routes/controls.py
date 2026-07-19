@@ -44,7 +44,7 @@ from app.services.check_coverage import (
 from app.services.check_evidence import all_evidence_classes, evidence_class_for_check
 from app.services.check_frameworks import check_framework_map, framework_catalog
 from app.services.cis_benchmark_coverage import cis_benchmark_coverage
-from app.services.compliance_timeline import build_control_history
+from app.services.compliance_timeline import build_control_history, build_framework_history
 from app.services.composite_controls import composite_control_definitions, list_composite_controls
 from app.services.control_status import compute_control_status
 from app.services.evidence_artifact_storage import (
@@ -94,6 +94,10 @@ class ControlOut(BaseModel):
     evidence_refs: list[str] = []
     known_gaps: list[str] = []
     check_ids: list[str]
+    # Subset of check_ids actually exercised for this account/org (latest cloud
+    # scan checks_run + synced org integrations). Azure/GCP/unconnected-provider
+    # checks mapped to the control but never run are excluded.
+    scanned_check_ids: list[str] = []
     coverage_tier: str = "core"  # core | extended | mixed | no_data
     coverage_label: str | None = None
     extended_check_ids: list[str] = []
@@ -104,6 +108,9 @@ class ControlOut(BaseModel):
     open_finding_ids: list[str]
     kind: str = "auto"   # auto | manual
     attestation_status: str | None = None  # manual controls: met|not_met|not_applicable|pending
+    # Manual controls: accepted control-tagged external evidence exists — the
+    # honest label is "externally covered", never "verified".
+    externally_covered: bool = False
     # Framework-mapping metadata (set only for the matching framework's controls).
     soc2_scope_category: str | None = None
     cis_profile_level: str | None = None
@@ -115,6 +122,13 @@ class CheckScanErrorOut(BaseModel):
     check_id: str
     error_type: str | None = None
     error: str | None = None
+
+
+class EvidenceIntegrationOut(BaseModel):
+    type: str
+    label: str
+    connected: bool = True
+    last_synced_at: str | None = None
 
 
 class CompositeControlOut(BaseModel):
@@ -146,6 +160,7 @@ class CompositeControlOut(BaseModel):
     sdlc_insights: dict | None = None
     scanning_attestation: dict | None = None
     scanning_attestable_checks: list[str] = []
+    evidence_integrations: list[EvidenceIntegrationOut] = []
 
 
 class CheckFrameworksOut(BaseModel):
@@ -1117,7 +1132,16 @@ def list_controls(
         run_stats = latest_run.stats if latest_run and isinstance(latest_run.stats, dict) else {}
         latest_checks_raw = run_stats.get("checks_run") if isinstance(run_stats, dict) else None
         if isinstance(latest_checks_raw, list):
-            latest_checks_run = {str(cid) for cid in latest_checks_raw}
+            from app.checks.registry import is_integration_sync_check, is_source_control_check
+
+            # Older scan runs recorded integration/MDM/source-control checks in
+            # checks_run before those moved to the sync path; drop them here —
+            # the grading contexts below re-add whichever are genuinely synced.
+            latest_checks_run = {
+                str(cid) for cid in latest_checks_raw
+                if not is_integration_sync_check(str(cid))
+                and not is_source_control_check(str(cid))
+            }
         errors_raw = run_stats.get("check_errors") if isinstance(run_stats, dict) else None
         if isinstance(errors_raw, list):
             for err in errors_raw:
@@ -1131,11 +1155,18 @@ def list_controls(
     # Source control is org-level (findings + "scanned" signal), independent of
     # the selected cloud account — fold it in so SDLC-mapped framework controls
     # grade the same as the composite view.
-    from app.services.composite_controls import load_source_control_grading_context
+    from app.services.composite_controls import (
+        load_integration_sync_grading_context,
+        load_source_control_grading_context,
+    )
 
     source_control_synced = load_source_control_grading_context(
         db, org_id, open_by_check, latest_checks_run, hidden
     )
+    integration_synced = load_integration_sync_grading_context(
+        db, org_id, open_by_check, latest_checks_run, hidden
+    )
+    org_integrations_synced = source_control_synced or integration_synced
 
     # Manual controls (no automated checks) take their status from the org's
     # attestation, so they roll into the same pass/fail tally as scanned controls.
@@ -1143,6 +1174,21 @@ def list_controls(
         a.control_id: a
         for a in db.scalars(
             select(ControlAttestation).where(ControlAttestation.org_id == uuid.UUID(p["org_id"]))
+        ).all()
+    }
+
+    # Accepted control-tagged external evidence also satisfies a manual control
+    # (externally covered) — attestation alone must not be the only path.
+    from app.models.evidence_artifact import EvidenceArtifact
+
+    accepted_evidence_control_ids = {
+        row
+        for row in db.scalars(
+            select(EvidenceArtifact.control_id).where(
+                EvidenceArtifact.org_id == org_id,
+                EvidenceArtifact.status == "accepted",
+                EvidenceArtifact.control_id.isnot(None),
+            )
         ).all()
     }
 
@@ -1160,18 +1206,20 @@ def list_controls(
 
         kind = "auto"
         attestation_status: str | None = None
+        externally_covered = False
         if not mapped_check_ids:
             kind = "manual"
             a = attest_by_control.get(ctrl.id)
             attestation_status = a.status if a else "pending"
+            externally_covered = ctrl.id in accepted_evidence_control_ids
             ctrl_status = (
-                "pass" if attestation_status == "met"
+                "pass" if attestation_status == "met" or externally_covered
                 else "fail" if attestation_status == "not_met"
                 else "no_data"
             )
             hits = []
         else:
-            has_scanned = bool(acc_id and acc and acc.last_scan_at) or source_control_synced
+            has_scanned = bool(acc_id and acc and acc.last_scan_at) or org_integrations_synced
             ctrl_status, hits, _ = compute_control_status(
                 check_ids,
                 open_by_check,
@@ -1197,6 +1245,10 @@ def list_controls(
                 evidence_refs=list(detail.get("evidence_refs") or []),
                 known_gaps=list(detail.get("known_gaps") or []),
                 check_ids=check_ids,
+                scanned_check_ids=[
+                    cid for cid in check_ids
+                    if cid in latest_checks_run or cid in open_by_check
+                ],
                 coverage_tier=cov_tier,
                 coverage_label=tier_display_label(cov_tier),
                 extended_check_ids=ext_ids,
@@ -1207,6 +1259,7 @@ def list_controls(
                 open_finding_ids=[str(f.id) for f in hits],
                 kind=kind,
                 attestation_status=attestation_status,
+                externally_covered=externally_covered,
                 soc2_scope_category=ctrl.soc2_scope_category,
                 cis_profile_level=ctrl.cis_profile_level,
                 iso_applicability=ctrl.iso_applicability,
@@ -1312,12 +1365,19 @@ def control_checklist(
                     latest_failed_checks.add(str(err["check_id"]))
 
     # Fold org-level source control into grading (same as the composite view).
-    from app.services.composite_controls import load_source_control_grading_context
+    from app.services.composite_controls import (
+        load_integration_sync_grading_context,
+        load_source_control_grading_context,
+    )
 
     source_control_synced = load_source_control_grading_context(
         db, org_id, open_by_check, latest_checks_run, hidden
     )
-    has_scanned = bool(acc_id and acc and acc.last_scan_at) or source_control_synced
+    integration_synced = load_integration_sync_grading_context(
+        db, org_id, open_by_check, latest_checks_run, hidden
+    )
+    org_integrations_synced = source_control_synced or integration_synced
+    has_scanned = bool(acc_id and acc and acc.last_scan_at) or org_integrations_synced
 
     attest_by_control = {
         a.control_id: a
@@ -1523,6 +1583,25 @@ def control_evidence(
             for s in snaps
         ],
     }
+
+
+@router.get("/history-summary")
+def controls_history_summary(
+    framework: str = Query(...),
+    account_id: str = Query(...),
+    days: int = Query(default=90, ge=7, le=365),
+    p=Depends(current_principal),
+    db: Session = Depends(get_db),
+):
+    """Per-control pass/fail timeline segments across a whole framework."""
+    if framework not in FRAMEWORKS:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, f"framework must be one of {sorted(FRAMEWORKS)}")
+
+    acc = db.get(AwsAccount, uuid.UUID(account_id))
+    if not acc or str(acc.org_id) != p["org_id"]:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "account not found")
+
+    return build_framework_history(db, acc.id, framework, days)
 
 
 @router.get("/{control_id}/history")

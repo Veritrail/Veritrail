@@ -12,7 +12,12 @@ from sqlalchemy.orm import Session
 
 from app.models import AwsAccount, Finding, Org, ScanRun
 from app.models.github import IdentityProvider
-from app.checks.registry import is_source_control_check, source_control_checks_for
+from app.checks.registry import (
+    integration_sync_checks_for,
+    is_integration_sync_check,
+    is_source_control_check,
+    source_control_checks_for,
+)
 from app.services.check_coverage import control_coverage_tier, extended_checks_in_list, tier_display_label, tier_for_check
 from app.services.check_evidence import evidence_class_for_check
 from app.services.check_settings import hidden_check_ids
@@ -89,7 +94,6 @@ _PRIMARY_COMPOSITE_BY_CHECK: dict[str, str] = {
     "identity_center.user.inactive_90d": "asset_inventory",
     "google_workspace.user.inactive_90d": "asset_inventory",
     "entra.user.inactive_90d": "asset_inventory",
-    "okta.user.inactive_90d": "asset_inventory",
     # Secure SDLC vs change management
     "github.repo.no_branch_protection": "secure_sdlc",
     "gitlab.repo.no_branch_protection": "secure_sdlc",
@@ -156,10 +160,11 @@ _PRIMARY_COMPOSITE_BY_CHECK: dict[str, str] = {
     "cloudtrail.event.guardduty_disabled": "incident_response",
     "guardduty.detector.not_enabled": "incident_response",
     "guardduty.open_findings": "incident_response",
-    "intune.device.not_encrypted": "mdm_endpoint",
-    "jamf.device.not_encrypted": "mdm_endpoint",
-    "okta.app.overprivileged_grant": "identity_governance",
-    "okta.service.api_token_stale": "identity_governance",
+    # Device encryption is collectable through Intune/Jamf sync and belongs with
+    # identity governance. The separate MDM composite is intentionally outside
+    # the product's visible technical-evidence scope.
+    "intune.device.not_encrypted": "identity_governance",
+    "jamf.device.not_encrypted": "identity_governance",
 }
 
 
@@ -242,13 +247,17 @@ def _scan_context(
     source_control_synced = load_source_control_grading_context(
         db, org_id, open_by_check, latest_checks_run, hidden
     )
+    integration_synced = load_integration_sync_grading_context(
+        db, org_id, open_by_check, latest_checks_run, hidden
+    )
+    org_integrations_synced = source_control_synced or integration_synced
 
     if not account_id:
-        return open_by_check, latest_checks_run, latest_failed_checks, source_control_synced, scan_check_errors
+        return open_by_check, latest_checks_run, latest_failed_checks, org_integrations_synced, scan_check_errors
 
     acc = db.get(AwsAccount, account_id)
     if not acc or acc.org_id != org_id:
-        return open_by_check, latest_checks_run, latest_failed_checks, source_control_synced, scan_check_errors
+        return open_by_check, latest_checks_run, latest_failed_checks, org_integrations_synced, scan_check_errors
 
     open_q = select(Finding).where(
         Finding.account_id == account_id,
@@ -272,7 +281,11 @@ def _scan_context(
     run_stats = latest_run.stats if latest_run and isinstance(latest_run.stats, dict) else {}
     latest_checks_raw = run_stats.get("checks_run") if isinstance(run_stats, dict) else None
     if isinstance(latest_checks_raw, list):
-        latest_checks_run = {str(cid) for cid in latest_checks_raw}
+        # Merge, don't replace: org-level checks (source-control + identity
+        # integrations) were already marked run by the load_*_grading_context
+        # calls above. Reassigning here would wipe them, so an org composite
+        # would show "coverage gap" whenever a cloud account is selected.
+        latest_checks_run |= {str(cid) for cid in latest_checks_raw}
     errors_raw = run_stats.get("check_errors") if isinstance(run_stats, dict) else None
     if isinstance(errors_raw, list):
         for err in errors_raw:
@@ -295,7 +308,7 @@ def _scan_context(
         open_by_check,
         latest_checks_run,
         latest_failed_checks,
-        has_scanned_account or source_control_synced,
+        has_scanned_account or org_integrations_synced,
         scan_check_errors,
     )
 
@@ -321,11 +334,13 @@ def load_source_control_grading_context(
             IdentityProvider.type.in_(("github", "gitlab")),
         )
     ).all()
+    active_prefixes: set[str] = set()
     synced = False
     for provider in providers:
-        if provider.last_synced_at is None:
+        if provider.last_synced_at is None or provider.status != "connected":
             continue
         synced = True
+        active_prefixes.add(f"{provider.type}.")
         for mod in source_control_checks_for(provider.type):
             latest_checks_run.add(mod.CHECK_ID)
     if not synced:
@@ -339,7 +354,104 @@ def load_source_control_grading_context(
     if hidden:
         q = q.where(Finding.check_id.notin_(hidden))
     for finding in db.scalars(q).all():
-        if is_source_control_check(finding.check_id):
+        if is_source_control_check(finding.check_id) and any(
+            finding.check_id.startswith(prefix) for prefix in active_prefixes
+        ):
+            open_by_check.setdefault(finding.check_id, []).append(finding)
+    return True
+
+
+_INTEGRATION_EVIDENCE_PROVIDER_TYPES = (
+    "entra_id",
+    "google_workspace",
+    "github",
+    "gitlab",
+)
+
+_PROVIDER_EVIDENCE_LABELS: dict[str, str] = {
+    "entra_id": "Entra ID",
+    "google_workspace": "Google Workspace",
+    "github": "GitHub",
+    "gitlab": "GitLab",
+}
+
+
+def _check_prefix_for_evidence_provider(provider_type: str) -> str:
+    if provider_type in ("github", "gitlab"):
+        return f"{provider_type}."
+    from app.services.integration_sync_scan import check_prefix_for_provider_type
+
+    return f"{check_prefix_for_provider_type(provider_type)}."
+
+
+def evidence_integrations_for_check_ids(
+    check_ids: list[str],
+    providers: list[IdentityProvider],
+) -> list[dict[str, Any]]:
+    """Connected integrations whose check prefixes intersect a composite's checks."""
+    out: list[dict[str, Any]] = []
+    for provider in providers:
+        if provider.last_synced_at is None:
+            continue
+        prefix = _check_prefix_for_evidence_provider(provider.type)
+        if not any(cid.startswith(prefix) for cid in check_ids):
+            continue
+        api_type = "entra" if provider.type == "entra_id" else provider.type
+        synced_at = provider.last_synced_at
+        out.append(
+            {
+                "type": api_type,
+                "label": _PROVIDER_EVIDENCE_LABELS.get(provider.type, provider.type),
+                "connected": provider.status == "connected",
+                "last_synced_at": synced_at.isoformat() if synced_at else None,
+            }
+        )
+    return sorted(out, key=lambda row: row["label"].lower())
+
+
+def load_integration_sync_grading_context(
+    db: Session,
+    org_id: uuid.UUID,
+    open_by_check: dict[str, list[Finding]],
+    latest_checks_run: set[str],
+    hidden: set[str],
+) -> bool:
+    """Load org-scoped identity integration findings + mark those checks 'run'.
+
+    Returns True if entra_id/google_workspace has completed a sync.
+    """
+    from app.services.integration_sync_scan import check_prefix_for_provider_type
+
+    providers = db.scalars(
+        select(IdentityProvider).where(
+            IdentityProvider.org_id == org_id,
+            IdentityProvider.type.in_(("entra_id", "google_workspace")),
+        )
+    ).all()
+    active_prefixes: set[str] = set()
+    synced = False
+    for provider in providers:
+        if provider.last_synced_at is None or provider.status != "connected":
+            continue
+        synced = True
+        prefix = check_prefix_for_provider_type(provider.type)
+        active_prefixes.add(f"{prefix}.")
+        for mod in integration_sync_checks_for(prefix):
+            latest_checks_run.add(mod.CHECK_ID)
+    if not synced:
+        return False
+
+    q = select(Finding).where(
+        Finding.org_id == org_id,
+        Finding.account_id.is_(None),
+        Finding.status == "open",
+    )
+    if hidden:
+        q = q.where(Finding.check_id.notin_(hidden))
+    for finding in db.scalars(q).all():
+        if is_integration_sync_check(finding.check_id) and any(
+            finding.check_id.startswith(prefix) for prefix in active_prefixes
+        ):
             open_by_check.setdefault(finding.check_id, []).append(finding)
     return True
 
@@ -466,6 +578,12 @@ def list_composite_controls(
         ).all()
         if row.composite_control_id
     }
+    integration_providers = db.scalars(
+        select(IdentityProvider).where(
+            IdentityProvider.org_id == org_id,
+            IdentityProvider.type.in_(_INTEGRATION_EVIDENCE_PROVIDER_TYPES),
+        )
+    ).all()
 
     result: list[dict[str, Any]] = []
     for entry in composite_control_definitions():
@@ -524,6 +642,9 @@ def list_composite_controls(
                 "coverage_override": coverage_overrides.get(entry["id"]),
                 "coverage_override_detail": coverage_override_details.get(entry["id"]),
                 "cross_account_coverage_detail": cross_account_detail,
+                "evidence_integrations": evidence_integrations_for_check_ids(
+                    check_ids, integration_providers
+                ),
             }
         if entry["id"] == "secure_sdlc":
             row["sdlc_insights"] = sdlc_insights

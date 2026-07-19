@@ -1,5 +1,6 @@
 from app.models.org import Org, User
 from app.models.user_session import UserSession
+from app.models.access_request import AccessRequest
 from app.models.aws_account import AssumeRoleAudit, AwsAccount, ScanRun
 from app.models.cloud_scan_run import CloudScanRun
 from app.models.iam import IamUser, IamAccessKey, IamRole, IamPolicy, IamPermUsage
@@ -31,6 +32,8 @@ from app.models.phase9 import (
     VaultExportShare,
 )
 from app.models.org_team import OrgActivityLog, OrgDomain, OrgInvite, OrgJoinRequest, OrgMembership
+from app.models.platform_audit import PlatformAuditLog
+from app.models.workspace_creation_invite import WorkspaceCreationInvite
 from app.models.saml import OrgSamlConfig
 from app.models.digest_snapshot import DigestSnapshot
 from app.models.gcp_project import (
@@ -54,7 +57,7 @@ from app.models.azure_subscription import (
 )
 
 __all__ = [
-    "Org", "User",
+    "Org", "User", "AccessRequest",
     "AssumeRoleAudit", "AwsAccount", "ScanRun", "CloudScanRun",
     "IamUser", "IamAccessKey", "IamRole", "IamPolicy", "IamPermUsage",
     "Finding", "FindingEvent",
@@ -76,6 +79,8 @@ __all__ = [
     "AuditorAccess", "AuditActivityLog", "TrustCenterConfig",
     "VaultExportShare", "OrgFramework", "EvidenceRequirement", "ControlCoverage", "MdmDeviceSnapshot",
     "OrgInvite", "OrgActivityLog", "OrgDomain", "OrgJoinRequest", "OrgMembership",
+    "PlatformAuditLog",
+    "WorkspaceCreationInvite",
     "OrgSamlConfig",
     "DigestSnapshot",
     "UserSession",

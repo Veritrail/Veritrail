@@ -10,6 +10,7 @@ import {
   controlListSchema,
   evidenceCoverageSchema,
   externalEvidenceListSchema,
+  integrationStatusNullableSchema,
 } from "../lib/apiSchemas";
 import { canUploadEvidence, roleAtLeast, useMe } from "../hooks/useMe";
 import { labelForCheck } from "../data/checkLabels";
@@ -21,8 +22,16 @@ import { EvidencePackExportPanel } from "../components/EvidencePackExportPanel";
 import type { ComplianceHistoryResponse } from "../lib/complianceHistory";
 import type { EvidenceCoverage } from "../lib/evidenceCoverage";
 import { controlPostureScore } from "../lib/controlPostureScore";
+import { manualEvidenceHint } from "../lib/manualEvidenceHints";
+import {
+  compareControlIds,
+  controlFamily,
+  isCollectableCriteriaControl,
+  isHiddenComplianceFamily,
+} from "../lib/controlFamilies";
 import {
   findingsScopeParams,
+  findingsHrefForCheckIds,
   useConnectedAccountOptions,
 } from "../hooks/useConnectedAccountOptions";
 import { useSelectedAccountId } from "../hooks/useSelectedAccountId";
@@ -32,6 +41,8 @@ import { AccountFilterDropdown } from "../components/AccountFilterDropdown";
 import { CloudFeatureComingSoon } from "../components/CloudFeatureComingSoon";
 import { isCloudFeatureComingSoon } from "../lib/cloudProviderFeatures";
 import { HeaderFilterBar } from "../components/HeaderFilterBar";
+import { HeaderViewSelect } from "../components/HeaderViewSelect";
+import { Select } from "../components/Select";
 import { ExternalEvidencePanel } from "../components/ExternalEvidencePanel";
 import { CoverageOverridePanel } from "../components/CoverageOverridePanel";
 import {
@@ -57,21 +68,19 @@ import {
   openCrossAccountCoverableChecks,
 } from "../lib/evidenceGap";
 import { ControlEvidenceDrawerTrigger } from "../components/ControlEvidenceDrawer";
+import { ControlEvidenceTabContent } from "../components/ControlEvidenceSlideOver";
 import { VirtualizedCompositeControlsList } from "../components/VirtualizedCompositeControlsList";
 import { DrawerDateField } from "../components/DrawerDateField";
 import {
   ControlDetailPillCard,
-  ControlEvidenceTabContent,
   ExternalEvidenceArtifactList,
 } from "../components/ControlEvidenceSlideOver";
 import { evidenceArtifactsForComposite } from "../lib/controlEvidence";
 import {
   ControlDetailPanel,
-  ControlReadinessBar,
   type ControlDetailTab,
   type ControlDetailTabId,
 } from "../components/ControlDetailPanel";
-import { controlReadinessMetrics, type ReadinessMetric } from "../lib/controlReadiness";
 import { HeaderSlot } from "../context/HeaderSlot";
 import { FrameworkMark } from "../components/FrameworkMark";
 import { CHECK_CONTROL_IDS_MAP } from "../data/checkControlIdsMap";
@@ -147,6 +156,12 @@ type CompositeControlRow = {
     set_at: string | null;
   } | null;
   scanning_attestable_checks?: string[];
+  evidence_integrations?: {
+    type: string;
+    label: string;
+    connected: boolean;
+    last_synced_at: string | null;
+  }[];
 };
 
 type ControlRow = {
@@ -199,6 +214,8 @@ type StatusFilter =
   | "expired";
 
 type ComplianceView = "composite" | "detailed";
+type CompliancePageView = "controls" | "checks";
+type ControlsVariant = "criteria" | "checklist";
 
 const statusExpandedBg: Record<string, string> = {
   pass: "bg-zinc-50/40",
@@ -214,6 +231,7 @@ type OpenFindingMeta = {
   check_id: string;
   severity: string;
   resource_arn: string;
+  evidence?: Record<string, unknown>;
 };
 
 const SEV_WEIGHT: Record<string, number> = {
@@ -223,31 +241,6 @@ const SEV_WEIGHT: Record<string, number> = {
   low: 3,
   info: 4,
 };
-
-function ComplianceExpandChevron({
-  expanded,
-  className = "",
-}: {
-  expanded: boolean;
-  className?: string;
-}) {
-  return (
-    <svg
-      className={`h-3.5 w-3.5 shrink-0 text-zinc-400 transition-transform ${expanded ? "rotate-0" : "-rotate-90"} ${className}`}
-      fill="none"
-      stroke="currentColor"
-      viewBox="0 0 24 24"
-      aria-hidden
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M19 9l-7 7-7-7"
-      />
-    </svg>
-  );
-}
 
 function compositeDisplayStatus(
   ctrl: CompositeControlRow,
@@ -273,12 +266,6 @@ function compositeDisplayStatus(
     base = "unevaluated";
   } else if (ctrl.status === "fail" && hasAcceptedExternalEvidence) {
     base = "externally_covered";
-  } else if (
-    ctrl.status === "fail" &&
-    !hasAcceptedExternalEvidence &&
-    openAbsenceGapChecks(ctrl.check_ids, findingCountByCheck).length > 0
-  ) {
-    base = "needs_evidence";
   } else {
     const failingChecks = ctrl.check_ids.filter(
       (id) => (findingCountByCheck.get(id) ?? 0) > 0,
@@ -455,10 +442,28 @@ function isCoarseSoc2Category(controlId: string): boolean {
   return /^CC\d+$/i.test(controlId);
 }
 
+type MappedCriterionStatus = {
+  label: string;
+  tone: "pass" | "fail" | "at-risk" | "pending" | "neutral";
+};
+
 type GuidanceMappedControl = {
   framework: string;
   control_id: string;
   reference_url: string;
+  description?: string;
+  /** Live per-criterion state — never inherited from the composite's own chip. */
+  status?: MappedCriterionStatus;
+};
+
+/**
+ * Manual-evidence criteria that sit next to a technical composite's subject
+ * matter. A green composite must not read as "this domain is done" while these
+ * still lack accepted evidence — they cap the chip and appear in Mapping.
+ */
+const COMPOSITE_RELATED_MANUAL_CRITERIA: Record<string, string[]> = {
+  incident_response: ["CC7.3", "CC7.4"],
+  data_protection: ["CC6.5"],
 };
 
 /** Resolve framework control IDs from composite checks (same source as Findings drawer). */
@@ -606,75 +611,12 @@ function ManualAttestation({
   );
 }
 
-function controlFamily(framework: string, controlId: string) {
-  if (framework === "soc2") {
-    if (controlId.startsWith("CC6"))
-      return { key: "cc6", label: "CC6 Cloud Access" };
-    if (controlId.startsWith("CC7"))
-      return { key: "cc7", label: "CC7 Cloud Operations" };
-    if (controlId.startsWith("CC8"))
-      return { key: "cc8", label: "CC8 Change Evidence" };
-    return { key: "manual-evidence", label: "Manual Evidence" };
-  }
-
-  if (framework === "cis_aws_l1") {
-    const section = controlId.split(".")[0];
-    if (section === "1")
-      return { key: "cis-1", label: "CIS 1 Identity and Access" };
-    if (section === "2")
-      return { key: "cis-2", label: "CIS 2 Storage and Logging" };
-    if (section === "3") return { key: "cis-3", label: "CIS 3 Networking" };
-    if (section === "4") return { key: "cis-4", label: "CIS 4 Monitoring" };
-  }
-
-  if (framework === "iso27001") {
-    if (controlId.startsWith("A.9"))
-      return { key: "iso-a9", label: "A.9 Access Control" };
-    if (controlId.startsWith("A.10"))
-      return { key: "iso-a10", label: "A.10 Cryptography" };
-    if (controlId.startsWith("A.12"))
-      return { key: "iso-a12", label: "A.12 Operations Security" };
-    if (controlId.startsWith("A.13"))
-      return { key: "iso-a13", label: "A.13 Communications Security" };
-  }
-
-  return { key: "other", label: "Other" };
-}
-
-function controlIdSortKey(controlId: string): (string | number)[] {
-  const parts: (string | number)[] = [];
-  const re = /(\d+)|(\D+)/g;
-  let match: RegExpExecArray | null;
-  while ((match = re.exec(controlId)) !== null) {
-    parts.push(match[1] ? Number.parseInt(match[1], 10) : match[2]);
-  }
-  return parts;
-}
-
-function compareControlIds(a: string, b: string): number {
-  const pa = controlIdSortKey(a);
-  const pb = controlIdSortKey(b);
-  const len = Math.max(pa.length, pb.length);
-  for (let i = 0; i < len; i += 1) {
-    const va = pa[i];
-    const vb = pb[i];
-    if (va === undefined) return -1;
-    if (vb === undefined) return 1;
-    if (typeof va === "number" && typeof vb === "number") {
-      if (va !== vb) return va - vb;
-    } else {
-      const cmp = String(va).localeCompare(String(vb));
-      if (cmp !== 0) return cmp;
-    }
-  }
-  return 0;
-}
-
 function groupControls(rows: ControlRow[], framework: string): ControlGroup[] {
   const groups = new Map<string, ControlGroup>();
 
   for (const row of rows) {
     const family = controlFamily(framework, row.control_id);
+    if (isHiddenComplianceFamily(family.key)) continue;
     const existing = groups.get(family.key);
     const group = existing ?? {
       key: family.key,
@@ -700,18 +642,73 @@ function groupControls(rows: ControlRow[], framework: string): ControlGroup[] {
     });
   }
 
-  // Keep named families in their natural order, but always park manual/catch-all
-  // evidence on the far right (stable sort preserves the rest).
+  // Park catch-all families on the far right (stable sort preserves the rest).
   return Array.from(groups.values()).sort(
-    (a, b) =>
-      (a.key === "manual-evidence" || a.key === "other" ? 1 : 0) -
-      (b.key === "manual-evidence" || b.key === "other" ? 1 : 0),
+    (a, b) => (a.key === "other" ? 1 : 0) - (b.key === "other" ? 1 : 0),
   );
 }
 
+const SOC2_CRITERIA_FAMILY_ORDER = [
+  { key: "cc6", label: "CC6 Cloud Access" },
+  { key: "cc7", label: "CC7 Cloud Operations" },
+  { key: "cc8", label: "CC8 Change Evidence" },
+] as const;
+
+/** Criteria tab: show all collectable SOC 2 families (CC6–CC8). */
+const CRITERIA_FAMILY_ALL_KEY = "all";
+
+const CRITERIA_FAMILY_OPTIONS = [
+  { value: CRITERIA_FAMILY_ALL_KEY, label: "All criteria" },
+  ...SOC2_CRITERIA_FAMILY_ORDER.map((family) => ({
+    value: family.key,
+    label: shortFamilyLabel(family.label),
+  })),
+];
+
+/** Criteria tab: always include CC6/CC7/CC8 groups (empty when status filter excludes them). */
+function groupSoc2CriteriaFamilies(rows: ControlRow[]): ControlGroup[] {
+  const grouped = groupControls(rows, "soc2");
+  const byKey = new Map(grouped.map((group) => [group.key, group]));
+  return SOC2_CRITERIA_FAMILY_ORDER.map(
+    (family) =>
+      byKey.get(family.key) ?? {
+        key: family.key,
+        label: family.label,
+        rows: [],
+        passed: 0,
+        failed: 0,
+        noData: 0,
+      },
+  );
+}
+
+/** Split "Category — Name" titles; return the short name segment. */
 function shortControlTitle(title: string) {
-  const parts = title.split("—");
-  return parts.length > 1 ? parts.slice(1).join("—").trim() : title;
+  const trimmed = title.trim();
+  const dashName = trimmed.match(/^[^—–]+[—–]\s*(.+)$/);
+  if (dashName) return dashName[1].trim();
+  const hyphenName = trimmed.match(/^[^-]+?\s+-\s+(.+)$/);
+  if (hyphenName) return hyphenName[1].trim();
+  const dotName = trimmed.match(/^[^·]+·\s*(.+)$/);
+  if (dotName) return dotName[1].trim();
+  return trimmed;
+}
+
+/** Criteria / detailed row label: `CC6.1 - Asset Inventory` (ASCII hyphen throughout). */
+function CriteriaControlListTitle({
+  controlId,
+  title,
+}: {
+  controlId: string;
+  title: string;
+}) {
+  return (
+    <>
+      <span className="compliance-control-card__control-id">{controlId}</span>
+      {" - "}
+      {shortControlTitle(title)}
+    </>
+  );
 }
 
 function findingLabel(count: number) {
@@ -784,7 +781,6 @@ const COMPOSITE_DISPLAY_ORDER = [
   "vulnerability_management",
   "logging_monitoring",
   "backup_resilience",
-  "endpoint_security",
 ] as const;
 
 const NESTED_COMPOSITE_IDS: Record<string, string> = {
@@ -1274,7 +1270,7 @@ function ComplianceStatusFilterBar({
     { id: "all", label: "All", count: total },
     { id: "fail", label: "Failing", count: failed, urgent: true },
     { id: "pass", label: "Passing", count: passed },
-    { id: "no_data", label: "No data", count: noData },
+    { id: "no_data", label: "Not evaluated", count: noData },
   ];
   return (
     <FilterChipBar
@@ -1290,12 +1286,14 @@ function ComplianceFamilyNav({
   groups,
   selectedKey,
   onSelect,
+  minGroups = 2,
 }: {
   groups: ControlGroup[];
   selectedKey: string;
   onSelect: (key: string) => void;
+  minGroups?: number;
 }) {
-  if (groups.length <= 1) return null;
+  if (groups.length < minGroups) return null;
 
   return (
     <nav
@@ -1317,13 +1315,43 @@ function ComplianceFamilyNav({
           >
             {shortFamilyLabel(group.label)}
             <span className={isSelected ? "text-zinc-500" : "text-zinc-400"}>
-              {" "}
-              · {group.rows.length}
+              {" · "}
+              {group.rows.length}
             </span>
           </button>
         );
       })}
     </nav>
+  );
+}
+
+/** Criteria tab: compact "Criteria family:" label + bordered select (not CC pills). */
+function CriteriaFamilyFilter({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (key: string) => void;
+}) {
+  return (
+    <div
+      className="compliance-criteria-family-filter"
+      role="group"
+      aria-labelledby="criteria-family-filter-label"
+    >
+      <span id="criteria-family-filter-label" className="compliance-criteria-family-filter__label">
+        Criteria family:
+      </span>
+      <Select
+        value={value}
+        onChange={onChange}
+        options={CRITERIA_FAMILY_OPTIONS}
+        size="sm"
+        className="compliance-criteria-family-filter__select"
+        menuClassName="compliance-criteria-family-filter__menu"
+        ariaLabel="Criteria family"
+      />
+    </div>
   );
 }
 
@@ -1373,6 +1401,29 @@ function ComplianceToolbarLoadingSkeleton() {
   );
 }
 
+function CompliancePageViewToggle({
+  pageView,
+  onChange,
+  className = "",
+}: {
+  pageView: CompliancePageView;
+  onChange: (view: CompliancePageView) => void;
+  className?: string;
+}) {
+  return (
+    <HeaderViewSelect
+      value={pageView}
+      options={[
+        { value: "controls", label: "Controls" },
+        { value: "checks", label: "Criteria" },
+      ]}
+      onChange={onChange}
+      ariaLabel="Compliance view"
+      className={className}
+    />
+  );
+}
+
 function ComplianceUnifiedToolbar({
   statusFilter,
   onStatusFilterChange,
@@ -1380,6 +1431,9 @@ function ComplianceUnifiedToolbar({
   compositeStatusFilter = false,
   showStatusFilter,
   toolbarLoading = false,
+  criteriaFamilyKey,
+  onCriteriaFamilyChange,
+  showCriteriaFamilyFilter = false,
   auditExport,
   showAuditExport,
 }: {
@@ -1399,48 +1453,62 @@ function ComplianceUnifiedToolbar({
   compositeStatusFilter?: boolean;
   showStatusFilter: boolean;
   toolbarLoading?: boolean;
+  criteriaFamilyKey?: string | null;
+  onCriteriaFamilyChange?: (key: string) => void;
+  showCriteriaFamilyFilter?: boolean;
   auditExport: ReactNode;
   showAuditExport: boolean;
 }) {
+  const showFamilyFilter =
+    showCriteriaFamilyFilter &&
+    Boolean(criteriaFamilyKey) &&
+    Boolean(onCriteriaFamilyChange);
+
   return (
     <div className="findings-v2-table-toolbar">
       <div className="findings-v2-filter-cluster !flex-wrap">
         {toolbarLoading ? (
           <ComplianceToolbarLoadingSkeleton />
         ) : (
-          <>
-            {showStatusFilter && (
-              <ComplianceStatusFilterBar
-                total={statusCounts.total}
-                passed={statusCounts.passed}
-                failed={statusCounts.failed}
-                noData={statusCounts.noData}
-                needsEvidence={statusCounts.needsEvidence}
-                externallyCovered={statusCounts.externallyCovered}
-                pendingReview={statusCounts.pendingReview}
-                staleEvidence={statusCounts.staleEvidence}
-                expiredEvidence={statusCounts.expiredEvidence}
-                statusFilter={statusFilter}
-                onChange={onStatusFilterChange}
-                compositeMode={compositeStatusFilter}
-              />
-            )}
-          </>
+          showStatusFilter && (
+            <ComplianceStatusFilterBar
+              total={statusCounts.total}
+              passed={statusCounts.passed}
+              failed={statusCounts.failed}
+              noData={statusCounts.noData}
+              needsEvidence={statusCounts.needsEvidence}
+              externallyCovered={statusCounts.externallyCovered}
+              pendingReview={statusCounts.pendingReview}
+              staleEvidence={statusCounts.staleEvidence}
+              expiredEvidence={statusCounts.expiredEvidence}
+              statusFilter={statusFilter}
+              onChange={onStatusFilterChange}
+              compositeMode={compositeStatusFilter}
+            />
+          )
         )}
       </div>
       <div className="findings-v2-control-cluster">
         {toolbarLoading ? (
           <div className="h-9 w-44 animate-pulse rounded-lg bg-zinc-100" aria-hidden />
         ) : (
-          showAuditExport && (
-            <div
-              className="findings-v2-toolbar-group findings-v2-actions-group"
-              role="group"
-              aria-label="Export"
-            >
-              {auditExport}
-            </div>
-          )
+          <>
+            {showAuditExport && (
+              <div
+                className="findings-v2-toolbar-group findings-v2-actions-group"
+                role="group"
+                aria-label="Export"
+              >
+                {auditExport}
+              </div>
+            )}
+            {showFamilyFilter && criteriaFamilyKey && onCriteriaFamilyChange && (
+              <CriteriaFamilyFilter
+                value={criteriaFamilyKey}
+                onChange={onCriteriaFamilyChange}
+              />
+            )}
+          </>
         )}
       </div>
     </div>
@@ -1451,20 +1519,24 @@ function ComplianceContentShell({
   toolbar,
   section,
   children,
+  plain = false,
 }: {
   toolbar?: ReactNode;
   section?: ReactNode;
   children: ReactNode;
+  plain?: boolean;
 }) {
   return (
-    <section className="compliance-list-card mb-4 min-w-0">
+    <section className={plain ? "compliance-checklist-shell min-w-0" : "compliance-list-card mb-4 min-w-0"}>
       {toolbar}
       {section && (
         <div className="border-b border-zinc-100 px-5 py-2.5">{section}</div>
       )}
-      <div className="divide-y divide-zinc-100 overflow-hidden rounded-b-2xl">
-        {children}
-      </div>
+      {plain ? children : (
+        <div className="divide-y divide-zinc-100 overflow-hidden rounded-b-2xl">
+          {children}
+        </div>
+      )}
     </section>
   );
 }
@@ -2481,30 +2553,6 @@ function ControlDetailSection({
   );
 }
 
-/** Readiness bar wrapped in a titled section with an N-of-M summary stat. */
-function ControlReadinessSection({ metrics }: { metrics: ReadinessMetric[] }) {
-  if (metrics.length === 0) return null;
-  const primary = metrics[0];
-  return (
-    <ControlDetailSection
-      panel
-      title="Readiness"
-      action={
-        <span className="control-detail-section__stat">
-          {primary.complete}
-          <span className="control-detail-section__stat-sep">/</span>
-          {primary.total}
-        </span>
-      }
-    >
-      <ControlReadinessBar metrics={metrics} />
-      <p className="control-detail-hint">
-        Concrete N-of-M counts — not a likelihood-to-pass score.
-      </p>
-    </ControlDetailSection>
-  );
-}
-
 /**
  * Declare an external code/dependency/secret scanner (Snyk, Semgrep, etc.).
  * When declared, the scanning-family findings are cleared from Secure SDLC
@@ -2890,7 +2938,7 @@ function CompositeGapResolution({
                   open
                   embedInResolution
                   onClose={() => setOpenPanel(null)}
-                  onConnect={() => navigate("/accounts")}
+                  onConnect={() => navigate("/home")}
                 />
               </div>
             ) : null}
@@ -3017,10 +3065,8 @@ function ControlGuidanceContent({ text }: { text: string }) {
 
 function ControlGuidanceFooter({
   guidance,
-  mappedControls,
 }: {
   guidance: string | null;
-  mappedControls: GuidanceMappedControl[];
 }) {
   return (
     <ControlDetailSection>
@@ -3031,51 +3077,74 @@ function ControlGuidanceFooter({
           <p className="control-detail-empty">No written guidance yet for this control.</p>
         )}
       </ControlDetailPillCard>
-      {mappedControls.length > 0 ? (
-        <div className="control-detail-guidance-footer">
-          <p className="control-detail-mapped-controls__heading">Mapped controls</p>
-          <ul className="control-detail-mapped-controls">
-            {mappedControls.map((c) => (
-              <li
-                key={`${c.framework}:${c.control_id}`}
-                className="control-detail-mapped-controls__card"
-              >
-                <FrameworkMark framework={c.framework} />
-                <span className="control-detail-mapped-controls__label">
-                  {frameworkLabel(c.framework)} {c.control_id}
-                </span>
-                <a
-                  href={c.reference_url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="control-detail-mapped-controls__docs"
-                >
-                  Docs
-                  <svg
-                    className="control-detail-mapped-controls__docs-icon"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                    viewBox="0 0 24 24"
-                    aria-hidden
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"
-                    />
-                  </svg>
-                </a>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
     </ControlDetailSection>
   );
 }
 
-/** Single-page composite drawer — blocking gaps, resolution path, guidance. */
+function MappedControlsList({ mappedControls }: { mappedControls: GuidanceMappedControl[] }) {
+  if (mappedControls.length === 0) {
+    return (
+      <p className="control-detail-empty">No framework mappings recorded for this control group.</p>
+    );
+  }
+  return (
+    <div className="control-detail-guidance-footer">
+      <p className="control-detail-mapped-controls__heading">Mapped controls</p>
+      <ul className="control-detail-mapped-controls">
+        {mappedControls.map((c) => (
+          <li
+            key={`${c.framework}:${c.control_id}`}
+            className="control-detail-mapped-controls__card"
+          >
+            <FrameworkMark framework={c.framework} />
+            <span className="control-detail-mapped-controls__copy">
+              <span className="control-detail-mapped-controls__label">
+                {frameworkLabel(c.framework)} {c.control_id}
+              </span>
+              {c.description ? (
+                <span className="control-detail-mapped-controls__description">
+                  {c.description}
+                </span>
+              ) : null}
+            </span>
+            {c.status ? (
+              <span
+                className={`control-detail-mapped-controls__status is-${c.status.tone}`}
+              >
+                <i aria-hidden />
+                {c.status.label}
+              </span>
+            ) : null}
+            <a
+              href={c.reference_url}
+              target="_blank"
+              rel="noreferrer"
+              className="control-detail-mapped-controls__docs"
+            >
+              Docs
+              <svg
+                className="control-detail-mapped-controls__docs-icon"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+                viewBox="0 0 24 24"
+                aria-hidden
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"
+                />
+              </svg>
+            </a>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/** Composite drawer tabs — fix, evidence, and framework mapping. */
 function buildCompositeTabs({
   ctrl,
   findingCountByCheck,
@@ -3134,16 +3203,57 @@ function buildCompositeTabs({
   });
   const isExternalOnly = isExternalOnlyComposite(ctrl.check_ids, ctrl.id);
   const isVerified = displayStatus === "passing";
-  const mappedControls = compositeMappedControls(ctrl, framework);
+  const acceptedControlDbIds = new Set(
+    externalEvidence
+      .filter((artifact) => artifact.status === "accepted" && artifact.control_id)
+      .map((artifact) => artifact.control_id as string),
+  );
+
+  const criterionStatus = (code: string): MappedCriterionStatus | undefined => {
+    const row = frameworkRows.find((r) => r.control_id === code);
+    if (!row) return undefined;
+    if (row.check_ids.length === 0) {
+      return acceptedControlDbIds.has(row.id)
+        ? { label: "Evidence attached", tone: "pass" }
+        : { label: "Needs evidence", tone: "pending" };
+    }
+    const display = controlDisplayStatus(row, findingCountByCheck);
+    if (display === "passing") return { label: "Passing", tone: "pass" };
+    if (display === "failing") return { label: "Failing", tone: "fail" };
+    if (display === "at_risk") return { label: "At risk", tone: "at-risk" };
+    if (display === "externally_covered") return { label: "Externally covered", tone: "pass" };
+    return { label: "Not evaluated", tone: "neutral" };
+  };
+
+  const mappedControls: GuidanceMappedControl[] = compositeMappedControls(ctrl, framework).map(
+    (mapped) => ({
+      ...mapped,
+      description: frameworkRows.find((row) => row.control_id === mapped.control_id)?.title,
+      status: criterionStatus(mapped.control_id),
+    }),
+  );
+  if (framework === "soc2") {
+    for (const code of COMPOSITE_RELATED_MANUAL_CRITERIA[ctrl.id] ?? []) {
+      if (mappedControls.some((mapped) => mapped.control_id === code)) continue;
+      mappedControls.push({
+        framework,
+        control_id: code,
+        reference_url: controlReferenceUrl(framework, code),
+        description: frameworkRows.find((row) => row.control_id === code)?.title,
+        status: criterionStatus(code) ?? { label: "Needs evidence", tone: "pending" },
+      });
+    }
+    mappedControls.sort((a, b) => compareControlIds(a.control_id, b.control_id));
+  }
   const linkedEvidence = evidenceArtifactsForComposite(externalEvidence, ctrl.id);
 
   return [
     {
       id: "gaps",
-      label: "Gaps",
+      label: "Fix",
       content: (
         <div className="control-detail-stack control-detail-stack--composite">
-          {displayStatus === "needs_evidence" && hasAbsenceGaps ? (
+          {displayStatus === "needs_evidence" && isExternalOnly ? (
             <CoverageGapExplainer absenceChecks={absenceChecks} compositeId={ctrl.id} />
           ) : null}
 
@@ -3189,6 +3299,19 @@ function buildCompositeTabs({
             </ControlDetailSection>
           ) : null}
 
+          {!isVerified ? (
+            <ControlGuidanceFooter
+              guidance={externalOnlyGuidance(ctrl.id, ctrl.guidance)}
+            />
+          ) : null}
+        </div>
+      ),
+    },
+    {
+      id: "evidence",
+      label: "Evidence",
+      content: (
+        <div className="control-detail-stack control-detail-stack--composite">
           <ControlDetailSection>
             <ControlDetailPillCard label="External evidence">
               <ExternalEvidenceArtifactList
@@ -3199,13 +3322,17 @@ function buildCompositeTabs({
               />
             </ControlDetailPillCard>
           </ControlDetailSection>
-
-          {!isVerified ? (
-            <ControlGuidanceFooter
-              guidance={externalOnlyGuidance(ctrl.id, ctrl.guidance)}
-              mappedControls={mappedControls}
-            />
-          ) : null}
+        </div>
+      ),
+    },
+    {
+      id: "mappings",
+      label: "Mapping",
+      content: (
+        <div className="control-detail-stack control-detail-stack--composite">
+          <ControlDetailSection title="Framework mapping">
+            <MappedControlsList mappedControls={mappedControls} />
+          </ControlDetailSection>
         </div>
       ),
     },
@@ -3217,55 +3344,52 @@ function buildDetailedTabs({
   ctrl,
   framework,
   findingCountByCheck,
+  externalEvidence,
+  canEditEvidence,
+  submittedCount,
+  compositeId,
   canAttest,
   attestPending,
   onAttest,
-  externalEvidence,
-  submittedCount,
-  compositeId,
-  canEditEvidence,
 }: {
   ctrl: ControlRow;
   framework: string;
   findingCountByCheck: Map<string, number>;
+  externalEvidence: ExternalEvidenceArtifact[];
+  canEditEvidence: boolean;
+  submittedCount: number;
+  compositeId?: string | null;
   canAttest: boolean;
   attestPending: boolean;
   onAttest: (status: string) => void;
-  externalEvidence: ExternalEvidenceArtifact[];
-  submittedCount: number;
-  compositeId: string | null;
-  canEditEvidence: boolean;
 }): ControlDetailTab[] {
-  const displayStatus = controlDisplayStatus(ctrl, findingCountByCheck);
   const blockingCount = ctrl.check_ids.filter(
     (checkId) => (findingCountByCheck.get(checkId) ?? 0) > 0,
   ).length;
   const hasMappingMeta =
     !!ctrl.soc2_scope_category || !!ctrl.cis_profile_level || !!ctrl.iso_applicability;
-  const isVerified = displayStatus === "passing";
-  const readinessMetrics = controlReadinessMetrics(
-    ctrl.check_ids,
-    ctrl.check_tiers,
-    findingCountByCheck,
-  );
+  const manualHint = ctrl.kind === "manual"
+    ? manualEvidenceHint(framework, ctrl.control_id)
+    : null;
 
+  // Deliberately minimal: blocking gaps + findings link are the drawer's core
+  // content. Readiness counters, evidence management, and written guidance live
+  // elsewhere (composite drawer / evidence workflows), not in this criteria view.
   const tabs: ControlDetailTab[] = [
-    {
-      id: "overview",
-      label: "Overview",
-      content: (
-        <div className="control-detail-stack">
-          <ControlReadinessSection metrics={readinessMetrics} />
-        </div>
-      ),
-    },
     {
       id: "gaps",
       label: "Gaps",
       badge: blockingCount > 0 ? blockingCount : undefined,
       content: (
         <div className="control-detail-stack">
-          <ControlDetailSection title="Blocking gaps">
+          <ControlDetailSection
+            title="Blocking gaps"
+            action={
+              blockingCount > 0 ? (
+                <span className="control-detail-section__stat">{blockingCount}</span>
+              ) : undefined
+            }
+          >
             {ctrl.check_ids.length > 0 ? (
               <ControlFindingsBlock
                 control={ctrl}
@@ -3288,43 +3412,55 @@ function buildDetailedTabs({
                 />
               </div>
             ) : null}
-
-            {ctrl.check_ids.length > 0 ? (
-              <div className="control-detail-subsection">
-                <p className="control-detail-subsection__label">Evidence</p>
-                <ControlEvidenceTabContent
-                  control={ctrl}
-                  artifacts={externalEvidence}
-                  findingCountByCheck={findingCountByCheck}
-                  displayStatus={displayStatus}
-                  submittedCount={submittedCount}
-                  framework={framework}
-                  compositeId={compositeId}
-                  canEdit={canEditEvidence}
-                />
-              </div>
-            ) : null}
           </ControlDetailSection>
 
-          {!isVerified ? (
-            <ControlDetailSection>
-              <ControlDetailPillCard label="Guidance">
-                {ctrl.guidance ? (
-                  <ControlGuidanceContent text={ctrl.guidance} />
-                ) : !hasMappingMeta ? (
-                  <p className="control-detail-empty">No written guidance yet for this control.</p>
-                ) : null}
-              </ControlDetailPillCard>
-              {hasMappingMeta ? (
-                <p className="control-detail-mapping-line">
-                  {frameworkControlLabel(framework, ctrl.control_id)}
-                  {ctrl.soc2_scope_category ? ` · SOC 2 scope: ${ctrl.soc2_scope_category}` : ""}
-                  {ctrl.cis_profile_level ? ` · CIS profile: ${ctrl.cis_profile_level}` : ""}
-                  {ctrl.iso_applicability ? ` · ISO 27001: ${ctrl.iso_applicability}` : ""}
-                </p>
-              ) : null}
-            </ControlDetailSection>
+          {hasMappingMeta ? (
+            <p className="control-detail-mapping-line">
+              {frameworkControlLabel(framework, ctrl.control_id)}
+              {ctrl.soc2_scope_category ? ` · SOC 2 scope: ${ctrl.soc2_scope_category}` : ""}
+              {ctrl.cis_profile_level ? ` · CIS profile: ${ctrl.cis_profile_level}` : ""}
+              {ctrl.iso_applicability ? ` · ISO 27001: ${ctrl.iso_applicability}` : ""}
+            </p>
           ) : null}
+        </div>
+      ),
+    },
+    {
+      id: "evidence",
+      label: "Evidence",
+      content: (
+        <div className="control-detail-stack">
+          {manualHint ? (
+            <section
+              className={`manual-evidence-route is-${manualHint.collectionMode}`}
+              aria-label="Recommended evidence route"
+            >
+              <div className="manual-evidence-route__copy">
+                <span>Recommended collection route</span>
+                <strong>
+                  {manualHint.collectionMode === "connect"
+                    ? "Connect the evidence source"
+                    : "Attach auditor-ready evidence"}
+                </strong>
+                <p>{manualHint.expected}</p>
+              </div>
+              {manualHint.collectionMode === "connect" && manualHint.integration ? (
+                <Link className="manual-evidence-route__action" to={manualHint.integration.href}>
+                  {manualHint.integration.label} <span aria-hidden>→</span>
+                </Link>
+              ) : null}
+            </section>
+          ) : null}
+          <ControlEvidenceTabContent
+            control={ctrl}
+            artifacts={externalEvidence}
+            findingCountByCheck={findingCountByCheck}
+            displayStatus={controlDisplayStatus(ctrl, findingCountByCheck)}
+            submittedCount={submittedCount}
+            framework={framework}
+            compositeId={compositeId}
+            canEdit={canEditEvidence}
+          />
         </div>
       ),
     },
@@ -3361,6 +3497,7 @@ function CompositeControlsPanel({
   acceptedCompositeIds,
   expiredCompositeIds,
   statusFilter,
+  evidencePendingByComposite,
 }: {
   rows: CompositeControlRow[];
   findingCountByCheck: Map<string, number>;
@@ -3370,6 +3507,8 @@ function CompositeControlsPanel({
   acceptedCompositeIds: Set<string>;
   expiredCompositeIds: Set<string>;
   statusFilter: StatusFilter;
+  /** Composite id → sibling manual criteria still lacking accepted evidence. */
+  evidencePendingByComposite: Map<string, string[]>;
 }) {
   const navigate = useNavigate();
   const treeRows = useMemo(() => prepareCompositeTreeRows(rows), [rows]);
@@ -3432,12 +3571,6 @@ function CompositeControlsPanel({
                   className="compliance-control-card__summary"
                 >
                   <div className="compliance-control-card__main">
-                    <span
-                      className={`compliance-control-card__chevron${isSelected ? " is-open" : ""}`}
-                      aria-hidden
-                    >
-                      ›
-                    </span>
                     <CompositeGroupIcon id={ctrl.id} />
                     <div className="compliance-control-card__title">
                       <h3>{ctrl.title}</h3>
@@ -3446,11 +3579,21 @@ function CompositeControlsPanel({
                   </div>
 
                   <div className="compliance-control-card__state">
+                    {(evidencePendingByComposite.get(ctrl.id)?.length ?? 0) > 0 &&
+                    (displayStatus === "passing" || displayStatus === "externally_covered") ? (
+                      <span
+                        className="compliance-control-card__pending-evidence"
+                        title={`Accepted evidence still required for ${evidencePendingByComposite.get(ctrl.id)!.join(", ")}`}
+                      >
+                        Evidence pending · {evidencePendingByComposite.get(ctrl.id)!.join(", ")}
+                      </span>
+                    ) : null}
                     <ComplianceRowSummary
                       displayStatus={displayStatus}
                       href={findingsHref}
                       onNavigate={(href) => navigate(href)}
                     />
+                    <span className="compliance-control-card__open-indicator" aria-hidden>›</span>
                   </div>
                 </button>
 
@@ -3478,12 +3621,6 @@ function CompositeControlsPanel({
                             className="compliance-control-card__summary"
                           >
                             <div className="compliance-control-card__main">
-                              <span
-                                className={`compliance-control-card__chevron${childSelected ? " is-open" : ""}`}
-                                aria-hidden
-                              >
-                                ›
-                              </span>
                               <CompositeGroupIcon id={child.id} />
                               <div className="compliance-control-card__title">
                                 <h3>{childDisplay?.title ?? child.title}</h3>
@@ -3496,6 +3633,7 @@ function CompositeControlsPanel({
                                 href={childFindingsHref}
                                 onNavigate={(href) => navigate(href)}
                               />
+                              <span className="compliance-control-card__open-indicator" aria-hidden>›</span>
                             </div>
                           </button>
                         </div>
@@ -3520,12 +3658,6 @@ function CompositeControlsPanel({
                 className="compliance-control-card__summary"
               >
                 <div className="compliance-control-card__main">
-                  <span
-                    className={`compliance-control-card__chevron${isSelected ? " is-open" : ""}`}
-                    aria-hidden
-                  >
-                    ›
-                  </span>
                   <CompositeGroupIcon id={row.id} />
                   <div className="compliance-control-card__title">
                     <h3>{row.title}</h3>
@@ -3538,12 +3670,18 @@ function CompositeControlsPanel({
                     href={null}
                     onNavigate={(href) => navigate(href)}
                   />
+                  <span className="compliance-control-card__open-indicator" aria-hidden>›</span>
                 </div>
               </button>
             </div>
           );
         }}
       />
+      <p className="compliance-scope-note">
+        Veritrail covers technical cloud, code, and identity evidence. Endpoint security,
+        MDM enrollment, and program-level policies (CC1–CC5, CC9) belong to your GRC
+        platform — Veritrail collects what it can see.
+      </p>
     </div>
   );
 }
@@ -3855,8 +3993,14 @@ function useFrameworkStats(
   });
 }
 
-export default function Controls() {
+type ControlsProps = {
+  variant?: ControlsVariant;
+};
+
+export default function Controls({ variant = "checklist" }: ControlsProps) {
   const navigate = useNavigate();
+  const isChecklistPage = variant === "checklist";
+  const isCriteriaPage = variant === "criteria";
   const [searchParams, setSearchParams] = useSearchParams();
   const urlFramework = searchParams.get("framework");
   const urlControl = searchParams.get("control");
@@ -3864,6 +4008,9 @@ export default function Controls() {
   const urlView = searchParams.get("view");
   const urlStatus = searchParams.get("status");
   const urlTab = searchParams.get("tab");
+  const [pageView, setPageView] = useState<CompliancePageView>(() =>
+    isCriteriaPage ? "checks" : urlView === "checks" ? "checks" : "controls",
+  );
   const [framework, setFramework] = useState(() =>
     urlFramework && FRAMEWORKS.some((f) => f.id === urlFramework)
       ? urlFramework
@@ -3880,9 +4027,10 @@ export default function Controls() {
     urlTab === "overview" ||
     urlTab === "gaps" ||
     urlTab === "evidence" ||
-    urlTab === "mappings" ||
     urlTab === "guidance"
       ? urlTab
+      : urlTab === "checks" || urlTab === "mappings"
+        ? "mappings"
       : "overview",
   );
   const [complianceView, setComplianceView] = useState<ComplianceView>(() =>
@@ -3925,6 +4073,8 @@ export default function Controls() {
   }
 
   const [downloading, setDownloading] = useState(false);
+  const [lastPackSha256, setLastPackSha256] = useState<string | null>(null);
+  const [lastPackReportId, setLastPackReportId] = useState<string | null>(null);
   const [periodKey, setPeriodKey] = useState<string | number>(90);
   const [asOf, setAsOf] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
@@ -3964,6 +4114,26 @@ export default function Controls() {
     );
   }
 
+  function setPageViewWithUrl(view: CompliancePageView) {
+    setPageView(view);
+    setSelectedControlId(null);
+    setSelectedKind(null);
+    setSelectedFamilyKey(null);
+    setStatusFilter("all");
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("control");
+        next.delete("composite");
+        next.delete("tab");
+        if (view === "checks") next.set("view", "checks");
+        else next.delete("view");
+        return next;
+      },
+      { replace: true },
+    );
+  }
+
   const controls = useQuery({
     queryKey: ["controls", framework, activeAccount?.id],
     queryFn: () =>
@@ -3984,6 +4154,36 @@ export default function Controls() {
     }
     prevScanAtRef.current = scanAt;
   }, [activeAccount?.last_scan_at, qc]);
+
+  useEffect(() => {
+    if (isCriteriaPage) {
+      setPageView("checks");
+      return;
+    }
+    // Unified Compliance page: `view=checks` selects the Criteria tab; anything
+    // else lands on the primary checklist/controls view.
+    if (urlView === "checks") {
+      setPageView("checks");
+      return;
+    }
+    setPageView("controls");
+    setComplianceView(urlView === "detailed" || urlControl ? "detailed" : "composite");
+  }, [isChecklistPage, isCriteriaPage, navigate, searchParams, urlControl, urlView]);
+
+  useEffect(() => {
+    if (!isCriteriaPage) return;
+    if (urlComposite) {
+      const next = new URLSearchParams(searchParams);
+      next.delete("view");
+      navigate(`/checklist?${next.toString()}`, { replace: true });
+      return;
+    }
+    if (urlView && urlView !== "checks" && urlView !== "detailed") {
+      const next = new URLSearchParams(searchParams);
+      next.delete("view");
+      navigate(`/checklist?${next.toString()}`, { replace: true });
+    }
+  }, [isCriteriaPage, navigate, searchParams, urlComposite, urlView]);
 
   const meQ = useMe();
   const canAttest = roleAtLeast(meQ.data?.role, "admin");
@@ -4094,7 +4294,15 @@ export default function Controls() {
     const match = controls.data.find((r) => r.control_id === urlControl);
     if (match) {
       deepLinkDone.current = true;
-      setSelectedFamilyKey(controlFamily(framework, match.control_id).key);
+      const familyKey = controlFamily(framework, match.control_id).key;
+      if (isHiddenComplianceFamily(familyKey)) {
+        setSelectedFamilyKey(null);
+        setSelectedControlId(null);
+        setSelectedKind(null);
+        setComplianceView("detailed");
+        return;
+      }
+      setSelectedFamilyKey(familyKey);
       setSelectedControlId(match.id);
       setSelectedKind("detailed");
       setComplianceView("detailed");
@@ -4142,15 +4350,44 @@ export default function Controls() {
     enabled: !!activeAccount && hasScanned,
   });
 
+  const entraProviderQ = useQuery({
+    queryKey: ["integration", "entra"],
+    queryFn: () => api("/v1/integrations/entra", { schema: integrationStatusNullableSchema }),
+    staleTime: 300_000,
+  });
+  const googleWorkspaceProviderQ = useQuery({
+    queryKey: ["integration", "google-workspace"],
+    queryFn: () =>
+      api("/v1/integrations/google-workspace", { schema: integrationStatusNullableSchema }),
+    staleTime: 300_000,
+  });
+  const hasIdentity =
+    !!entraProviderQ.data ||
+    !!googleWorkspaceProviderQ.data;
+
+  const openIdentityFindingsRaw = useQuery({
+    queryKey: ["findings", "open", "identity", "controls-meta"],
+    queryFn: () =>
+      fetchAllFindings<OpenFindingMeta>({
+        status: "open",
+        provider: "identity",
+      }),
+    enabled: hasIdentity,
+  });
+
   const openFindingsMeta = useMemo(() => {
     const evidenceClasses = checkFrameworksQ.data?.evidence_classes;
     const byId = new Map<string, OpenFindingMeta>();
     const countByCheck = new Map<string, number>();
     const severityByCheck = new Map<string, string>();
-    for (const f of openFindingsRaw.data?.items ?? []) {
-      if (!openFindingAffectsControlStatus(f.check_id, evidenceClasses)) continue;
+    const byCheck = new Map<string, OpenFindingMeta[]>();
+    const mergeFinding = (f: OpenFindingMeta) => {
+      if (!openFindingAffectsControlStatus(f.check_id, evidenceClasses)) return;
       byId.set(f.id, f);
       countByCheck.set(f.check_id, (countByCheck.get(f.check_id) ?? 0) + 1);
+      const rows = byCheck.get(f.check_id) ?? [];
+      rows.push(f);
+      byCheck.set(f.check_id, rows);
       const prev = severityByCheck.get(f.check_id);
       if (
         !prev ||
@@ -4158,12 +4395,22 @@ export default function Controls() {
       ) {
         severityByCheck.set(f.check_id, f.severity);
       }
+    };
+    for (const f of openFindingsRaw.data?.items ?? []) mergeFinding(f);
+    if (hasIdentity) {
+      for (const f of openIdentityFindingsRaw.data?.items ?? []) mergeFinding(f);
     }
-    return { byId, countByCheck, severityByCheck };
-  }, [checkFrameworksQ.data?.evidence_classes, openFindingsRaw.data?.items]);
+    return { byId, countByCheck, severityByCheck, byCheck };
+  }, [
+    checkFrameworksQ.data?.evidence_classes,
+    hasIdentity,
+    openFindingsRaw.data?.items,
+    openIdentityFindingsRaw.data?.items,
+  ]);
 
   const findingCountByCheck = openFindingsMeta.countByCheck;
   const severityByCheck = openFindingsMeta.severityByCheck;
+  const openFindingsByCheck = openFindingsMeta.byCheck;
 
   const exportWindow = useMemo(() => {
     if (periodKey === "last_scan" && activeAccount?.last_scan_at) {
@@ -4304,6 +4551,66 @@ export default function Controls() {
     [rows, statusFilter],
   );
 
+  const criteriaRows = useMemo(
+    () => rows.filter((row) => isCollectableCriteriaControl(framework, row.control_id)),
+    [rows, framework],
+  );
+  const criteriaFilteredRows = useMemo(
+    () =>
+      statusFilter === "all"
+        ? criteriaRows
+        : criteriaRows.filter((r) => r.status === statusFilter),
+    [criteriaRows, statusFilter],
+  );
+  const criteriaStats = useMemo(
+    () => ({
+      total: criteriaRows.length,
+      passed: criteriaRows.filter((r) => r.status === "pass").length,
+      failed: criteriaRows.filter((r) => r.status === "fail").length,
+      noData: criteriaRows.filter((r) => r.status === "no_data").length,
+    }),
+    [criteriaRows],
+  );
+
+  const criteriaGroupedRows = useMemo(
+    () =>
+      pageView === "checks" && framework === "soc2"
+        ? groupSoc2CriteriaFamilies(criteriaFilteredRows)
+        : [],
+    [criteriaFilteredRows, framework, pageView],
+  );
+  const selectedCriteriaFamilyKey = useMemo(() => {
+    if (pageView !== "checks" || framework !== "soc2") return null;
+    if (selectedFamilyKey === CRITERIA_FAMILY_ALL_KEY) return CRITERIA_FAMILY_ALL_KEY;
+    if (
+      selectedFamilyKey &&
+      criteriaGroupedRows.some((group) => group.key === selectedFamilyKey)
+    ) {
+      return selectedFamilyKey;
+    }
+    return CRITERIA_FAMILY_ALL_KEY;
+  }, [criteriaGroupedRows, framework, pageView, selectedFamilyKey]);
+  const criteriaDisplayRows = useMemo(() => {
+    if (pageView !== "checks") return criteriaFilteredRows;
+    if (framework !== "soc2") return criteriaFilteredRows;
+    if (
+      !selectedCriteriaFamilyKey ||
+      selectedCriteriaFamilyKey === CRITERIA_FAMILY_ALL_KEY
+    ) {
+      return criteriaGroupedRows.flatMap((group) => group.rows);
+    }
+    return (
+      criteriaGroupedRows.find((group) => group.key === selectedCriteriaFamilyKey)
+        ?.rows ?? []
+    );
+  }, [
+    criteriaFilteredRows,
+    criteriaGroupedRows,
+    framework,
+    pageView,
+    selectedCriteriaFamilyKey,
+  ]);
+
   const selectedDetailedControl = useMemo(
     () =>
       selectedKind === "detailed"
@@ -4312,6 +4619,13 @@ export default function Controls() {
     [rows, selectedControlId, selectedKind],
   );
 
+  // The Criteria tab reuses the detailed framework-control list (family nav +
+  // rich rows + drawer) — same presentation, reachable without the composite
+  // drill-down breadcrumb.
+  const detailedListActive =
+    isCriteriaPage
+      ? pageView === "checks"
+      : pageView === "checks" || (pageView === "controls" && complianceView === "detailed");
   const groupedRows = useMemo(
     () => groupControls(filteredRows, framework),
     [filteredRows, framework],
@@ -4320,6 +4634,27 @@ export default function Controls() {
     groupedRows.find((group) => group.key === selectedFamilyKey) ??
     groupedRows[0] ??
     null;
+
+  useEffect(() => {
+    if (pageView === "checks" && framework === "soc2") {
+      if (!criteriaGroupedRows.length) return;
+      if (
+        selectedFamilyKey !== CRITERIA_FAMILY_ALL_KEY &&
+        (!selectedFamilyKey ||
+          !criteriaGroupedRows.some((group) => group.key === selectedFamilyKey))
+      ) {
+        setSelectedFamilyKey(CRITERIA_FAMILY_ALL_KEY);
+      }
+      return;
+    }
+    if (!groupedRows.length) return;
+    if (
+      selectedFamilyKey &&
+      !groupedRows.some((group) => group.key === selectedFamilyKey)
+    ) {
+      setSelectedFamilyKey(groupedRows[0]?.key ?? null);
+    }
+  }, [criteriaGroupedRows, framework, groupedRows, pageView, selectedFamilyKey]);
 
   const compositePanelRows = useMemo(() => {
     const all = compositeControls.data ?? [];
@@ -4436,6 +4771,24 @@ export default function Controls() {
     ],
   );
 
+  const evidencePendingByComposite = useMemo(() => {
+    const map = new Map<string, string[]>();
+    if (framework !== "soc2") return map;
+    const acceptedDbIds = new Set(
+      (externalEvidence.data ?? [])
+        .filter((artifact) => artifact.status === "accepted" && artifact.control_id)
+        .map((artifact) => artifact.control_id as string),
+    );
+    for (const [compositeId, codes] of Object.entries(COMPOSITE_RELATED_MANUAL_CRITERIA)) {
+      const pending = codes.filter((code) => {
+        const row = rows.find((r) => r.control_id === code);
+        return !!row && !acceptedDbIds.has(row.id);
+      });
+      if (pending.length > 0) map.set(compositeId, pending);
+    }
+    return map;
+  }, [externalEvidence.data, framework, rows]);
+
   const breadcrumbCompositeTitle = useMemo(() => {
     if (!urlComposite) return null;
     return (
@@ -4502,6 +4855,11 @@ export default function Controls() {
         headers: { Authorization: `Bearer ${tok}` },
       });
       if (!res.ok) throw new Error(await res.text());
+      const zipSha =
+        res.headers.get("X-Veritrail-Pack-SHA256") ?? res.headers.get("X-Content-SHA256");
+      const reportIdHdr = res.headers.get("X-Veritrail-Report-Id");
+      if (zipSha) setLastPackSha256(zipSha);
+      if (reportIdHdr) setLastPackReportId(reportIdHdr);
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -4529,16 +4887,15 @@ export default function Controls() {
   const compositeToolbarLoading =
     complianceView === "composite" && isAwsAccount && compositeInitialLoading;
 
+  // Checklist view hosts the export inside its header card; the toolbar strip
+  // only appears for the detailed drill-down.
   const showAuditExportAboveCard =
     !!activeAccount &&
     !controlsInitialLoading &&
     !compositeToolbarLoading &&
-    ((complianceView === "composite" &&
-      !compositeInitialLoading &&
-      filteredCompositePanelRows.length > 0) ||
-      (complianceView === "detailed" &&
-        groupedRows.length > 0 &&
-        !!selectedGroup));
+    complianceView === "detailed" &&
+    groupedRows.length > 0 &&
+    !!selectedGroup;
 
   const auditPackageExport = (
     <>
@@ -4564,7 +4921,7 @@ export default function Controls() {
               d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
             />
           </svg>
-          Generate Audit Package
+          Export audit package
         </button>
       </div>
       {exportOpen &&
@@ -4601,6 +4958,8 @@ export default function Controls() {
                 }
                 downloading={downloading}
                 onDownload={() => void downloadPack()}
+                lastZipSha256={lastPackSha256}
+                lastReportId={lastPackReportId}
               />
             </div>
           </>,
@@ -4613,6 +4972,8 @@ export default function Controls() {
   return (
     <div
       className={`compliance-page compliance-v2-shell min-h-full w-full${
+        isCriteriaPage || pageView === "checks" ? " compliance-page--criteria" : ""
+      }${
         isCloudFeatureComingSoon(activeAccount?.provider) && activeAccount
           ? " compliance-v2-shell--fill"
           : ""
@@ -4631,6 +4992,12 @@ export default function Controls() {
                 selectedId={framework}
                 statsById={frameworkStatsById}
                 onSelect={handleFrameworkChange}
+              />
+            ) : null}
+            {isAwsAccount ? (
+              <CompliancePageViewToggle
+                pageView={pageView}
+                onChange={setPageViewWithUrl}
               />
             ) : null}
           </HeaderFilterBar>
@@ -4660,11 +5027,14 @@ export default function Controls() {
         <div className="compliance-master-detail__list">
           <ComplianceContentShell
             toolbar={
+              (
               <ComplianceUnifiedToolbar
                 statusFilter={statusFilter}
                 onStatusFilterChange={handleStatusFilterChange}
                 statusCounts={
-                  complianceView === "composite"
+                  pageView === "checks"
+                    ? criteriaStats
+                    : complianceView === "composite"
                     ? {
                         total: compositeTotal,
                         passed: compositePassed,
@@ -4678,20 +5048,33 @@ export default function Controls() {
                       }
                     : { total, passed, failed, noData }
                 }
-                compositeStatusFilter={complianceView === "composite"}
+                compositeStatusFilter={pageView === "controls" && complianceView === "composite"}
                 toolbarLoading={compositeToolbarLoading}
                 showStatusFilter={
-                  (complianceView === "composite" &&
-                    !compositeInitialLoading &&
-                    primaryComposites.length > 0) ||
-                  (complianceView === "detailed" && total > 0)
+                  pageView === "checks"
+                    ? criteriaStats.total > 0
+                    : complianceView === "composite"
+                      ? compositeTotal > 0
+                      : total > 0
                 }
+                showCriteriaFamilyFilter={
+                  pageView === "checks" &&
+                  framework === "soc2" &&
+                  criteriaStats.total > 0
+                }
+                criteriaFamilyKey={selectedCriteriaFamilyKey}
+                onCriteriaFamilyChange={(key) => {
+                  setSelectedFamilyKey(key);
+                  setSelectedControlId(null);
+                  setSelectedKind(null);
+                }}
                 auditExport={auditPackageExport}
                 showAuditExport={showAuditExportAboveCard}
               />
+              )
             }
             section={
-              complianceView === "detailed" ? (
+              isChecklistPage && pageView === "controls" && detailedListActive ? (
                 <div className="compliance-detail-shell-nav">
                   <ComplianceDetailBreadcrumb
                     framework={framework}
@@ -4714,25 +5097,16 @@ export default function Controls() {
               ) : undefined
             }
           >
-            {complianceView === "composite" && compositeInitialLoading && (
+
+            {isChecklistPage && pageView === "controls" && complianceView === "composite" && compositeInitialLoading && (
               <div className="px-5 py-8">
                 <LoadingSkeleton />
               </div>
             )}
 
-            {complianceView === "composite" &&
+            {isChecklistPage && pageView === "controls" && complianceView === "composite" &&
               !compositeInitialLoading &&
-              primaryComposites.length > 0 &&
-              filteredCompositePanelRows.length === 0 &&
-              statusFilter !== "all" && (
-                <div className="px-6 py-12 text-center text-sm text-zinc-400">
-                  No control groups match this filter.
-                </div>
-              )}
-
-            {complianceView === "composite" &&
-              !compositeInitialLoading &&
-              filteredCompositePanelRows.length > 0 && (
+              activeAccount && (
                 <CompositeControlsPanel
                   rows={filteredCompositePanelRows}
                   findingCountByCheck={findingCountByCheck}
@@ -4742,45 +5116,40 @@ export default function Controls() {
                   acceptedCompositeIds={acceptedCompositeIds}
                   expiredCompositeIds={expiredCompositeIds}
                   statusFilter={statusFilter}
+                  evidencePendingByComposite={evidencePendingByComposite}
                 />
               )}
 
-            {complianceView === "composite" &&
-              !compositeInitialLoading &&
-              primaryComposites.length === 0 &&
-              total > 0 && (
-                <div className="px-5 py-4 text-sm text-zinc-600">
-                  No control groups map to this framework yet. Open{" "}
-                  <button
-                    type="button"
-                    onClick={() => setComplianceViewWithUrl("detailed")}
-                    className="font-semibold text-indigo-700 hover:text-indigo-900"
-                  >
-                    all controls
-                  </button>{" "}
-                  for the full framework list.
-                </div>
-              )}
-
-            {complianceView === "detailed" && rows.length === 0 && (
+            {detailedListActive &&
+              (pageView === "checks" ? criteriaRows.length === 0 : rows.length === 0) && (
               <div className="px-6 py-16 text-center text-sm text-zinc-400">
                 No controls found for this framework.
               </div>
             )}
 
-            {complianceView === "detailed" &&
-              rows.length > 0 &&
-              filteredRows.length === 0 &&
+            {detailedListActive &&
+              (pageView === "checks" ? criteriaRows.length > 0 : rows.length > 0) &&
+              (pageView === "checks" ? criteriaFilteredRows.length === 0 : filteredRows.length === 0) &&
               statusFilter !== "all" && (
                 <div className="px-6 py-12 text-center text-sm text-zinc-400">
                   No controls match this filter.
                 </div>
               )}
 
-            {complianceView === "detailed" &&
-              groupedRows.length > 0 &&
-              selectedGroup &&
-              selectedGroup.rows.map((ctrl) => {
+            {detailedListActive &&
+              pageView === "checks" &&
+              criteriaFilteredRows.length > 0 &&
+              criteriaDisplayRows.length === 0 && (
+                <div className="px-6 py-12 text-center text-sm text-zinc-400">
+                  No criteria in this family match the current filter.
+                </div>
+              )}
+
+            {detailedListActive &&
+              (pageView === "checks"
+                ? criteriaDisplayRows.length > 0
+                : groupedRows.length > 0 && selectedGroup) &&
+              (pageView === "checks" ? criteriaDisplayRows : selectedGroup!.rows).map((ctrl) => {
                 const isSelected =
                   selectedKind === "detailed" && selectedControlId === ctrl.id;
                 const displayStatus = controlDisplayStatus(
@@ -4791,53 +5160,69 @@ export default function Controls() {
                   ctrl.check_ids,
                   findingCountByCheck,
                 );
-
+                // Criteria rows always link to their checks' Findings view,
+                // even with zero open findings (proof of passing is a view too).
+                const criteriaHref = findingsHref ?? findingsHrefForCheckIds(ctrl.check_ids);
                 return (
-                  <div key={ctrl.id}>
+                  <div
+                    key={ctrl.id}
+                    className={`compliance-control-card${isSelected ? " is-expanded" : ""}`}
+                  >
                     <button
                       type="button"
                       onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => selectDetailedControl(ctrl.id)}
-                      aria-expanded={isSelected}
-                      className={`flex w-full items-start gap-3 px-5 py-3.5 text-left transition-colors ${
-                        displayStatus === "passing" && !isSelected
-                          ? "bg-emerald-50/30 hover:bg-emerald-50/50"
-                          : "hover:bg-zinc-50/60"
-                      } ${isSelected ? "is-expanded" : ""}`}
+                      onClick={() => {
+                        // Criterion click opens its status drawer (mapped controls,
+                        // evidence, checks); Findings stays a secondary link in the row.
+                        void criteriaHref;
+                        selectDetailedControl(ctrl.id);
+                      }}
+                      aria-expanded={pageView === "controls" ? isSelected : undefined}
+                      className="compliance-control-card__summary"
                     >
-                      <div className="min-w-0 flex-1 py-0.5">
-                        <p className="text-body font-semibold leading-snug text-zinc-900">
-                          <span className="font-mono text-meta font-semibold text-zinc-500">
-                            {ctrl.control_id}
-                          </span>{" "}
-                          {shortControlTitle(ctrl.title)}
-                          {recentlyImprovedControlIds.has(ctrl.control_id) ? (
-                            <ComplianceProgressBadge label="Improved" />
-                          ) : null}
-                        </p>
-                        {ctrl.description ? (
-                          <p className="mt-0.5 text-meta leading-relaxed text-zinc-500 line-clamp-1">
-                            {ctrl.description}
-                          </p>
+                      <div className="compliance-control-card__main">
+                        {pageView === "controls" ? (
+                          <CompositeGroupIcon
+                            id={
+                              compositeIdByControlId.get(ctrl.id) ??
+                              "framework_control"
+                            }
+                          />
                         ) : null}
+                        <div className="compliance-control-card__title">
+                          <h3>
+                            <CriteriaControlListTitle
+                              controlId={ctrl.control_id}
+                              title={ctrl.title}
+                            />
+                            {recentlyImprovedControlIds.has(ctrl.control_id) ? (
+                              <ComplianceProgressBadge label="Improved" />
+                            ) : null}
+                          </h3>
+                          {ctrl.description ? <p>{ctrl.description}</p> : null}
+                        </div>
                       </div>
-                      <div className="flex shrink-0 flex-col items-end gap-2 self-center sm:flex-row sm:items-center">
-                        <ControlEvidenceDrawerTrigger
-                          control={ctrl}
-                          artifacts={externalEvidence.data ?? []}
-                          findingCountByCheck={findingCountByCheck}
-                          displayStatus={displayStatus}
-                          submittedCount={
-                            submittedCountByControl.get(ctrl.id) ?? 0
-                          }
-                          onOpen={() => selectDetailedControl(ctrl.id, "evidence")}
-                        />
+                      <div className="compliance-control-card__state">
+                        {pageView === "controls" ? (
+                          <ControlEvidenceDrawerTrigger
+                            control={ctrl}
+                            artifacts={externalEvidence.data ?? []}
+                            findingCountByCheck={findingCountByCheck}
+                            displayStatus={displayStatus}
+                            submittedCount={
+                              submittedCountByControl.get(ctrl.id) ?? 0
+                            }
+                            onOpen={() =>
+                              selectDetailedControl(ctrl.id, "evidence")
+                            }
+                          />
+                        ) : null}
                         <ComplianceRowSummary
                           displayStatus={displayStatus}
                           href={findingsHref}
                           onNavigate={(href) => navigate(href)}
                         />
-                        <ComplianceExpandChevron expanded={isSelected} />
+                        <span className="compliance-control-card__open-indicator" aria-hidden>›</span>
                       </div>
                     </button>
                   </div>
@@ -4870,6 +5255,30 @@ export default function Controls() {
               }}
               headerTitle={selectedCompositeRow.title}
               headerDescription={selectedCompositeRow.description}
+              headerStatus={
+                <div className="control-detail-panel__header-status">
+                  <ComplianceRowSummary
+                    displayStatus={compositeDisplayStatus(
+                      selectedCompositeRow,
+                      findingCountByCheck,
+                      acceptedCompositeIds.has(selectedCompositeRow.id),
+                      expiredCompositeIds.has(selectedCompositeRow.id),
+                    )}
+                    href={
+                      findingsHrefForChecks(
+                        selectedCompositeRow.check_ids,
+                        findingCountByCheck,
+                        { excludeAbsenceGaps: true },
+                      ) ??
+                      findingsHrefForAbsenceGaps(
+                        selectedCompositeRow.check_ids,
+                        findingCountByCheck,
+                      )
+                    }
+                    onNavigate={(href) => navigate(href)}
+                  />
+                </div>
+              }
               mode="overlay"
             />
           ) : selectedKind === "detailed" && selectedDetailedControl ? (
@@ -4879,13 +5288,13 @@ export default function Controls() {
                 ctrl: selectedDetailedControl,
                 framework,
                 findingCountByCheck,
+                externalEvidence: externalEvidence.data ?? [],
+                canEditEvidence,
+                submittedCount: submittedCountByControl.get(selectedDetailedControl.id) ?? 0,
+                compositeId: compositeIdByControlId.get(selectedDetailedControl.id) ?? null,
                 canAttest,
                 attestPending: attest.isPending,
                 onAttest: (status) => attest.mutate({ id: selectedDetailedControl.id, status }),
-                externalEvidence: externalEvidence.data ?? [],
-                submittedCount: submittedCountByControl.get(selectedDetailedControl.id) ?? 0,
-                compositeId: compositeIdByControlId.get(selectedDetailedControl.id) ?? null,
-                canEditEvidence,
               })}
               activeTab={selectedTab}
               onTabChange={setSelectedTab}
@@ -4893,7 +5302,12 @@ export default function Controls() {
                 setSelectedControlId(null);
                 setSelectedKind(null);
               }}
-              headerTitle={shortControlTitle(selectedDetailedControl.title)}
+              headerTitle={
+                <CriteriaControlListTitle
+                  controlId={selectedDetailedControl.control_id}
+                  title={selectedDetailedControl.title}
+                />
+              }
               headerDescription={selectedDetailedControl.description}
               headerStatus={
                 <ComplianceRowSummary

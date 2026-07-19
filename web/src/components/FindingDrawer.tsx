@@ -22,15 +22,8 @@ import AwsServiceIcon from "./AwsServiceIcon";
 import { CliRemediationPanel } from "./CliRemediationPanel";
 import { ExceptionDocIcon } from "./ExceptionDocIcon";
 import { buildCliRemediationPlan } from "../lib/cliRemediationPlan";
-import { IaCRemediationSection } from "./IaCRemediationSection";
-import {
-  PolicyOutlineButton,
-  PolicyProposalReviewLayout,
-  PolicyValidationFooter,
-} from "./PolicyProposalReview";
-import { useRemediationExecution } from "../hooks/useRemediationExecution";
+import { PolicyProposalReviewLayout } from "./PolicyProposalReview";
 import { DrawerDateField } from "./DrawerDateField";
-import { TerraformIacDrawerSection } from "./TerraformIacDrawerSection";
 import { JiraFindingAction } from "./JiraFindingAction";
 import ConfirmDialog from "./ConfirmDialog";
 import { todayIso } from "../lib/isoDate";
@@ -56,28 +49,22 @@ import { frameworkLabel } from "../data/frameworks";
 import { FrameworkMark } from "./FrameworkMark";
 import { showWhatIfTab, whatIfUnavailableReason } from "../data/blastRadiusChecks";
 import { checkLabels } from "../data/checkLabels";
-import { documentationForCheck } from "../data/checkDocumentation";
-import { DEFAULT_EVIDENCE_GUIDANCE } from "../data/checkComplianceCopy";
-import { policyGenerationReasonLabel } from "../data/policyGenerationCopy";
 import {
-  formatCloudTrailStartFeedback,
-  friendlyPolicyGenerationError,
-} from "../lib/policyGenerationErrors";
-import { useRecheckNotifications } from "../context/RecheckNotificationsContext";
-import { useCloudTrailPolicyGen } from "../hooks/useCloudTrailPolicyGen";
-import { formatCloudTrailElapsed } from "../lib/cloudTrailElapsed";
-import { SHOW_WRITE_REMEDIATION } from "../lib/productFlags";
+  documentationForCheck,
+  recommendedActionExplanationForCheck,
+} from "../data/checkDocumentation";
+import { DEFAULT_EVIDENCE_GUIDANCE } from "../data/checkComplianceCopy";
 import { remediationSummaryForFinding, type RemediationSummary } from "../data/remediationSummaries";
 import {
   awsRegionFromArn,
   resourceDisplayName,
-  resourceRegionForFinding,
   isAwsRootFinding,
   severityLabel,
   severityPillClassName,
   formatIamServiceDisplayName,
   displayFindingTitle,
   findingScopeProvider,
+  verifyFixOutcomeCopy,
 } from "../lib/findingDisplay";
 import { maskAccessKeyId } from "../lib/sensitiveDisplay";
 import { FindingResourcesTab } from "./FindingResourcesTab";
@@ -222,29 +209,19 @@ function DrawerSection({
 export type FindingRemediationMode =
   | "console"
   | "cli"
-  | "terraform"
-  | "automation"
   | "suggested_policy";
 
 type RemediationMode = FindingRemediationMode;
 
-const SG_AUTOMATION_ONLY_CHECKS = new Set([
-  "ec2.security_group.unrestricted_ssh",
-  "ec2.security_group.unrestricted_rdp",
-]);
-
 const NO_CLI_REMEDIATION_CHECKS = new Set(["iam.user.no_mfa"]);
 
-export function defaultFindingRemediationMode(checkId: string): FindingRemediationMode {
-  if (SHOW_WRITE_REMEDIATION && SG_AUTOMATION_ONLY_CHECKS.has(checkId)) return "automation";
+export function defaultFindingRemediationMode(_checkId: string): FindingRemediationMode {
   return "console";
 }
 
 const REMEDIATION_MODE_LABELS: Record<RemediationMode, string> = {
   console: "Console",
   cli: "CLI",
-  terraform: "Terraform",
-  automation: "Automated fix",
   suggested_policy: "Suggested policy",
 };
 
@@ -261,14 +238,6 @@ function RemediationModeIcon({ mode, large = false }: { mode: RemediationMode; l
     return (
       <svg className={cls} fill="none" stroke="currentColor" strokeWidth={1.75} viewBox="0 0 24 24" aria-hidden>
         <path strokeLinecap="round" strokeLinejoin="round" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-      </svg>
-    );
-  }
-  if (mode === "terraform") {
-    return (
-      <svg className={cls} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-        <path d="M12 2 2 7v10l10 5 10-5V7L12 2zm0 2.2 7.5 3.75v7.5L12 19.3 4.5 15.45v-7.5L12 4.2z" opacity={0.35} />
-        <path d="M12 6.5 6.5 9.25v5.5L12 17.5l5.5-2.75v-5.5L12 6.5z" />
       </svg>
     );
   }
@@ -293,22 +262,16 @@ function RemediationModeIcon({ mode, large = false }: { mode: RemediationMode; l
 function RemediationModePicker({
   active,
   onSelect,
-  hideTerraform,
-  hideAutomation,
   showSuggestedPolicy,
 }: {
   active: RemediationMode | null;
   onSelect: (mode: RemediationMode) => void;
-  hideTerraform?: boolean;
-  hideAutomation?: boolean;
   showSuggestedPolicy?: boolean;
 }) {
   const modes: RemediationMode[] = [
     "console",
     ...(showSuggestedPolicy ? (["suggested_policy"] as RemediationMode[]) : []),
     "cli",
-    ...(hideTerraform ? [] : (["terraform"] as RemediationMode[])),
-    ...(hideAutomation ? [] : (["automation"] as RemediationMode[])),
   ];
   return (
     <div className={`${drawerPanel} overflow-hidden`}>
@@ -1014,7 +977,7 @@ aws rds restore-db-instance-from-db-snapshot \\
     risk: "No automated backups means no point-in-time recovery. Operational mistakes or corruption may require manual snapshot rollback, if any snapshot exists.",
   },
   "dynamodb.table.no_encryption": {
-    why: "Tables without explicit encryption at rest rely on legacy defaults. Enabling SSE-KMS or AWS-owned encryption protects item data on disk and satisfies auditor expectations for data-at-rest controls.",
+    why: "Tables without explicit encryption at rest rely on legacy defaults. Enabling SSE-KMS or AWS-owned encryption protects item data on disk and supports data-at-rest encryption evidence auditors sample.",
     console: [
       "Open DynamoDB → Tables → select the table",
       'Open the "Additional settings" tab',
@@ -1556,7 +1519,7 @@ aws configservice put-delivery-channel \\
   --delivery-channel name=default,s3BucketName=<bucket>
 
 aws configservice start-configuration-recorder --configuration-recorder-name default`,
-    risk: "No Config means no configuration change history — a gap auditors will flag and a blocker for SOC 2 CC6.1.",
+    risk: "No Config means no configuration change history — a gap auditors will flag and a blocker for SOC 2 CC7.1 configuration-change detection evidence.",
   },
   "guardduty.open_findings": {
     why: "GuardDuty is enabled but has active (non-archived) findings. Enablement alone does not mean threats are resolved — auditors expect triage and remediation evidence.",
@@ -1923,7 +1886,7 @@ const identityRemediations: Record<string, Remediation> = {
       "Save the protection rules",
     ],
     cli: "",
-    risk: "Without required reviewers on deployment environments, any GitHub Actions workflow can ship to production without human sign-off — violating SOC2 CC8.1 change management controls.",
+    risk: "Without required reviewers on deployment environments, any GitHub Actions workflow can ship to production without human sign-off — creating a gap in change-authorization evidence auditors sample for SOC 2 CC8.1.",
   },
   "github.repo.self_merge_allowed": {
     why: "Allowing authors to merge their own pull requests removes the peer review step that catches bugs, backdoors, and security regressions. It is the single most common change-management gap flagged in SOC2 CC8.1 audits.",
@@ -1935,7 +1898,7 @@ const identityRemediations: Record<string, Remediation> = {
       "Confirm the PR author cannot satisfy the approval requirement",
     ],
     cli: "",
-    risk: "Self-merged code bypasses the peer review control required by SOC2 CC8.1 and most change management policies.",
+    risk: "Self-merged code bypasses peer review and creates a gap in segregation-of-duties evidence auditors sample for SOC 2 CC8.1.",
   },
   "github.repo.insufficient_reviews": {
     why: "Merging with fewer approvals than required means the review policy is either misconfigured or being bypassed. Each approval gap is a break in the change-management evidence chain auditors will sample.",
@@ -1985,7 +1948,7 @@ const identityRemediations: Record<string, Remediation> = {
     risk: "Unprotected branches allow direct pushes to production branches without review or audit evidence.",
   },
   "gitlab.repo.self_merge_allowed": {
-    why: "When MR authors can merge their own requests, the peer review step that catches bugs and unauthorized changes is eliminated. GitLab's approval rules must explicitly prevent author self-approval to satisfy SOC2 CC8.1.",
+    why: "When MR authors can merge their own requests, the peer review step that catches bugs and unauthorized changes is eliminated. GitLab's approval rules must explicitly prevent author self-approval to support peer-review evidence for one aspect of SOC 2 CC8.1.",
     console: [
       "Go to the project → Settings → Merge requests",
       'Enable "Merge request approvals" and set "Required approvals" to at least 1',
@@ -2092,7 +2055,7 @@ function GrantedServicePills({ services }: { services: GrantedServicePill[] }) {
           }`}
         >
           <span className={`h-1.5 w-1.5 rounded-full ${s.active ? "bg-red-400" : "bg-zinc-300"}`} />
-          {s.name}
+          {formatIamServiceDisplayName(s.name)}
           {s.days_ago !== null && <span className="opacity-60">{s.days_ago}d</span>}
         </span>
       ))}
@@ -2121,41 +2084,8 @@ function CollapsibleGrantedServices({ services }: { services: GrantedServicePill
   );
 }
 
-function generatePolicyIntro(cloudTrailLogging: boolean) {
-  const build =
-    "Build suggestion uses IAM service-level last-accessed data. It does not start a new AWS analysis.";
-  const booster = cloudTrailLogging
-    ? " Opt in to Access Analyzer below for action-level, higher-confidence proposals from CloudTrail."
-    : " Opt in to Access Analyzer below for action-level proposals when CloudTrail logging is enabled.";
-  return `${build}${booster}`;
-}
-
-function AccessAnalyzerBoosterOptIn({
-  enabled,
-  onEnable,
-  disabled,
-}: {
-  enabled: boolean;
-  onEnable: () => void;
-  disabled?: boolean;
-}) {
-  if (enabled) return null;
-  return (
-    <div className="rounded-xl border border-indigo-100 bg-indigo-50/40 px-4 py-3">
-      <p className="text-[13px] leading-relaxed text-zinc-700">
-        <span className="font-medium text-zinc-900">Medium confidence — service-level usage.</span>{" "}
-        Grant Access Analyzer for higher-confidence, action-level proposals (requires optional connector permissions).
-      </p>
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={onEnable}
-        className="mt-2.5 rounded-lg border border-indigo-200 bg-white px-3 py-1.5 text-[12px] font-semibold text-indigo-800 transition hover:border-indigo-300 hover:bg-indigo-50 disabled:opacity-50"
-      >
-        Grant Access Analyzer for higher-confidence proposals
-      </button>
-    </div>
-  );
+function generatePolicyIntro(_cloudTrailLogging: boolean) {
+  return "Build suggestion uses IAM service-level last-accessed data. It does not start a new AWS analysis or change any policy — copy the result to apply it yourself.";
 }
 
 const SUGGESTED_POLICY_CONNECTOR_ERROR =
@@ -3709,7 +3639,7 @@ function compliancePageHref(ctrl: MappedControl, accountId?: string | null) {
 function compositeComplianceHref(compositeId: string, accountId?: string | null) {
   const params = new URLSearchParams({ framework: "soc2", composite: compositeId });
   if (accountId) params.set("account_id", accountId);
-  return `/controls?${params}`;
+  return `/checklist?${params}`;
 }
 
 function mappedControlLabel(ctrl: MappedControl) {
@@ -3916,37 +3846,12 @@ type GeneratedPolicy = {
   note?: string;
   coverage?: { actions: boolean; resources: boolean };
   source_label?: string;
-  access_analyzer_enabled?: boolean;
-  advanced_available?: boolean;
-  advanced_requested?: boolean;
-  advanced_effective?: boolean;
-  advanced_note?: string | null;
-  improve_via_cloudtrail?: boolean;
-  cloudtrail_analysis?: {
-    ready: boolean;
-    status: "ready" | "no_trail" | "advanced_disabled" | "no_connector";
-    message?: string | null;
-    logging_trail_count?: number;
-    trail_count?: number;
-  };
   policy_warnings?: string[];
   used_services_service_only?: string[];
   preserved_service_wildcards?: string[];
   observed_action_count?: number;
   confidence?: "high" | "medium" | "low";
   confidence_note?: string;
-  access_analyzer?: {
-    available: boolean;
-    reason?: string | null;
-    region?: string | null;
-    job_id?: string | null;
-    generation_status?: string | null;
-    completed_on?: string | null;
-    has_concrete_resources?: boolean;
-    placeholder_resources_ignored?: number;
-    resource_statements?: { actions: string[]; resources: string[]; placeholder_resources?: string[] }[];
-    placeholder_resources?: string[];
-  };
 };
 
 const POLICY_CONFIDENCE_STYLE: Record<string, string> = {
@@ -3954,20 +3859,6 @@ const POLICY_CONFIDENCE_STYLE: Record<string, string> = {
   medium: "border-amber-200 bg-amber-50 text-amber-900",
   low: "border-zinc-300 bg-zinc-100 text-zinc-700",
 };
-
-function PolicyGenSpinner({ className = "h-4 w-4" }: { className?: string }) {
-  return (
-    <svg
-      className={`shrink-0 animate-spin text-indigo-600 ${className}`}
-      fill="none"
-      viewBox="0 0 24 24"
-      aria-hidden
-    >
-      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-    </svg>
-  );
-}
 
 function PolicyMetaRow({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -3979,36 +3870,9 @@ function PolicyMetaRow({ label, children }: { label: string; children: ReactNode
 }
 
 function policyProposalTechnicalDetails(data: GeneratedPolicy) {
-  const jobCompleted = Boolean(data.access_analyzer?.job_id);
-  const cloudTrailStatus = jobCompleted
-    ? "Completed"
-    : data.access_analyzer?.reason === "in_progress"
-      ? "In progress"
-      : "None";
-
   return (
     <div className="divide-y divide-[#eef2f6] px-4 pb-1">
-      <PolicyMetaRow label="CloudTrail">{cloudTrailStatus}</PolicyMetaRow>
       <PolicyMetaRow label="IAM usage">Last-accessed available</PolicyMetaRow>
-      {(data.access_analyzer?.placeholder_resources_ignored ?? 0) > 0 && (
-        <PolicyMetaRow label="Templates">
-          {data.access_analyzer!.placeholder_resources_ignored} ignored (
-          <span className="font-mono text-[12px]">${"{"}…{"}"}</span> not apply-ready)
-        </PolicyMetaRow>
-      )}
-      {jobCompleted && data.access_analyzer?.job_id && (
-        <PolicyMetaRow label="Job">
-          <span className="break-all font-mono text-[12px] font-normal leading-relaxed text-[#344054]">
-            {data.access_analyzer.job_id}
-            {data.access_analyzer.completed_on ? (
-              <>
-                <span className="mx-1.5 font-sans text-zinc-400">·</span>
-                <span className="font-sans">{data.access_analyzer.completed_on}</span>
-              </>
-            ) : null}
-          </span>
-        </PolicyMetaRow>
-      )}
       {data.source_label ? <PolicyMetaRow label="Source">{data.source_label}</PolicyMetaRow> : null}
     </div>
   );
@@ -5185,12 +5049,11 @@ function SuggestedPolicyWorkspace({
   onCloseWorkspace: () => void;
 }) {
   const [policySource, setPolicySource] = useState<"cleaned" | "original">("cleaned");
-  const [accessAnalyzerBooster, setAccessAnalyzerBooster] = useState(false);
   const { data, isLoading, error, refetch, isFetching } = useQuery<GeneratedPolicy>({
-    queryKey: ["generated-policy", accountId, finding.resource_arn, finding.last_seen, accessAnalyzerBooster],
+    queryKey: ["generated-policy", accountId, finding.resource_arn, finding.last_seen],
     queryFn: () =>
       api(
-        `/v1/accounts/${accountId}/roles/generated-policy?role_arn=${encodeURIComponent(finding.resource_arn)}&advanced=${accessAnalyzerBooster}`,
+        `/v1/accounts/${accountId}/roles/generated-policy?role_arn=${encodeURIComponent(finding.resource_arn)}`,
         { schema: generatedPolicySchema as unknown as z.ZodType<GeneratedPolicy> },
       ),
     enabled: true,
@@ -5219,15 +5082,6 @@ function SuggestedPolicyWorkspace({
     data?.original_policies && data?.cleaned_policies
       ? computePolicyActionDiff(data.original_policies, data.cleaned_policies)
       : null;
-  const cloudTrailProgress = useCloudTrailPolicyGen({
-    findingId: finding.id,
-    accountId,
-    roleArn: finding.resource_arn,
-    accessAnalyzerReason: data?.access_analyzer?.reason,
-    jobCompleted: Boolean(data?.access_analyzer?.available),
-    watch: true,
-    onComplete: () => void refetch(),
-  });
   const preparingPolicy = isLoading && !data;
   const showPolicyData = !!data && !error;
   const canReviewGeneratedPolicy = Boolean(
@@ -5264,36 +5118,7 @@ function SuggestedPolicyWorkspace({
         )}
         {showPolicyData && (
           <div className="finding-drawer-surface space-y-5">
-            <AccessAnalyzerBoosterOptIn
-              enabled={accessAnalyzerBooster}
-              onEnable={() => setAccessAnalyzerBooster(true)}
-              disabled={isFetching}
-            />
-            {accessAnalyzerBooster ? (
-              <PolicyCloudTrailStartAction
-                layout="split"
-                findingId={finding.id}
-                accountId={accountId}
-                roleArn={finding.resource_arn}
-                data={data}
-                isRunning={cloudTrailProgress.isRunning}
-                analysisComplete={cloudTrailProgress.statusSucceeded}
-                startedAt={cloudTrailProgress.startedAt}
-                onRefresh={async () => {
-                  const result = await refetch();
-                  if (result.error) throw result.error;
-                  return result.data;
-                }}
-                renderSplit={({ alerts, footer }) => (
-                  <div className="space-y-4">
-                    {alerts ? <div className="space-y-3">{alerts}</div> : null}
-                    <PolicyCoverageMeta data={data} validationFooter={footer} />
-                  </div>
-                )}
-              />
-            ) : (
-              <PolicyCoverageMeta data={data} />
-            )}
+            <PolicyCoverageMeta data={data} />
             {data.has_inline_policies && data.cleaned_policies && !canReviewGeneratedPolicy && !showPolicyChangePane && (
               <RemediationDetailCard title="Policy preview">
                 <PolicyJsonEditor
@@ -5304,7 +5129,7 @@ function SuggestedPolicyWorkspace({
                 />
               </RemediationDetailCard>
             )}
-            {data.granularity === "service" && !data.access_analyzer?.job_id && (
+            {data.granularity === "service" && (
               <p className="text-[12px] leading-relaxed text-zinc-500">
                 Per-action usage not available yet — scoped to services with recorded activity. Run another scan to refresh.
               </p>
@@ -5348,406 +5173,6 @@ function SuggestedPolicyWorkspace({
   );
 }
 
-function PolicyCloudTrailStartAction({
-  findingId,
-  accountId,
-  roleArn,
-  data,
-  isRunning,
-  analysisComplete = false,
-  startedAt,
-  onRefresh,
-  layout = "card",
-  renderSplit,
-}: {
-  findingId: string;
-  accountId: string;
-  roleArn: string;
-  data: GeneratedPolicy;
-  isRunning: boolean;
-  analysisComplete?: boolean;
-  startedAt?: number;
-  onRefresh: () => Promise<GeneratedPolicy | undefined>;
-  /** Full card (legacy) or split into alert banners + validation footer for proposal layout. */
-  layout?: "card" | "split";
-  renderSplit?: (parts: { alerts: ReactNode; footer: ReactNode }) => ReactNode;
-}) {
-  const qc = useQueryClient();
-  const { startCloudTrailAnalysis, failCloudTrailAnalysis } = useRecheckNotifications();
-  const [busy, setBusy] = useState(false);
-  const [rebuilding, setRebuilding] = useState(false);
-  const [feedback, setFeedback] = useState<string | null>(null);
-  const [refreshFeedback, setRefreshFeedback] = useState<{
-    tone: "success" | "error" | "neutral";
-    message: string;
-  } | null>(null);
-  const analysis = data.cloudtrail_analysis;
-  const jobCompleted = Boolean(data.access_analyzer?.available) || analysisComplete;
-  const cloudTrailMergedIntoProposal = Boolean(
-    data.access_analyzer?.available && /cloudtrail/i.test(data.source_label ?? ""),
-  );
-  const wantsCloudTrailPanel =
-    Boolean(data.improve_via_cloudtrail && data.confidence !== "high") ||
-    isRunning ||
-    jobCompleted ||
-    data.access_analyzer?.reason === "in_progress";
-  const needsTrailSetup = Boolean(
-    wantsCloudTrailPanel && !jobCompleted && !isRunning && analysis?.status === "no_trail",
-  );
-  const needsAdvanced = Boolean(
-    wantsCloudTrailPanel && !jobCompleted && !isRunning && analysis?.status === "advanced_disabled",
-  );
-  const canStart = Boolean(
-    wantsCloudTrailPanel && !jobCompleted && !isRunning && analysis?.ready,
-  );
-  const [, elapsedTick] = useState(0);
-  useEffect(() => {
-    if (!isRunning || !startedAt) return;
-    const id = window.setInterval(() => elapsedTick((n) => n + 1), 15_000);
-    return () => window.clearInterval(id);
-  }, [isRunning, startedAt]);
-  const elapsedLabel = useMemo(() => {
-    if (!startedAt || !isRunning) return null;
-    return formatCloudTrailElapsed(startedAt);
-  }, [startedAt, isRunning, elapsedTick]);
-
-  const start = async () => {
-    setBusy(true);
-    setFeedback(null);
-    setRefreshFeedback(null);
-    try {
-      const res = await api<{ message: string }>(
-        `/v1/accounts/${accountId}/roles/policy-generation/start?role_arn=${encodeURIComponent(roleArn)}`,
-        { method: "POST" },
-      );
-      setFeedback(res.message);
-      startCloudTrailAnalysis({ findingId, accountId, roleArn, message: res.message });
-      await onRefresh();
-    } catch (e) {
-      const raw = e instanceof Error ? e.message : String(e);
-      const msg = friendlyPolicyGenerationError(raw);
-      setFeedback(msg);
-      failCloudTrailAnalysis({ findingId, accountId, roleArn, message: msg });
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const rebuild = async () => {
-    setRebuilding(true);
-    setRefreshFeedback(null);
-    const snapshot = {
-      confidence: data.confidence,
-      source: data.source_label,
-      actionCount: data.observed_action_count,
-    };
-    try {
-      await qc.invalidateQueries({
-        queryKey: ["generated-policy", accountId, roleArn],
-      });
-      const updated = await onRefresh();
-      if (!updated) {
-        setRefreshFeedback({
-          tone: "error",
-          message: "Could not refresh suggestion — no policy data returned.",
-        });
-        return;
-      }
-      const actionCount = updated.observed_action_count ?? 0;
-      const confidence = updated.confidence ?? "medium";
-      const unchanged =
-        updated.confidence === snapshot.confidence &&
-        updated.source_label === snapshot.source &&
-        updated.observed_action_count === snapshot.actionCount;
-      if (unchanged) {
-        setRefreshFeedback({
-          tone: "neutral",
-          message: `Already up to date with the latest CloudTrail job — ${actionCount} observed actions, ${confidence} confidence.`,
-        });
-      } else {
-        setRefreshFeedback({
-          tone: "success",
-          message: `Suggestion refreshed — ${actionCount} observed actions, ${confidence} confidence.`,
-        });
-      }
-    } catch (e) {
-      setRefreshFeedback({
-        tone: "error",
-        message: friendlyPolicyGenerationError(e instanceof Error ? e.message : String(e)),
-      });
-    } finally {
-      setRebuilding(false);
-    }
-  };
-
-  if (!wantsCloudTrailPanel && !needsTrailSetup && !needsAdvanced) {
-    if (layout === "split" && renderSplit) {
-      const footer = (
-        <PolicyValidationFooter
-          metaLine="CloudTrail · ~15 min · checks resource ARNs · IAM unchanged until you apply"
-          action={
-            <PolicyOutlineButton spinning={rebuilding} disabled={rebuilding} onClick={() => void rebuild()}>
-              Rebuild suggestion
-            </PolicyOutlineButton>
-          }
-        />
-      );
-      return <>{renderSplit({ alerts: null, footer })}</>;
-    }
-    if (layout === "split") return null;
-    return null;
-  }
-
-  const feedbackDisplay =
-    feedback && !analysisComplete && !isRunning
-      ? formatCloudTrailStartFeedback(feedback)
-      : null;
-
-  const alerts = (
-    <>
-      {needsTrailSetup && (
-        <div className="space-y-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] leading-[1.55] text-amber-950">
-          <p>
-            {analysis?.message ??
-              "No active CloudTrail logging trail is available for this account. Create a multi-region trail with a dedicated S3 log bucket, run a scan so Veritrail can detect it, then start analysis."}
-          </p>
-          <Link
-            to="/accounts"
-            className="inline-flex font-semibold text-amber-900 underline decoration-amber-400/70 underline-offset-2 hover:text-amber-950"
-          >
-            Set up CloudTrail on Accounts →
-          </Link>
-        </div>
-      )}
-      {needsAdvanced && (
-        <div className="space-y-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] leading-[1.55] text-amber-950">
-          <p>
-            {analysis?.message ??
-              "Enable Advanced IAM policy generation on the AWS connector so Veritrail can start CloudTrail-based analysis."}
-          </p>
-          <Link
-            to="/accounts"
-            className="inline-flex font-semibold text-amber-900 underline decoration-amber-400/70 underline-offset-2 hover:text-amber-950"
-          >
-            Update connector on Accounts →
-          </Link>
-        </div>
-      )}
-      {isRunning && (
-        <div className="flex items-start gap-2.5 rounded-xl border border-indigo-100 bg-indigo-50/60 px-4 py-3">
-          <PolicyGenSpinner className="mt-0.5 h-4 w-4" />
-          <div className="min-w-0 text-[13px] leading-[1.55] text-indigo-950">
-            <p>{policyGenerationReasonLabel("in_progress")}</p>
-            <p className="mt-1 text-indigo-800/80">
-              Checking AWS every 15s — you can close this tab; progress is saved for this role.
-            </p>
-          </div>
-        </div>
-      )}
-      {analysisComplete && !isRunning && !refreshFeedback && !cloudTrailMergedIntoProposal && (
-        <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-[13px] leading-[1.55] text-emerald-950">
-          <p className="font-semibold">CloudTrail analysis complete</p>
-          <p className="mt-1 text-emerald-900/90">
-            Rebuild the suggestion to merge the latest CloudTrail job into this proposal.
-          </p>
-        </div>
-      )}
-      {refreshFeedback && (
-        <div
-          className={`rounded-xl border px-4 py-3 text-[13px] leading-[1.55] ${
-            refreshFeedback.tone === "error"
-              ? "border-red-100 bg-red-50 text-red-900"
-              : refreshFeedback.tone === "success"
-                ? "border-emerald-100 bg-emerald-50 text-emerald-950"
-                : "border-zinc-100 bg-zinc-50 text-zinc-800"
-          }`}
-        >
-          {refreshFeedback.message}
-        </div>
-      )}
-      {feedbackDisplay && (
-        <div
-          className={`rounded-xl border px-4 py-3 text-[13px] leading-[1.55] ${
-            feedbackDisplay.tone === "error"
-              ? "border-red-100 bg-red-50 text-red-900"
-              : feedbackDisplay.tone === "success"
-                ? "border-emerald-100 bg-emerald-50 text-emerald-950"
-                : "border-zinc-100 bg-zinc-50 text-zinc-700"
-          }`}
-        >
-          {feedbackDisplay.message}
-        </div>
-      )}
-    </>
-  );
-
-  const footerAction = isRunning ? (
-    <span className="inline-flex shrink-0 items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3.5 py-2 text-xs font-semibold text-indigo-950">
-      <PolicyGenSpinner className="h-3.5 w-3.5" />
-      {elapsedLabel ? `Analyzing · ${elapsedLabel}` : "Analyzing…"}
-    </span>
-  ) : analysisComplete ? (
-    <PolicyOutlineButton spinning={rebuilding} disabled={rebuilding} onClick={() => void rebuild()}>
-      Rebuild suggestion
-    </PolicyOutlineButton>
-  ) : !needsTrailSetup && !needsAdvanced && canStart ? (
-    <PolicyOutlineButton spinning={busy} disabled={busy} onClick={() => void start()}>
-      Run analysis
-    </PolicyOutlineButton>
-  ) : needsTrailSetup ? (
-    <span className="inline-flex shrink-0 items-center justify-center rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-2 text-xs font-semibold text-amber-900">
-      Trail required
-    </span>
-  ) : needsAdvanced ? (
-    <span className="inline-flex shrink-0 items-center justify-center rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-2 text-xs font-semibold text-amber-900">
-      Advanced IAM required
-    </span>
-  ) : (
-    <PolicyOutlineButton spinning={rebuilding} disabled={rebuilding} onClick={() => void rebuild()}>
-      Rebuild suggestion
-    </PolicyOutlineButton>
-  );
-
-  const footer = (
-    <PolicyValidationFooter
-      metaLine={
-        isRunning && elapsedLabel
-          ? `CloudTrail · analyzing · ${elapsedLabel} · IAM unchanged until you apply`
-          : "CloudTrail · ~15 min · checks resource ARNs · IAM unchanged until you apply"
-      }
-      action={footerAction}
-    />
-  );
-
-  if (layout === "split" && renderSplit) {
-    return <>{renderSplit({ alerts, footer })}</>;
-  }
-
-  const refreshBusy = rebuilding;
-
-  return (
-    <div className={`${drawerPanel} overflow-hidden shadow-md shadow-zinc-950/[0.05] ring-1 ring-zinc-200/80`}>
-      <div className={`${drawerSectionHead} flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between`}>
-        <div className="min-w-0">
-          <h4 className={drawerCardTitle}>Validate</h4>
-          <p className={`mt-0.5 ${drawerHelperText}`}>CloudTrail · ~15 min · checks resource ARNs · IAM unchanged until you apply</p>
-        </div>
-        {isRunning ? (
-          <span className="inline-flex shrink-0 items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3.5 py-2 text-xs font-semibold text-indigo-950">
-            <PolicyGenSpinner className="h-3.5 w-3.5" />
-            {elapsedLabel ? `Analyzing · ${elapsedLabel}` : "Analyzing…"}
-          </span>
-        ) : analysisComplete ? (
-          <button
-            type="button"
-            disabled={refreshBusy}
-            onClick={() => void rebuild()}
-            className={`inline-flex shrink-0 items-center justify-center rounded-[10px] border border-indigo-200 bg-white px-3.5 py-2 ${drawerBtnText} text-indigo-900 shadow-sm shadow-zinc-900/[0.02] transition hover:border-indigo-300 hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-50`}
-          >
-            {refreshBusy ? "Refreshing…" : "Rebuild suggestion"}
-          </button>
-        ) : (
-          !needsTrailSetup &&
-          !needsAdvanced &&
-          canStart && (
-            <button
-              type="button"
-              disabled={busy}
-              onClick={start}
-              className={`inline-flex shrink-0 items-center justify-center rounded-[10px] border border-indigo-200 bg-white px-3.5 py-2 ${drawerBtnText} text-indigo-900 shadow-sm shadow-zinc-900/[0.02] transition hover:border-indigo-300 hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-50`}
-            >
-              {busy ? "Starting…" : "Run analysis"}
-            </button>
-          )
-        )}
-        {needsTrailSetup && (
-          <span className="inline-flex shrink-0 items-center justify-center rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-2 text-xs font-semibold text-amber-900">
-            Trail required
-          </span>
-        )}
-        {needsAdvanced && (
-          <span className="inline-flex shrink-0 items-center justify-center rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-2 text-xs font-semibold text-amber-900">
-            Advanced IAM required
-          </span>
-        )}
-      </div>
-      {needsTrailSetup && (
-        <div className="space-y-2 border-b border-amber-100 bg-amber-50 px-4 py-3 text-[13px] leading-[1.55] text-amber-950">
-          <p>
-            {analysis?.message ??
-              "No active CloudTrail logging trail is available for this account. Create a multi-region trail with a dedicated S3 log bucket, run a scan so Veritrail can detect it, then start analysis."}
-          </p>
-          <Link
-            to="/accounts"
-            className="inline-flex font-semibold text-amber-900 underline decoration-amber-400/70 underline-offset-2 hover:text-amber-950"
-          >
-            Set up CloudTrail on Accounts →
-          </Link>
-        </div>
-      )}
-      {needsAdvanced && (
-        <div className="space-y-2 border-b border-amber-100 bg-amber-50 px-4 py-3 text-[13px] leading-[1.55] text-amber-950">
-          <p>
-            {analysis?.message ??
-              "Enable Advanced IAM policy generation on the AWS connector so Veritrail can start CloudTrail-based analysis."}
-          </p>
-          <Link
-            to="/accounts"
-            className="inline-flex font-semibold text-amber-900 underline decoration-amber-400/70 underline-offset-2 hover:text-amber-950"
-          >
-            Update connector on Accounts →
-          </Link>
-        </div>
-      )}
-      {isRunning && (
-        <div className="flex items-start gap-2.5 border-b border-indigo-100 bg-indigo-50/60 px-4 py-3">
-          <PolicyGenSpinner className="mt-0.5 h-4 w-4" />
-          <div className="min-w-0 text-[13px] leading-[1.55] text-indigo-950">
-            <p>{policyGenerationReasonLabel("in_progress")}</p>
-            <p className="mt-1 text-indigo-800/80">
-              Checking AWS every 15s — you can close this tab; progress is saved for this role.
-            </p>
-          </div>
-        </div>
-      )}
-      {analysisComplete && !isRunning && !refreshFeedback && !cloudTrailMergedIntoProposal && (
-        <div className="border-b border-emerald-100 bg-emerald-50 px-4 py-3 text-[13px] leading-[1.55] text-emerald-950">
-          <p className="font-semibold">CloudTrail analysis complete</p>
-          <p className="mt-1 text-emerald-900/90">
-            Rebuild the suggestion to merge the latest CloudTrail job into this proposal.
-          </p>
-        </div>
-      )}
-      {refreshFeedback && (
-        <div
-          className={`border-b px-4 py-3 text-[13px] leading-[1.55] ${
-            refreshFeedback.tone === "error"
-              ? "border-red-100 bg-red-50 text-red-900"
-              : refreshFeedback.tone === "success"
-                ? "border-emerald-100 bg-emerald-50 text-emerald-950"
-                : "border-zinc-100 bg-zinc-50 text-zinc-800"
-          }`}
-        >
-          {refreshFeedback.message}
-        </div>
-      )}
-      {feedbackDisplay && (
-        <div
-          className={`px-4 py-3 text-[13px] leading-[1.55] ${
-            feedbackDisplay.tone === "error"
-              ? "border-t border-red-100 bg-red-50 text-red-900"
-              : feedbackDisplay.tone === "success"
-                ? "border-t border-emerald-100 bg-emerald-50 text-emerald-950"
-                : "border-t border-zinc-100 bg-zinc-50 text-zinc-700"
-          }`}
-        >
-          {feedbackDisplay.message}
-        </div>
-      )}
-    </div>
-  );
-}
-
 
 function GeneratePolicySection({
   accountId,
@@ -5765,13 +5190,12 @@ function GeneratePolicySection({
   autoLoad?: boolean;
 }) {
   const [enabled, setEnabled] = useState(autoLoad);
-  const [accessAnalyzerBooster, setAccessAnalyzerBooster] = useState(false);
   const [view, setView] = useState<"diff" | "cleaned" | "original">("diff");
   const { data, isLoading, error, refetch, isFetching } = useQuery<GeneratedPolicy>({
-    queryKey: ["generated-policy", accountId, finding.resource_arn, finding.last_seen, accessAnalyzerBooster],
+    queryKey: ["generated-policy", accountId, finding.resource_arn, finding.last_seen],
     queryFn: () =>
       api(
-        `/v1/accounts/${accountId}/roles/generated-policy?role_arn=${encodeURIComponent(finding.resource_arn)}&advanced=${accessAnalyzerBooster}`,
+        `/v1/accounts/${accountId}/roles/generated-policy?role_arn=${encodeURIComponent(finding.resource_arn)}`,
         { schema: generatedPolicySchema as unknown as z.ZodType<GeneratedPolicy> },
       ),
     enabled,
@@ -5781,22 +5205,6 @@ function GeneratePolicySection({
   useEffect(() => {
     if (autoLoad) setEnabled(true);
   }, [autoLoad, finding.id, finding.resource_arn]);
-
-  const cloudTrailProgress = useCloudTrailPolicyGen({
-    findingId: finding.id,
-    accountId,
-    roleArn: finding.resource_arn,
-    accessAnalyzerReason: data?.access_analyzer?.reason,
-    jobCompleted: Boolean(data?.access_analyzer?.available),
-    watch: enabled,
-    onComplete: () => void refetch(),
-  });
-
-  const cloudTrailRefresh = async () => {
-    const result = await refetch();
-    if (result.error) throw result.error;
-    return result.data;
-  };
 
   if (embedded) {
     return (
@@ -5808,37 +5216,8 @@ function GeneratePolicySection({
             <p className="mt-1">{formatSuggestedPolicyError(error)}</p>
           </div>
         )}
-        {enabled && data && (
-          <>
-            <AccessAnalyzerBoosterOptIn
-              enabled={accessAnalyzerBooster}
-              onEnable={() => setAccessAnalyzerBooster(true)}
-              disabled={isFetching}
-            />
-            {accessAnalyzerBooster ? (
-              <PolicyCloudTrailStartAction
-                layout="split"
-                findingId={finding.id}
-                accountId={accountId}
-                roleArn={finding.resource_arn}
-                data={data}
-                isRunning={cloudTrailProgress.isRunning}
-                analysisComplete={cloudTrailProgress.statusSucceeded}
-                startedAt={cloudTrailProgress.startedAt}
-                onRefresh={cloudTrailRefresh}
-                renderSplit={({ alerts, footer }) => (
-                  <div className="space-y-4">
-                    {alerts ? <div className="space-y-3">{alerts}</div> : null}
-                    <PolicyCoverageMeta data={data} validationFooter={footer} />
-                  </div>
-                )}
-              />
-            ) : (
-              <PolicyCoverageMeta data={data} />
-            )}
-          </>
-        )}
-        {enabled && data && data.granularity === "service" && !data.access_analyzer?.job_id && (
+        {enabled && data && <PolicyCoverageMeta data={data} />}
+        {enabled && data && data.granularity === "service" && (
           <p className="text-[12px] leading-relaxed text-zinc-500">
             Per-action usage not available yet — scoped to services with recorded activity. Run another scan to refresh.
           </p>
@@ -5854,32 +5233,7 @@ function GeneratePolicySection({
       )}
       {enabled && isLoading && <div className="py-2 text-[13px] text-zinc-500">Building suggestion…</div>}
       {enabled && error && <div className="py-1 text-[13px] text-red-600">{formatSuggestedPolicyError(error)}</div>}
-      {enabled && data && (
-        <>
-          <AccessAnalyzerBoosterOptIn
-            enabled={accessAnalyzerBooster}
-            onEnable={() => setAccessAnalyzerBooster(true)}
-            disabled={isFetching}
-          />
-          <PolicyCoverageMeta data={data} />
-          {accessAnalyzerBooster ? (
-            <PolicyCloudTrailStartAction
-              findingId={finding.id}
-              accountId={accountId}
-              roleArn={finding.resource_arn}
-              data={data}
-              isRunning={cloudTrailProgress.isRunning}
-              analysisComplete={cloudTrailProgress.statusSucceeded}
-              startedAt={cloudTrailProgress.startedAt}
-              onRefresh={async () => {
-                const result = await refetch();
-                if (result.error) throw result.error;
-                return result.data;
-              }}
-            />
-          ) : null}
-        </>
-      )}
+      {enabled && data && <PolicyCoverageMeta data={data} />}
       {enabled && data && data.has_inline_policies && data.original_policies && data.cleaned_policies && (
         <div className="space-y-2.5">
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -5921,7 +5275,7 @@ function GeneratePolicySection({
           {view !== "diff" && (
             <CliBlock code={JSON.stringify(view === "cleaned" ? data.cleaned_policies : data.original_policies, null, 2)} />
           )}
-          {data.granularity === "service" && !data.access_analyzer?.job_id && (
+          {data.granularity === "service" && (
             <p className="text-[11px] leading-snug text-zinc-500">
               Per-action usage not available yet — scoped to services with recorded activity. Run another scan to refresh.
             </p>
@@ -6521,6 +5875,7 @@ export function FindingDrawer({
   onRemTabChange,
   verified,
   verifyUnchanged,
+  verifyError,
   verifying,
   onDismissVerifyOutcome,
   onFocusFinding,
@@ -6539,6 +5894,7 @@ export function FindingDrawer({
   onRemTabChange: (mode: FindingRemediationMode) => void;
   verified?: boolean;
   verifyUnchanged?: boolean;
+  verifyError?: boolean;
   verifying?: boolean;
   onDismissVerifyOutcome?: () => void;
 }) {
@@ -6643,13 +5999,13 @@ export function FindingDrawer({
     !!accountId &&
     tab === "remediation" &&
     ROLE_POLICY_GEN_CHECKS.has(finding.check_id) &&
-    (remDetailMode === "suggested_policy" || remDetailMode === "automation");
+    remDetailMode === "suggested_policy";
 
   const { data: policyGenData, isLoading: policyGenLoading, isFetching: policyGenFetching } = useQuery<GeneratedPolicy>({
-    queryKey: ["generated-policy", accountId, finding?.resource_arn, finding?.last_seen, false],
+    queryKey: ["generated-policy", accountId, finding?.resource_arn, finding?.last_seen],
     queryFn: () =>
       api(
-        `/v1/accounts/${accountId}/roles/generated-policy?role_arn=${encodeURIComponent(finding!.resource_arn)}&advanced=false`,
+        `/v1/accounts/${accountId}/roles/generated-policy?role_arn=${encodeURIComponent(finding!.resource_arn)}`,
         { schema: generatedPolicySchema as unknown as z.ZodType<GeneratedPolicy> },
       ),
     enabled: policyDataQueryEnabled,
@@ -6675,8 +6031,6 @@ export function FindingDrawer({
     showPolicyChangePane ||
       (policyGenData?.has_inline_policies && policyGenData.cleaned_policies),
   );
-
-  const { data: remediationExecution } = useRemediationExecution(finding?.id ?? "");
 
   useEffect(() => {
     if (!finding) {
@@ -6715,23 +6069,6 @@ export function FindingDrawer({
     setPolicyChangePaneVisible(true);
   };
 
-  useEffect(() => {
-    if (
-      finding &&
-      SHOW_WRITE_REMEDIATION &&
-      SG_AUTOMATION_ONLY_CHECKS.has(finding.check_id) &&
-      remTab === "terraform"
-    ) {
-      onRemTabChange("automation");
-    }
-  }, [finding?.check_id, finding?.id, remTab, onRemTabChange]);
-
-  useEffect(() => {
-    if (finding && findingScopeProvider(finding) !== "aws" && remTab === "automation") {
-      onRemTabChange(defaultFindingRemediationMode(finding.check_id));
-    }
-  }, [finding?.check_id, finding?.id, remTab, onRemTabChange]);
-
   const showWhatIf = !!finding && showWhatIfTab(finding.check_id, accountId);
   const whatIfUnavailable = finding ? whatIfUnavailableReason(finding.check_id) : null;
 
@@ -6762,15 +6099,9 @@ export function FindingDrawer({
   const showReopenFooter =
     (finding.status === "resolved" || finding.status === "ignored") && !verified && !verifying;
 
-  const ssmExecSuccess =
-    remediationExecution?.status === "success" ||
-    Boolean((remediationExecution?.result as { ok?: boolean } | undefined)?.ok);
   const savedRemediationMode =
     remTab === "suggested_policy" ? defaultFindingRemediationMode(finding.check_id) : remTab;
   const activeRemediationMode = remDetailMode ?? savedRemediationMode;
-  const ssmAutomationRemTab = activeRemediationMode === "automation";
-  const verifyFooterMuted =
-    ssmAutomationRemTab && !ssmExecSuccess && !verified && !verifying && !showReopenFooter;
 
   const jiraDoneUnverified =
     !!jiraIssue &&
@@ -6815,8 +6146,8 @@ export function FindingDrawer({
   const showSuggestedPolicy =
     showPolicyGen || (finding.check_id === "s3.bucket.no_https_policy" && !!accountId);
   const scopeProvider = findingScopeProvider(finding);
-  const hideAutomationRemediation = scopeProvider !== "aws" || !SHOW_WRITE_REMEDIATION;
-  const hideTerraformRemediation = !SHOW_WRITE_REMEDIATION;
+  const verifyUnchangedCopy = verifyFixOutcomeCopy(scopeProvider, "unchanged");
+  const verifyErrorCopy = verifyFixOutcomeCopy(scopeProvider, "error");
 
   const tabs: { id: Tab; label: string }[] = [
     { id: "resources", label: "Resources" },
@@ -6914,7 +6245,7 @@ export function FindingDrawer({
       </div>
     </div>
     <div
-      className={`${drawerBody}${remediationSplit ? " !flex !flex-col !space-y-0 !overflow-hidden !px-0 !pb-0 !pt-0" : ""}`}
+      className={`${drawerBody}${resourcesTab ? " !flex !flex-col !gap-3.5 !space-y-0 !overflow-hidden" : ""}${remediationSplit ? " !flex !flex-col !space-y-0 !overflow-hidden !px-0 !pb-0 !pt-0" : ""}`}
     >
       {verifyUnchanged && !verified && (
         <div
@@ -6922,14 +6253,32 @@ export function FindingDrawer({
           role="status"
         >
           <p className="min-w-0 flex-1">
-            <span className="font-semibold">Still open</span> — verify finished but this finding did not resolve. Fix
-            the issue in AWS, then try again.
+            <span className="font-semibold">{verifyUnchangedCopy.title}</span> — {verifyUnchangedCopy.body}
           </p>
           {onDismissVerifyOutcome && (
             <button
               type="button"
               onClick={onDismissVerifyOutcome}
               className="shrink-0 text-[11px] font-medium text-amber-900/80 hover:text-amber-950"
+            >
+              Dismiss
+            </button>
+          )}
+        </div>
+      )}
+      {verifyError && !verified && (
+        <div
+          className="flex items-start gap-3 rounded-xl border border-red-200/80 bg-red-50/90 px-4 py-3.5 text-[12px] leading-relaxed text-red-950"
+          role="status"
+        >
+          <p className="min-w-0 flex-1">
+            <span className="font-semibold">{verifyErrorCopy.title}</span> — {verifyErrorCopy.body}
+          </p>
+          {onDismissVerifyOutcome && (
+            <button
+              type="button"
+              onClick={onDismissVerifyOutcome}
+              className="shrink-0 text-[11px] font-medium text-red-900/80 hover:text-red-950"
             >
               Dismiss
             </button>
@@ -6971,7 +6320,7 @@ export function FindingDrawer({
         }}
       />
       {tab === "resources" && (
-        <div className="space-y-3.5">
+        <div className="flex min-h-0 flex-1 flex-col gap-3.5">
           <FindingResourcesTab
             selectedFinding={finding}
             groupFindings={groupFindings?.length ? groupFindings : [finding]}
@@ -6987,7 +6336,7 @@ export function FindingDrawer({
             selectionEnabled={canEditResources}
             selectedFindingIds={selectedResourceIds}
             onSelectedFindingIdsChange={setSelectedResourceIds}
-            summaryRisk={checkDoc?.overview?.exposure ?? checkDoc?.overview?.context ?? ops.impact}
+            summaryRisk={recommendedActionExplanationForCheck(finding.check_id)}
             summaryAction={checkDoc?.overview?.fix ?? ops.fix}
             onViewRemediation={() => onTabChange("remediation")}
             jiraIssue={jiraIssue && !githubIssue ? jiraIssue : null}
@@ -7050,8 +6399,6 @@ export function FindingDrawer({
                   <RemediationModePicker
                     active={activeRemediationMode}
                     onSelect={openRemediationDetail}
-                    hideTerraform={hideTerraformRemediation || SG_AUTOMATION_ONLY_CHECKS.has(finding.check_id)}
-                    hideAutomation={hideAutomationRemediation}
                     showSuggestedPolicy={showSuggestedPolicy}
                   />
                   {!remDetailMode && (
@@ -7111,29 +6458,6 @@ export function FindingDrawer({
                   ) : (
                     <RemediationCliBlock finding={finding} />
                   )
-                )}
-                {!isIdentityCheck && remDetailMode === "terraform" && SHOW_WRITE_REMEDIATION && (
-                  <TerraformIacDrawerSection
-                    findingId={finding.id}
-                    checkId={finding.check_id}
-                    resourceArn={finding.resource_arn}
-                    existing={githubIssue}
-                    onCreated={setGithubOverride}
-                  />
-                )}
-                {!isIdentityCheck && remDetailMode === "automation" && SHOW_WRITE_REMEDIATION && (
-                  <IaCRemediationSection
-                    embedMode="automation"
-                    findingId={finding.id}
-                    checkId={finding.check_id}
-                    accountId={accountId}
-                    accountProvider={scopeProvider}
-                    resourceArn={finding.resource_arn}
-                    resourceRegion={resourceRegionForFinding(finding)}
-                    resourceLabel={resourceDisplayName(finding)}
-                    onShowPolicy={showSuggestedPolicy ? openPolicyReview : undefined}
-                    policyReviewAcknowledged={policyReviewAcknowledged}
-                  />
                 )}
                 {!isIdentityCheck && remDetailMode === "suggested_policy" && accountId && (
                   <SuggestedPolicyRemediationContent
@@ -7204,7 +6528,7 @@ export function FindingDrawer({
             disabled={verifying || verified}
             onClick={() => onAction(finding.id, "recheck")}
             aria-label={verified ? "Verified" : verifying ? "Verifying fix" : "Verify fix"}
-            className={verified || verifyFooterMuted ? drawerFooterVerifySoft : drawerFooterVerifyPrimary}
+            className={verified ? drawerFooterVerifySoft : drawerFooterVerifyPrimary}
           >
             {verifying ? (
               <>

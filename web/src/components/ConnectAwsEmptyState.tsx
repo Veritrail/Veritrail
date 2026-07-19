@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
    in a light theme, with Design 1's "What to expect" value beat. Capabilities
    are ADDITIVE, not exclusive: Core scanner is required + locked on; IAM
    analysis and Remediation are optional add-ons. "Continue" hands off to the
-   real CloudFormation deploy flow on /accounts. */
+   real CloudFormation deploy flow on /home. */
 
 type CapabilityId = "core" | "iam" | "remediation";
 
@@ -225,7 +225,7 @@ export default function ConnectAwsEmptyState() {
           </div>
           <button
             type="button"
-            onClick={() => navigate("/accounts")}
+            onClick={() => navigate("/home")}
             className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700"
           >
             Continue

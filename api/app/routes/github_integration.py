@@ -7,7 +7,8 @@ from urllib.parse import urlencode
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import RedirectResponse
-from jose import JWTError, jwt
+import jwt
+from jwt import PyJWTError as JWTError
 from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -18,6 +19,7 @@ from app.core.security import current_principal
 from app.models.github import IdentityProvider, IdentityUser, PullRequest, Repo, RepoProtection
 from app.services.github_sync import provider_config, set_provider_config, sync_github_provider
 from app.services.integration_repos import RepoInScopeOut, count_protected_repos, list_repos_in_scope
+from app.services.source_control_scan import resolve_source_control_findings_on_disconnect
 from app.core.route_deps import RequireAdmin
 
 router = APIRouter()
@@ -122,7 +124,7 @@ def is_github_integration_state(state: str | None) -> bool:
     if not state:
         return False
     try:
-        payload = jwt.get_unverified_claims(state)
+        payload = jwt.decode(state, options={"verify_signature": False})
     except JWTError:
         return False
     return payload.get("type") == "github_integration"
@@ -281,6 +283,17 @@ def handle_github_integration_callback(
             },
         )
         provider.status = "connected"
+        from app.models.org import Org
+        from app.services.org_activity import record_activation_milestone
+
+        org = db.get(Org, provider.org_id)
+        if org:
+            record_activation_milestone(
+                db,
+                org,
+                "first_integration_at",
+                detail={"provider": "github"},
+            )
         db.commit()
         return RedirectResponse(f"{_frontend_url()}/integrations/github/edit?connected=1")
     except Exception:
@@ -405,5 +418,6 @@ def sync_github(body: GitHubSyncIn, _rbac: RequireAdmin, p=Depends(current_princ
 def disconnect_github(_rbac: RequireAdmin, p=Depends(current_principal), db: Session = Depends(get_db)):
     provider = _provider_for_org(db, p["org_id"])
     if provider:
+        resolve_source_control_findings_on_disconnect(db, uuid.UUID(p["org_id"]), "github")
         db.delete(provider)
         db.commit()

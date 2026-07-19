@@ -25,13 +25,11 @@ import JiraIntegration from "./pages/JiraIntegration";
 import GcpIntegration from "./pages/GcpIntegration";
 import AzureIntegration from "./pages/AzureIntegration";
 import VulnScannerIntegration from "./pages/VulnScannerIntegration";
-import OktaIntegration from "./pages/OktaIntegration";
 import IntuneIntegration from "./pages/IntuneIntegration";
 import JamfIntegration from "./pages/JamfIntegration";
 import Questionnaire from "./pages/Questionnaire";
 import SiemIntegration from "./pages/SiemIntegration";
-import GitHubIssuesIntegration from "./pages/GitHubIssuesIntegration";
-import IacRepositoryIntegration from "./pages/IacRepositoryIntegration";
+import PagerDutyIntegration from "./pages/PagerDutyIntegration";
 import Integrations from "./pages/Integrations";
 import IntegrationCatalog from "./pages/IntegrationCatalog";
 import History from "./pages/History";
@@ -48,7 +46,6 @@ import { ErrorBoundary } from "./components/ErrorBoundary";
 import TrustCenter from "./pages/TrustCenter";
 import Privacy from "./pages/Privacy";
 import Terms from "./pages/Terms";
-import Homepage from "./pages/Homepage";
 import NoWorkspace from "./pages/NoWorkspace";
 import "./styles/findings-overrides.css";
 import "./styles/accounts-overrides.css";
@@ -71,7 +68,6 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           <Routes>
           <Route path="/trust/:slug" element={<TrustCenter />} />
           <Route path="/" element={<Navigate to="/login" replace />} />
-          <Route path="/homepage" element={<Homepage />} />
           <Route path="/privacy" element={<Privacy />} />
           <Route path="/terms" element={<Terms />} />
           <Route path="/invite/:token" element={<InviteAccept />} />
@@ -84,6 +80,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
             <Route path="/findings" element={<Findings />} />
             <Route path="/reference" element={<Reference />} />
             <Route path="/resources" element={<Navigate to="/findings" replace />} />
+            <Route path="/home" element={<Accounts />} />
             <Route path="/accounts" element={<Accounts />} />
             <Route path="/profile" element={<Account />} />
             <Route path="/account" element={<Navigate to="/profile" replace />} />
@@ -93,7 +90,10 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
             <Route path="/auditors" element={<Navigate to="/workspace#sharing" replace />} />
             <Route path="/members" element={<Navigate to="/workspace#access" replace />} />
             <Route path="/detection" element={<Navigate to="/workspace#scanning" replace />} />
+            <Route path="/checklist" element={<Navigate to="/controls" replace />} />
             <Route path="/controls" element={<Controls />} />
+            <Route path="/audit" element={<Navigate to="/controls" replace />} />
+            <Route path="/audit-readiness" element={<Navigate to="/controls" replace />} />
             <Route path="/history" element={<History />} />
             <Route path="/compliance-history" element={<Navigate to="/history" replace />} />
             <Route path="/compliance-timeline" element={<Navigate to="/history" replace />} />
@@ -112,13 +112,13 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
             <Route path="/integrations/gcp" element={<GcpIntegration />} />
             <Route path="/integrations/azure" element={<AzureIntegration />} />
             <Route path="/integrations/scanners/:vendor" element={<VulnScannerIntegration />} />
-            <Route path="/integrations/okta" element={<OktaIntegration />} />
+            <Route path="/integrations/pagerduty" element={<PagerDutyIntegration />} />
             <Route path="/integrations/intune" element={<IntuneIntegration />} />
             <Route path="/integrations/jamf" element={<JamfIntegration />} />
             <Route path="/questionnaire" element={<Questionnaire />} />
             <Route path="/integrations/siem/:vendor" element={<SiemIntegration />} />
-            <Route path="/integrations/github-issues" element={<GitHubIssuesIntegration />} />
-            <Route path="/integrations/iac-repository" element={<IacRepositoryIntegration />} />
+            <Route path="/integrations/github-issues" element={<Navigate to="/integrations" replace />} />
+            <Route path="/integrations/iac-repository" element={<Navigate to="/integrations" replace />} />
             {/* Azure Boards removed from product — legacy bookmarks redirect to hub */}
             <Route path="/integrations/azure-boards" element={<Navigate to="/integrations" replace />} />
           </Route>

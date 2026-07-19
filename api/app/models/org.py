@@ -28,6 +28,7 @@ class User(Base):
     org_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("orgs.id", ondelete="CASCADE"))
     email: Mapped[str] = mapped_column(String(320), unique=True, index=True)
     display_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    avatar_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
     password_hash: Mapped[str] = mapped_column(String(255))
     role: Mapped[str] = mapped_column(String(40), default="owner")
     github_id: Mapped[str | None] = mapped_column(String(100), unique=True, nullable=True)
