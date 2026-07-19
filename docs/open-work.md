@@ -228,6 +228,15 @@ Approved product-core direction and phased implementation spec:
 - Azure assessment soft-collect depends on Security Reader–class permissions.
 - Live end-to-end grading against real tenants is not exercised in CI (unit tests mock APIs).
 
+## 7d. Technical evidence production hardening — **open**
+
+The post-rollout premortem has been reviewed and converted into an implementation-ready plan:
+
+- [`evidence-coverage-production-hardening-spec.md`](./evidence-coverage-production-hardening-spec.md)
+- Start with Phase A (honesty invariants), then deliver each later phase as a separate PR.
+- The root premortem HTML is supporting analysis only; it contains some outdated assumptions and is
+  not the implementation source of truth.
+
 ## 9. Gap — check-less human criteria (CC7.4 et al.) can't receive external evidence — **done**
 
 **Closed by the checklist consolidation.** CC6.4/CC6.5/CC7.3/CC7.4 render in the checklist
