@@ -7,6 +7,7 @@ export type IntegrationBrandId =
   | "entra"
   | "slack"
   | "jira"
+  | "pagerduty"
   | "azure-devops"
   | "datadog"
   | "gcp"
@@ -57,6 +58,7 @@ export const INTEGRATION_BRAND: Record<IntegrationBrandId, BrandAsset> = {
   },
   slack: { src: "https://a.slack-edge.com/80588/marketing/img/icons/icon_slack_hash_colored.png" },
   jira: { src: "https://jira.atlassian.com/favicon.ico" },
+  pagerduty: { src: "https://www.pagerduty.com/favicon.ico" },
   "azure-devops": { src: "/integrations/azure-devops.png" },
   datadog: { src: "https://www.datadoghq.com/favicon.ico" },
   gcp: {

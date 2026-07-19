@@ -63,9 +63,10 @@ DOMAIN_DEFS: list[dict[str, Any]] = [
     },
     {
         "key": "incident_response",
-        "label": "Incident Response Readiness",
-        "capability": "Incident detection and response readiness",
+        "label": "Threat Detection",
+        "capability": "Threat detection service coverage",
         "composites": ["incident_response"],
+        # Boundary note is attached via DOMAIN_BOUNDARY_NOTES below.
     },
     {
         "key": "backup_dr",
@@ -411,6 +412,20 @@ def _coverage_line(
     return "  ·  ".join(bits)
 
 
+DOMAIN_BOUNDARY_NOTES: dict[str, str] = {
+    "incident_response": (
+        "Technical detection verified only: these checks confirm detection services "
+        "are enabled and surface open findings. Incident-response plans, triage "
+        "workflows, and alert routing are separate evidence (SOC 2 CC7.3/CC7.4) and "
+        "are not verified here."
+    ),
+    "data_protection": (
+        "Cloud configuration evidence only. Media-disposal policy (SOC 2 CC6.5) is "
+        "separate uploaded evidence and is not verified by these checks."
+    ),
+}
+
+
 def build_domain_sections(
     control_results: list[dict[str, Any]],
     *,
@@ -531,9 +546,19 @@ def build_domain_sections(
                 checks_total=len(checks),
                 checks_passing=len(passing),
                 scope_note=(
-                    "Workspace-level source-control evidence (GitHub/GitLab) — not scoped to this cloud account."
-                    if workspace_scope
-                    else None
+                    " ".join(
+                        note
+                        for note in (
+                            (
+                                "Workspace-level source-control evidence (GitHub/GitLab) — not scoped to this cloud account."
+                                if workspace_scope
+                                else None
+                            ),
+                            DOMAIN_BOUNDARY_NOTES.get(key),
+                        )
+                        if note
+                    )
+                    or None
                 ),
                 verified_phrases=verified,
             )

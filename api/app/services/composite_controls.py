@@ -160,8 +160,11 @@ _PRIMARY_COMPOSITE_BY_CHECK: dict[str, str] = {
     "cloudtrail.event.guardduty_disabled": "incident_response",
     "guardduty.detector.not_enabled": "incident_response",
     "guardduty.open_findings": "incident_response",
-    "intune.device.not_encrypted": "mdm_endpoint",
-    "jamf.device.not_encrypted": "mdm_endpoint",
+    # Device encryption is collectable through Intune/Jamf sync and belongs with
+    # identity governance. The separate MDM composite is intentionally outside
+    # the product's visible technical-evidence scope.
+    "intune.device.not_encrypted": "identity_governance",
+    "jamf.device.not_encrypted": "identity_governance",
 }
 
 

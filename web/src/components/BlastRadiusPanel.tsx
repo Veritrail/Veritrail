@@ -468,8 +468,8 @@ function CompactServiceList({ names, tone }: { names: string[]; tone: "remove" |
     <div>
       <div className="flex flex-wrap gap-1">
         {visible.map((n) => (
-          <span key={n} className={`rounded px-1.5 py-0.5 font-mono text-[10px] ${chipClass}`}>
-            {n}
+          <span key={n} className={`rounded px-1.5 py-0.5 text-[10px] ${chipClass}`}>
+            {formatIamServiceDisplayName(n)}
           </span>
         ))}
       </div>

@@ -73,6 +73,14 @@ export const INTEGRATION_CATALOG: CatalogCategory[] = [
     ],
   },
   {
+    id: "incident-workflow",
+    title: "Incident workflow",
+    blurb: "Read-only evidence of on-call services and open incidents.",
+    entries: [
+      { key: "pagerduty", brand: "pagerduty", name: "PagerDuty", description: "On-call service and incident-workflow evidence.", tags: ["On-call", "Incidents", "Evidence"], href: "/integrations/pagerduty" },
+    ],
+  },
+  {
     id: "ticketing",
     title: "Ticketing",
     blurb: "Turn findings into tracked remediation work.",
@@ -103,6 +111,7 @@ export type ConnectedCatalogState = {
   jiraConnected: boolean;
   splunkConnected: boolean;
   datadogConnected: boolean;
+  pagerdutyConnected: boolean;
   connectedScanners: Partial<Record<"snyk" | "wiz" | "tenable" | "qualys" | "orca" | "aikido", boolean>>;
 };
 
@@ -117,6 +126,7 @@ export function connectedCatalogKeys(state: ConnectedCatalogState): ReadonlySet<
   if (state.jiraConnected) hidden.add("jira");
   if (state.splunkConnected) hidden.add("splunk");
   if (state.datadogConnected) hidden.add("datadog");
+  if (state.pagerdutyConnected) hidden.add("pagerduty");
   for (const [vendor, connected] of Object.entries(state.connectedScanners)) {
     if (connected) hidden.add(vendor);
   }

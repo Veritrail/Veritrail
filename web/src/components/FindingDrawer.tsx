@@ -49,7 +49,10 @@ import { frameworkLabel } from "../data/frameworks";
 import { FrameworkMark } from "./FrameworkMark";
 import { showWhatIfTab, whatIfUnavailableReason } from "../data/blastRadiusChecks";
 import { checkLabels } from "../data/checkLabels";
-import { documentationForCheck } from "../data/checkDocumentation";
+import {
+  documentationForCheck,
+  recommendedActionExplanationForCheck,
+} from "../data/checkDocumentation";
 import { DEFAULT_EVIDENCE_GUIDANCE } from "../data/checkComplianceCopy";
 import { remediationSummaryForFinding, type RemediationSummary } from "../data/remediationSummaries";
 import {
@@ -2052,7 +2055,7 @@ function GrantedServicePills({ services }: { services: GrantedServicePill[] }) {
           }`}
         >
           <span className={`h-1.5 w-1.5 rounded-full ${s.active ? "bg-red-400" : "bg-zinc-300"}`} />
-          {s.name}
+          {formatIamServiceDisplayName(s.name)}
           {s.days_ago !== null && <span className="opacity-60">{s.days_ago}d</span>}
         </span>
       ))}
@@ -6242,7 +6245,7 @@ export function FindingDrawer({
       </div>
     </div>
     <div
-      className={`${drawerBody}${remediationSplit ? " !flex !flex-col !space-y-0 !overflow-hidden !px-0 !pb-0 !pt-0" : ""}`}
+      className={`${drawerBody}${resourcesTab ? " !flex !flex-col !gap-3.5 !space-y-0 !overflow-hidden" : ""}${remediationSplit ? " !flex !flex-col !space-y-0 !overflow-hidden !px-0 !pb-0 !pt-0" : ""}`}
     >
       {verifyUnchanged && !verified && (
         <div
@@ -6317,7 +6320,7 @@ export function FindingDrawer({
         }}
       />
       {tab === "resources" && (
-        <div className="space-y-3.5">
+        <div className="flex min-h-0 flex-1 flex-col gap-3.5">
           <FindingResourcesTab
             selectedFinding={finding}
             groupFindings={groupFindings?.length ? groupFindings : [finding]}
@@ -6333,7 +6336,7 @@ export function FindingDrawer({
             selectionEnabled={canEditResources}
             selectedFindingIds={selectedResourceIds}
             onSelectedFindingIdsChange={setSelectedResourceIds}
-            summaryRisk={checkDoc?.overview?.exposure ?? checkDoc?.overview?.context ?? ops.impact}
+            summaryRisk={recommendedActionExplanationForCheck(finding.check_id)}
             summaryAction={checkDoc?.overview?.fix ?? ops.fix}
             onViewRemediation={() => onTabChange("remediation")}
             jiraIssue={jiraIssue && !githubIssue ? jiraIssue : null}

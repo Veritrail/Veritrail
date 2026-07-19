@@ -10,35 +10,16 @@ export type ExternalOnlyControlCopy = {
   guidance: string;
 };
 
-export const EXTERNAL_ONLY_CONTROLS: ExternalOnlyControlCopy[] = [
-  {
-    id: "endpoint_security",
-    title: "Endpoint security",
-    description: "Requires external endpoint security or EDR evidence.",
-    blockingGapSummary:
-      "No cloud scan coverage — corporate endpoints are outside AWS.",
-    guidance:
-      "Export a device or agent coverage report from your EDR platform and upload it below.\n\n" +
-      "- CrowdStrike, SentinelOne, and Microsoft Defender for Endpoint are common sources\n" +
-      "- Auditors want agent coverage across the employee fleet and real-time alerting enabled\n" +
-      "- Include a recent export dated within your audit period\n\n" +
-      "Declare your platform in Workspace → Evidence to streamline future uploads.",
-  },
-  {
-    id: "mdm_endpoint",
-    title: "Device management (MDM)",
-    description:
-      "Corporate device enrollment and compliance live outside AWS. Connect Intune or Jamf for supplemental sync, and upload accepted manual evidence for audit.",
-    blockingGapSummary:
-      "No cloud scan coverage — managed devices are outside AWS",
-    guidance:
-      "Upload a device compliance report from your MDM platform and declare the vendor in Workspace → Evidence.\n\n" +
-      "- Microsoft Intune and Jamf Pro can be connected for live device inventory sync, but audit coverage still requires accepted external evidence\n" +
-      "- Auditors want proof that in-scope laptops and mobile devices are enrolled\n" +
-      "- Show disk encryption and screen-lock enforcement on enrolled devices\n\n" +
-      "If no managed devices are in your audit boundary, mark this control out of scope with a rationale instead.",
-  },
-];
+/**
+ * Intentionally empty (July 2026 scope decision): Veritrail shows only what it
+ * can collect. Endpoint security / EDR and MDM enrollment evidence belong to
+ * the customer's GRC platform — surfacing them here meant a permanent
+ * "Coverage gap" no scan could ever clear. Backend composite rows are retained
+ * so previously uploaded evidence keeps its reference; they are simply no
+ * longer displayed. Device *encryption* remains covered via the Intune/Jamf
+ * sync checks under Identity Governance.
+ */
+export const EXTERNAL_ONLY_CONTROLS: ExternalOnlyControlCopy[] = [];
 
 const BY_ID = new Map(EXTERNAL_ONLY_CONTROLS.map((row) => [row.id, row]));
 

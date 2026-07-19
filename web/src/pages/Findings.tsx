@@ -12,7 +12,7 @@ import {
   serializeFrameworkParam,
 } from "../components/BenchmarkFrameworkSelect";
 import { FindingsStatusSelect } from "../components/FindingsStatusSelect";
-import { FindingsChecksFilter, FindingsChecksFilterSummary } from "../components/FindingsChecksFilter";
+import { FindingsChecksFilter } from "../components/FindingsChecksFilter";
 import { api, formatApiError, token } from "../api";
 import { checkFrameworksSchema, compositeControlListSchema, integrationStatusNullableSchema } from "../lib/apiSchemas";
 import { fetchAllFindings, FINDINGS_FETCH_CAP } from "../lib/fetchAllFindings";
@@ -281,7 +281,7 @@ const CATEGORY_SHORT_LABEL: Record<string, string> = {
   vulnerability_management: "Vulnerability Management",
   container_vulnerability_monitoring: "Container Vulnerability",
   logging_monitoring: "Logging & Monitoring",
-  incident_response: "Incident Response",
+  incident_response: "Threat Detection",
   backup_resilience: "Backup & Resilience",
   endpoint_security: "Endpoint Security",
   mdm_endpoint: "Device Management",
@@ -1151,6 +1151,19 @@ export function FindingsWorkspace({ lockedAccountId, embedded = false }: Finding
     [scopedFindings, selectedFrameworks, checkFrameworksApi],
   );
 
+  const searchSuggestions = useMemo(() => {
+    const labels = new Set<string>();
+    for (const finding of benchmarkScopedFindings) {
+      const groupKey = findingDisplayGroupKey(finding.check_id);
+      labels.add(
+        findingGroupMeta(groupKey)?.title ??
+          checkLabels[finding.check_id] ??
+          finding.title,
+      );
+    }
+    return [...labels].sort((a, b) => a.localeCompare(b));
+  }, [benchmarkScopedFindings]);
+
   const rows = useMemo(() => {
     const qtext = searchText.trim().toLowerCase();
     const arr = benchmarkScopedFindings.filter((f) => {
@@ -1615,6 +1628,7 @@ export function FindingsWorkspace({ lockedAccountId, embedded = false }: Finding
                       aria-label="Search findings"
                       value={searchText}
                       onChange={handleSearch}
+                      suggestions={searchSuggestions}
                     />
                     <div className="findings-v2-toolbar-group findings-v2-toolbar-group--divider" role="group" aria-label="Finding actions">
                       <button
@@ -1652,18 +1666,6 @@ export function FindingsWorkspace({ lockedAccountId, embedded = false }: Finding
                   </div>
                 </div>
               </div>
-
-              <FindingsChecksFilterSummary
-                tags={searchTags}
-                checkLabels={checkLabels}
-                displayGroupCount={
-                  searchTags.length > 0
-                    ? postureDisplayGroups.length +
-                      (SHOW_ACTIVITY_DETECTIONS_SECTION ? activityDisplayGroups.length : 0)
-                    : undefined
-                }
-                onClear={() => handleTagsChange([])}
-              />
 
               {rows.length === 0 ? (
                 <div className={`px-6 py-16 text-center ${isPositiveEmpty ? "bg-emerald-50/40" : ""}`}>

@@ -354,7 +354,9 @@ function ResourcesPostureStrip({
             </p>
             <p className="mt-1.5 text-[15px] font-semibold leading-relaxed text-zinc-900">{summaryAction}</p>
             {summaryRisk ? (
-              <p className="mt-2 text-[13px] leading-relaxed text-zinc-500">{summaryRisk}</p>
+              <p className="mt-2 max-w-4xl text-pretty text-[13px] font-normal leading-5 tracking-[-0.006em] text-zinc-600 lg:min-h-[3.75rem]">
+                {summaryRisk}
+              </p>
             ) : null}
             {onViewRemediation ? (
               <button
@@ -866,21 +868,23 @@ export function FindingResourcesTab({
   }
 
   return (
-    <div className="finding-resources-tab space-y-3">
-      <ResourcesPostureStrip
-        selectedFinding={selectedFinding}
-        groupFindings={groupFindings}
-        summaryRisk={summaryRisk}
-        summaryAction={summaryAction}
-        onViewRemediation={onViewRemediation}
-        jiraIssue={jiraIssue}
-        jiraStatus={jiraStatus}
-        jiraStatusFetching={jiraStatusFetching}
-        onRemoveJira={onRemoveJira}
-      />
+    <div className="finding-resources-tab flex min-h-0 flex-1 flex-col gap-3">
+      <div className="shrink-0">
+        <ResourcesPostureStrip
+          selectedFinding={selectedFinding}
+          groupFindings={groupFindings}
+          summaryRisk={summaryRisk}
+          summaryAction={summaryAction}
+          onViewRemediation={onViewRemediation}
+          jiraIssue={jiraIssue}
+          jiraStatus={jiraStatus}
+          jiraStatusFetching={jiraStatusFetching}
+          onRemoveJira={onRemoveJira}
+        />
+      </div>
 
       {/* Toolbar — separate controls on one line, no shared card */}
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex shrink-0 flex-wrap items-center gap-2">
         <div className="relative w-full min-w-[10rem] max-w-[17rem] sm:max-w-[19rem]">
           <svg
             className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400"
@@ -1025,8 +1029,8 @@ export function FindingResourcesTab({
       </div>
 
       {/* Resource list — single merged card, rows divided by lines */}
-      <div className="overflow-hidden rounded-xl border border-zinc-200/90 bg-white shadow-sm shadow-zinc-950/[0.03]">
-        <div className="overflow-x-auto">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-zinc-200/90 bg-white shadow-sm shadow-zinc-950/[0.03]">
+        <div className="min-h-0 flex-1 overflow-auto overscroll-contain">
           <table className="finding-resources-tab__table min-w-[56rem] w-full border-collapse text-left">
             <colgroup>
               {selectionEnabled ? <col className="w-10" /> : null}
@@ -1037,7 +1041,7 @@ export function FindingResourcesTab({
               <col className="finding-resources-tab__seen-col" />
               <col className="finding-resources-tab__reason-col" />
             </colgroup>
-            <thead>
+            <thead className="sticky top-0 z-10 bg-white shadow-[0_1px_0_0_theme(colors.zinc.100)]">
               <tr className="border-b border-zinc-100 text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
                 {selectionEnabled ? (
                   <th className="w-10 px-3 pb-2.5 pt-3 text-left align-bottom font-semibold">

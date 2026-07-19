@@ -1,4 +1,5 @@
 import { remediationSummaryForFinding } from "../data/remediationSummaries";
+import { formatIamServiceDisplayName } from "./findingDisplay";
 
 export type ResourceAffectedFinding = {
   check_id: string;
@@ -135,7 +136,7 @@ const EVIDENCE_REASON_BUILDERS: Record<string, EvidenceReasonBuilder> = {
   "iam.role.unused_services_90d": (evidence) => {
     const unused = asStringArray(evidence.unused_services);
     if (!unused.length) return null;
-    const preview = unused.slice(0, 4).join(", ");
+    const preview = unused.slice(0, 4).map(formatIamServiceDisplayName).join(", ");
     const suffix = unused.length > 4 ? ` (+${unused.length - 4} more)` : "";
     return { title: "Role retains unused service access", detail: `${preview}${suffix} · 90 days` };
   },

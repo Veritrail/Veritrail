@@ -278,6 +278,10 @@ export function OrgReadinessHome() {
     events.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
     return events.slice(0, 4);
   }, [timelineQs]);
+  const timelineFetching = timelineQs.some((query) => query.fetchStatus === "fetching");
+  const timelinePlaceholderCount = timelineFetching
+    ? Math.max(0, 4 - timelineEvents.length)
+    : 0;
 
   const defaultFindingsHref = defaultOrgFindingsHref({ hasCloudAccounts, hasSourceControl, hasIdentity });
   const findingsHref = (checkId: string) => findingsHrefForCheckIds([checkId]) ?? defaultFindingsHref;
@@ -388,6 +392,7 @@ export function OrgReadinessHome() {
     <div className="org-home">
       <header className="org-home__top">
         <div>
+          <p className="org-home__section-kicker">SOC 2 readiness</p>
           <h1 className="org-home__title">
             {orgName}
             {homeState === "action" && highCount > 0 ? (
@@ -414,10 +419,17 @@ export function OrgReadinessHome() {
         </div>
       </header>
 
-      <div className="org-home__priority-grid">
-        <section className="org-home__priority-section" aria-label="What's blocking you">
+      <div className={`org-home__content-grid${enableActions.length === 0 ? " is-single" : ""}`}>
+        <section className="org-home__priority-section org-home__priority-section--primary" aria-label="What's blocking you">
           <div className="org-home__priority-heading">
-            <h2 className="org-home__section-title">What&apos;s blocking you</h2>
+            <div>
+              <p className="org-home__section-kicker">Priority queue</p>
+              <h2 className="org-home__section-title">What&apos;s blocking you</h2>
+              <p className="org-home__section-description">Highest-impact work, ranked by the evidence it clears.</p>
+            </div>
+            <Link to={defaultFindingsHref} className="org-home__section-link">
+              View findings <span aria-hidden>→</span>
+            </Link>
           </div>
           <div className="org-home__actions">
             {priorityFindings.length > 0 ? (
@@ -438,8 +450,7 @@ export function OrgReadinessHome() {
                 ))}
                 {blockerGroups.length > priorityFindings.length ? (
                   <div className="org-home__next-footer">
-                    {blockerGroups.length - priorityFindings.length} additional priorit{blockerGroups.length - priorityFindings.length === 1 ? "y" : "ies"} ·{" "}
-                    <Link to={defaultFindingsHref}>Findings <span aria-hidden>→</span></Link>
+                    {blockerGroups.length - priorityFindings.length} additional priorit{blockerGroups.length - priorityFindings.length === 1 ? "y" : "ies"}
                   </div>
                 ) : null}
               </div>
@@ -462,59 +473,77 @@ export function OrgReadinessHome() {
         </section>
 
         {enableActions.length > 0 ? (
-          <section className="org-home__priority-section" aria-label="Capabilities to turn on">
-            <div className="org-home__priority-heading">
-              <h2 className="org-home__section-title">Capabilities to turn on</h2>
-            </div>
-            <div className="org-home__actions">
-              <div className="org-home__next-list">
-                {enableActions.map((action, index) => (
-                  <div key={action.key} className="org-home__next-row">
-                    <span className="org-home__next-rank" aria-label={`Enablement priority ${index + 1}`}>
-                      {index + 1}
-                    </span>
-                    <div className="org-home__next-copy">
-                      <strong>{action.title}</strong>
-                      <span>{action.detail}</span>
-                    </div>
-                    {action.href ? (
-                      <a href={action.href} target="_blank" rel="noopener noreferrer" className="org-home__next-action">
-                        Enable <span aria-hidden>→</span>
-                      </a>
+              <section className="org-home__priority-section org-home__priority-section--secondary" aria-label="Capabilities to turn on">
+                <div className="org-home__priority-heading">
+                  <div>
+                    <p className="org-home__section-kicker">Coverage</p>
+                    <h2 className="org-home__section-title">Capabilities to turn on</h2>
+                  </div>
+                  <Link to="/controls" className="org-home__section-link">
+                    View all <span aria-hidden>→</span>
+                  </Link>
+                </div>
+                <div className="org-home__actions">
+                  <div className="org-home__next-list">
+                    {enableActions.map((action, index) => (
+                      <div key={action.key} className="org-home__next-row">
+                        <span className="org-home__next-rank" aria-label={`Enablement priority ${index + 1}`}>
+                          {index + 1}
+                        </span>
+                        <div className="org-home__next-copy">
+                          <strong>{action.title}</strong>
+                          <span>{action.detail}</span>
+                        </div>
+                        {action.href ? (
+                          <a href={action.href} target="_blank" rel="noopener noreferrer" className="org-home__next-action">
+                            Enable <span aria-hidden>→</span>
+                          </a>
+                        ) : null}
+                      </div>
+                    ))}
+                    {capabilityItems.length > enableActions.length ? (
+                      <div className="org-home__next-footer">
+                        {capabilityItems.length - enableActions.length} additional enablement priorit{capabilityItems.length - enableActions.length === 1 ? "y" : "ies"}
+                      </div>
                     ) : null}
                   </div>
-                ))}
-                {capabilityItems.length > enableActions.length ? (
-                  <div className="org-home__next-footer">
-                    {capabilityItems.length - enableActions.length} additional enablement priorit{capabilityItems.length - enableActions.length === 1 ? "y" : "ies"} ·{" "}
-                    <Link to="/checklist">Checklist <span aria-hidden>→</span></Link>
-                  </div>
-                ) : null}
-              </div>
-            </div>
-          </section>
+                </div>
+              </section>
         ) : null}
       </div>
 
       {awsAccounts.length > 0 ? (
-        <section className="org-home__timeline-section org-home__timeline-section--compact" aria-label="Timeline">
-          <div className="org-home__section-head">
-            <h2 className="org-home__section-title">Timeline</h2>
-          </div>
-          {timelineEvents.length === 0 ? (
-            <p className="org-home__timeline-empty">AWS activity appears after the first completed scan.</p>
-          ) : (
-            <ul className="org-home__timeline">
-              {timelineEvents.map((event, idx) => (
-                <li key={`${event.scan_run_id}-${event.timestamp}-${idx}`} className="org-home__timeline-row">
-                  <span className="org-home__timeline-time">{formatTimelineAgo(event.timestamp)}</span>
-                  <span className={`org-home__timeline-dot${timelineDotIsGreen(event) ? " is-green" : ""}`} aria-hidden />
-                  <span className="org-home__timeline-text">{timelineEventText(event)}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+              <section className="org-home__timeline-section org-home__timeline-section--compact org-home__timeline-section--wide" aria-label="Recent changes">
+                <div className="org-home__section-head">
+                  <div>
+                    <p className="org-home__section-kicker">Activity</p>
+                    <h2 className="org-home__section-title">Recent changes</h2>
+                  </div>
+                  <Link to="/history" className="org-home__section-link">
+                    History <span aria-hidden>→</span>
+                  </Link>
+                </div>
+                {timelineEvents.length === 0 && !timelineFetching ? (
+                  <p className="org-home__timeline-empty">AWS activity appears after the first completed scan.</p>
+                ) : (
+                  <ul className="org-home__timeline" aria-busy={timelineFetching || undefined}>
+                    {timelineEvents.map((event, idx) => (
+                      <li key={`${event.scan_run_id}-${event.timestamp}-${idx}`} className="org-home__timeline-row">
+                        <span className="org-home__timeline-time">{formatTimelineAgo(event.timestamp)}</span>
+                        <span className={`org-home__timeline-dot${timelineDotIsGreen(event) ? " is-green" : ""}`} aria-hidden />
+                        <span className="org-home__timeline-text">{timelineEventText(event)}</span>
+                      </li>
+                    ))}
+                    {Array.from({ length: timelinePlaceholderCount }, (_, index) => (
+                      <li key={`timeline-placeholder-${index}`} className="org-home__timeline-row org-home__timeline-row--loading" aria-hidden>
+                        <span className="org-home__timeline-skeleton org-home__timeline-skeleton--time" />
+                        <span className="org-home__timeline-dot" />
+                        <span className="org-home__timeline-skeleton org-home__timeline-skeleton--text" />
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
       ) : null}
     </div>
   );

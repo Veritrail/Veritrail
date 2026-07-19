@@ -252,14 +252,9 @@ export default function Layout() {
             <span className="app-sidebar__label">Findings</span>
           </SidebarNavLink>
 
-          <SidebarNavLink to="/checklist" title="Checklist">
+          <SidebarNavLink to="/controls" title="Compliance">
             <SidebarIcon name="compliance" />
-            <span className="app-sidebar__label">Checklist</span>
-          </SidebarNavLink>
-
-          <SidebarNavLink to="/controls" title="Criteria">
-            <SidebarIcon name="compliance" />
-            <span className="app-sidebar__label">Criteria</span>
+            <span className="app-sidebar__label">Compliance</span>
           </SidebarNavLink>
 
           <SidebarNavLink to="/history" title="History">

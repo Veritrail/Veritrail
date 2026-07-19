@@ -52,6 +52,17 @@ const FIXTURES = [
     expected: "Unused access key remains active — No use · 120+ days",
   },
   {
+    check_id: "iam.role.unused_services_90d",
+    evidence: { unused_services: ["ec2", "logs", "ecr", "ec2messages", "imagebuilder"] },
+    expected:
+      "Role retains unused service access — Amazon EC2, CloudWatch Logs, Amazon ECR, EC2 Messages (+1 more) · 90 days",
+  },
+  {
+    check_id: "iam.role.unused_services_90d",
+    evidence: { unused_services: ["imagebuilder"] },
+    expected: "Role retains unused service access — EC2 Image Builder · 90 days",
+  },
+  {
     check_id: "s3.bucket.no_kms",
     evidence: {},
     expected: "Bucket lacks KMS-backed encryption — No customer-controlled key protection",

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 
@@ -23,7 +23,7 @@ import {
   resourceShortName,
   type FindingLike,
 } from "../lib/findingDisplay";
-import { manualEvidenceHint } from "../lib/manualEvidenceHints";
+import { manualEvidenceHint, type ManualEvidenceHint } from "../lib/manualEvidenceHints";
 import type { ExternalEvidenceArtifact } from "../lib/externalEvidence";
 import {
   ControlDetailPanel,
@@ -38,7 +38,9 @@ export type ChecklistOpenFinding = {
 };
 
 type ChecklistState = "verified" | "action" | "manual";
-type ChecklistPhaseId = "technical-gaps" | "evidence-required" | "completed";
+type ChecklistStatusFilter = "todo" | "verified";
+type ChecklistResolution = "enable" | "connect" | "evidence";
+type ChecklistResolutionFilter = "all" | ChecklistResolution;
 
 type ChecklistControl = {
   id: string;
@@ -74,12 +76,38 @@ type ReadinessPlaybook = {
   key: string;
   label: string;
   question: string;
+  controls: string[];
   items: ReadinessPlaybookItem[];
 };
 
-type PlaybookGroup = {
-  playbook: ReadinessPlaybook;
-  items: ReadinessPlaybookItem[];
+type TechnicalWorkItem = {
+  id: string;
+  kind: "technical";
+  status: ChecklistStatusFilter;
+  resolution: "enable";
+  title: string;
+  criteria: string[];
+  item: ReadinessPlaybookItem;
+};
+
+type ManualWorkItem = {
+  id: string;
+  kind: "manual";
+  status: ChecklistStatusFilter;
+  resolution: "connect" | "evidence";
+  title: string;
+  criteria: string[];
+  control: ChecklistControl;
+  hint: ManualEvidenceHint | null;
+};
+
+type ChecklistWorkItem = TechnicalWorkItem | ManualWorkItem;
+
+type ChecklistDomain = {
+  key: string;
+  label: string;
+  question: string;
+  items: ChecklistWorkItem[];
 };
 
 type ComplianceChecklistProps = {
@@ -95,82 +123,6 @@ type ComplianceChecklistProps = {
   onSelectManualControl: (id: string) => void;
 };
 
-const PHASE_STORAGE_KEY = "veritrail-checklist-open-phases";
-
-const CHECKLIST_PHASES: {
-  id: ChecklistPhaseId;
-  title: string;
-  description: string;
-  marker: string;
-  tone: "amber" | "violet" | "teal";
-}[] = [
-  {
-    id: "technical-gaps",
-    title: "Enable capabilities",
-    description: "Cloud capabilities that still need to be turned on.",
-    marker: "1",
-    tone: "amber",
-  },
-  {
-    id: "evidence-required",
-    title: "Evidence required",
-    description: "Policies, runbooks, and human processes that need accepted evidence.",
-    marker: "2",
-    tone: "violet",
-  },
-  {
-    id: "completed",
-    title: "Completed",
-    description: "Verified technical controls and externally covered manual criteria.",
-    marker: "✓",
-    tone: "teal",
-  },
-];
-
-function groupStorageKey(accountId: string, framework: string) {
-  return `veritrail-checklist-open-groups:${accountId}:${framework}`;
-}
-
-function readStoredPhaseIds(): Set<ChecklistPhaseId> | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = sessionStorage.getItem(PHASE_STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) return null;
-    return new Set(
-      parsed.filter((id): id is ChecklistPhaseId =>
-        id === "technical-gaps" || id === "evidence-required" || id === "completed",
-      ),
-    );
-  } catch {
-    return null;
-  }
-}
-
-function writeStoredPhaseIds(ids: Set<ChecklistPhaseId>) {
-  if (typeof window === "undefined") return;
-  sessionStorage.setItem(PHASE_STORAGE_KEY, JSON.stringify([...ids]));
-}
-
-function readStoredGroupKeys(accountId: string, framework: string): Set<string> | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = sessionStorage.getItem(groupStorageKey(accountId, framework));
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) return null;
-    return new Set(parsed.filter((key): key is string => typeof key === "string"));
-  } catch {
-    return null;
-  }
-}
-
-function writeStoredGroupKeys(accountId: string, framework: string, keys: Set<string>) {
-  if (typeof window === "undefined") return;
-  sessionStorage.setItem(groupStorageKey(accountId, framework), JSON.stringify([...keys]));
-}
-
 function stateForTechnicalItem(status: string): ChecklistState {
   return status === "verified" ? "verified" : "action";
 }
@@ -180,7 +132,11 @@ function belongsInEnablementChecklist(item: {
   action_kind: "activate" | "review" | null;
   is_enablement: boolean;
 }): boolean {
-  if (item.status === "action") return item.action_kind === "activate";
+  // Unified Compliance view: every actionable technical item belongs — both
+  // "activate" (enable a capability) and "review" (failing checks on named
+  // resources). Verified rows keep the enablement filter so one-time setup
+  // items don't crowd the Completed phase with every passing check.
+  if (item.status === "action") return item.action_kind !== null;
   return item.is_enablement;
 }
 
@@ -277,50 +233,6 @@ function cliFilenameTag(cli: string): string {
   const first = cli.trim().split(/\s+/)[0]?.toLowerCase() ?? "cli";
   if (first === "aws") return "aws-cli";
   return first;
-}
-
-function stopRowAction(event: MouseEvent<HTMLElement>) {
-  event.stopPropagation();
-}
-
-function activateRow(event: KeyboardEvent<HTMLElement>, action: () => void) {
-  if (event.key !== "Enter" && event.key !== " ") return;
-  event.preventDefault();
-  action();
-}
-
-function ChecklistGroupChip({
-  tone,
-  label,
-}: {
-  tone: "amber" | "indigo" | "violet" | "teal" | "neutral";
-  label: string;
-}) {
-  const m = label.match(/^(\d+)\s+(.*)$/);
-  return (
-    <span className={`compliance-checklist__group-chip is-${tone}`}>
-      {m ? (
-        <>
-          <strong>{m[1]}</strong> {m[2]}
-        </>
-      ) : (
-        label
-      )}
-    </span>
-  );
-}
-
-function ChecklistCcChips({ ids }: { ids: string[] }) {
-  if (ids.length === 0) return null;
-  return (
-    <div className="compliance-checklist__cc-chips">
-      {ids.slice(0, 4).map((id) => (
-        <span key={id} className="compliance-checklist__cc-chip">
-          {id}
-        </span>
-      ))}
-    </div>
-  );
 }
 
 function CopyCliButton({ code }: { code: string }) {
@@ -474,12 +386,6 @@ function ChecklistStepDrawerContent({
   );
 }
 
-function phaseVisibleInPhase(phase: ChecklistPhaseId, state: ChecklistState): boolean {
-  if (phase === "technical-gaps") return state === "action";
-  if (phase === "evidence-required") return state === "manual";
-  return state === "verified";
-}
-
 export function ComplianceChecklist({
   accountId,
   framework,
@@ -491,15 +397,13 @@ export function ComplianceChecklist({
   findingCountByCheck,
   onSelectManualControl,
 }: ComplianceChecklistProps) {
-  const [expandedPhases, setExpandedPhases] = useState<Set<ChecklistPhaseId>>(() => {
-    return readStoredPhaseIds() ?? new Set();
-  });
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => {
-    return readStoredGroupKeys(accountId, framework) ?? new Set();
-  });
+  const [statusFilter, setStatusFilter] = useState<ChecklistStatusFilter>("todo");
+  const [resolutionFilter, setResolutionFilter] =
+    useState<ChecklistResolutionFilter>("all");
+  const [openDomainKey, setOpenDomainKey] = useState<string | null>(null);
   const [selectedTechnicalStep, setSelectedTechnicalStep] =
     useState<SelectedTechnicalStep | null>(null);
-  const [autoExpandedPhases, setAutoExpandedPhases] = useState(false);
+  const [domainInitialized, setDomainInitialized] = useState(false);
 
   const readinessQ = useQuery({
     queryKey: ["audit-readiness", framework, accountId],
@@ -540,393 +444,141 @@ export function ComplianceChecklist({
     [automatedFamilyKeys, controls, framework],
   );
 
-  const technicalItems = useMemo(
-    () =>
-      (readinessQ.data?.playbooks ?? []).flatMap((playbook) =>
-        playbook.items
-          .filter(
-            (item) =>
-              item.status !== "not_applicable" &&
-              item.status !== "not_assessed" &&
-              belongsInEnablementChecklist(item),
-          )
-          .map((item) => ({
-            item,
-            state: stateForTechnicalItem(item.status),
-          })),
-      ),
-    [readinessQ.data],
-  );
+  const domainItems = useMemo(() => {
+    const playbooks = (readinessQ.data?.playbooks ?? []) as ReadinessPlaybook[];
+    const domains = new Map<
+      string,
+      { key: string; label: string; question: string; items: ChecklistWorkItem[] }
+    >();
 
-  const counts = useMemo(() => {
-    const result: Record<ChecklistState, number> = { verified: 0, action: 0, manual: 0 };
-    for (const row of technicalItems) result[row.state] += 1;
-    for (const control of manualControls) {
-      result[acceptedControlIds.has(control.id) ? "verified" : "manual"] += 1;
-    }
-    return result;
-  }, [acceptedControlIds, manualControls, technicalItems]);
-
-  const total = counts.verified + counts.action + counts.manual;
-  const remaining = counts.action + counts.manual;
-  const verifiedPct = total > 0 ? Math.round((counts.verified / total) * 100) : 0;
-  const technicalVerifiedCount = technicalItems.filter(
-    (row) => row.state === "verified",
-  ).length;
-  const manualVerifiedCount = manualControls.filter((control) =>
-    acceptedControlIds.has(control.id),
-  ).length;
-  const phaseProgress: Record<ChecklistPhaseId, number> = {
-    "technical-gaps":
-      counts.action + technicalVerifiedCount > 0
-        ? Math.round(
-            (technicalVerifiedCount / (counts.action + technicalVerifiedCount)) * 100,
-          )
-        : 0,
-    "evidence-required":
-      counts.manual + manualVerifiedCount > 0
-        ? Math.round((manualVerifiedCount / (counts.manual + manualVerifiedCount)) * 100)
-        : 0,
-    completed: counts.verified > 0 ? 100 : 0,
-  };
-  const readinessBreakdown = [
-    { id: "technical", label: "Enable", count: counts.action, tone: "amber" },
-    { id: "evidence", label: "Evidence", count: counts.manual, tone: "violet" },
-    { id: "verified", label: "Verified", count: counts.verified, tone: "teal" },
-  ].filter((entry) => entry.count > 0);
-
-  const playbooksByPhase = useMemo(() => {
-    const result: Record<ChecklistPhaseId, PlaybookGroup[]> = {
-      "technical-gaps": [],
-      "evidence-required": [],
-      completed: [],
+    const getDomain = (key: string, label: string, question: string) => {
+      const existing = domains.get(key);
+      if (existing) return existing;
+      const next = { key, label, question, items: [] as ChecklistWorkItem[] };
+      domains.set(key, next);
+      return next;
     };
 
-    for (const playbook of readinessQ.data?.playbooks ?? []) {
-      for (const phase of CHECKLIST_PHASES) {
-        const items = playbook.items.filter((item) => {
-          if (item.status === "not_applicable" || item.status === "not_assessed") return false;
-          if (!belongsInEnablementChecklist(item)) return false;
-          return phaseVisibleInPhase(phase.id, stateForTechnicalItem(item.status));
+    for (const playbook of playbooks) {
+      const domain = getDomain(playbook.key, playbook.label, playbook.question);
+      for (const item of playbook.items) {
+        if (item.status === "not_applicable" || item.status === "not_assessed") continue;
+        if (!belongsInEnablementChecklist(item)) continue;
+        const state = stateForTechnicalItem(item.status);
+        domain.items.push({
+          id: `technical:${item.key}`,
+          kind: "technical",
+          status: state === "verified" ? "verified" : "todo",
+          resolution: "enable",
+          title: state === "action" ? item.activation_label || item.label : item.label,
+          criteria: item.controls,
+          item,
         });
-        if (items.length > 0) {
-          result[phase.id].push({ playbook, items });
-        }
       }
     }
 
-    for (const phase of CHECKLIST_PHASES) {
-      result[phase.id].sort((a, b) => {
-        const aUnmet = a.items.filter(
-          (item) => stateForTechnicalItem(item.status) === "action",
-        ).length;
-        const bUnmet = b.items.filter(
-          (item) => stateForTechnicalItem(item.status) === "action",
-        ).length;
-        return bUnmet - aUnmet;
+    for (const control of manualControls) {
+      const mappedPlaybook = playbooks.find((playbook) =>
+        playbook.controls.some(
+          (tag) => tag === control.control_id || tag.endsWith(` ${control.control_id}`),
+        ),
+      );
+      const family = controlFamily(framework, control.control_id);
+      const domain = mappedPlaybook
+        ? getDomain(mappedPlaybook.key, mappedPlaybook.label, mappedPlaybook.question)
+        : getDomain(
+            `manual:${family.key}`,
+            family.label,
+            "Do the policies and human processes for this area have current evidence?",
+          );
+      const hint = manualEvidenceHint(framework, control.control_id);
+      domain.items.push({
+        id: `manual:${control.id}`,
+        kind: "manual",
+        status: acceptedControlIds.has(control.id) ? "verified" : "todo",
+        resolution: hint?.collectionMode === "connect" ? "connect" : "evidence",
+        title: control.title,
+        criteria: [control.control_id],
+        control,
+        hint,
       });
     }
 
-    return result;
-  }, [readinessQ.data]);
+    return [...domains.values()].filter((domain) => domain.items.length > 0);
+  }, [acceptedControlIds, framework, manualControls, readinessQ.data]);
 
-  const manualControlsByPhase = useMemo(() => {
-    const result: Record<ChecklistPhaseId, ChecklistControl[]> = {
-      "technical-gaps": [],
-      "evidence-required": manualControls.filter(
-        (control) => !acceptedControlIds.has(control.id),
-      ),
-      completed: manualControls.filter((control) => acceptedControlIds.has(control.id)),
-    };
-    return result;
-  }, [acceptedControlIds, manualControls]);
-
-  const phaseCounts = useMemo(
-    () => ({
-      "technical-gaps": counts.action,
-      "evidence-required": counts.manual,
-      completed: counts.verified,
-    }),
-    [counts],
+  const allWorkItems = useMemo(
+    () => domainItems.flatMap((domain) => domain.items),
+    [domainItems],
   );
 
-  const firstOpenPhase = useMemo((): ChecklistPhaseId | null => {
-    for (const phase of CHECKLIST_PHASES) {
-      const hasPlaybooks = playbooksByPhase[phase.id].length > 0;
-      const hasManual = manualControlsByPhase[phase.id].length > 0;
-      if (hasPlaybooks || hasManual) return phase.id;
-    }
-    return null;
-  }, [manualControlsByPhase, playbooksByPhase]);
+  const total = allWorkItems.length;
+  const verifiedCount = allWorkItems.filter((item) => item.status === "verified").length;
+  const remaining = total - verifiedCount;
+  const verifiedPct = total > 0 ? Math.round((verifiedCount / total) * 100) : 0;
+
+  const resolutionCounts = useMemo(() => {
+    const inStatus = allWorkItems.filter((item) => item.status === statusFilter);
+    return {
+      all: inStatus.length,
+      enable: inStatus.filter((item) => item.resolution === "enable").length,
+      connect: inStatus.filter((item) => item.resolution === "connect").length,
+      evidence: inStatus.filter((item) => item.resolution === "evidence").length,
+    };
+  }, [allWorkItems, statusFilter]);
+
+  const visibleDomains = useMemo<ChecklistDomain[]>(
+    () =>
+      domainItems
+        .map((domain) => ({
+          key: domain.key,
+          label: domain.label,
+          question: domain.question,
+          items: domain.items.filter(
+            (item) =>
+              item.status === statusFilter &&
+              (resolutionFilter === "all" || item.resolution === resolutionFilter),
+          ),
+        }))
+        .filter((domain) => domain.items.length > 0)
+        .sort((a, b) => {
+          return statusFilter === "todo"
+            ? b.items.length - a.items.length
+            : a.label.localeCompare(b.label);
+        }),
+    [domainItems, resolutionFilter, statusFilter],
+  );
 
   useEffect(() => {
-    setExpandedGroups(readStoredGroupKeys(accountId, framework) ?? new Set());
+    setStatusFilter("todo");
+    setResolutionFilter("all");
+    setOpenDomainKey(null);
+    setDomainInitialized(false);
     setSelectedTechnicalStep(null);
   }, [accountId, framework]);
 
   useEffect(() => {
-    if (!readinessQ.isSuccess || autoExpandedPhases) return;
-    if (readStoredPhaseIds()) {
-      setAutoExpandedPhases(true);
-      return;
-    }
-    if (!firstOpenPhase) {
-      setAutoExpandedPhases(true);
-      return;
-    }
-    const next = new Set<ChecklistPhaseId>([firstOpenPhase]);
-    setExpandedPhases(next);
-    writeStoredPhaseIds(next);
-    setAutoExpandedPhases(true);
-  }, [autoExpandedPhases, firstOpenPhase, readinessQ.isSuccess]);
+    if (!readinessQ.isSuccess) return;
+    setOpenDomainKey((current) =>
+      domainInitialized && current && visibleDomains.some((domain) => domain.key === current)
+        ? current
+        : visibleDomains[0]?.key ?? null,
+    );
+    if (!domainInitialized) setDomainInitialized(true);
+  }, [domainInitialized, readinessQ.isSuccess, visibleDomains]);
 
-  const togglePhase = (phaseId: ChecklistPhaseId) => {
-    setExpandedPhases((prev) => {
-      const next = new Set(prev);
-      if (next.has(phaseId)) next.delete(phaseId);
-      else next.add(phaseId);
-      writeStoredPhaseIds(next);
-      return next;
-    });
-  };
+  useEffect(() => {
+    if (resolutionFilter === "all") return;
+    if (resolutionCounts[resolutionFilter] === 0) setResolutionFilter("all");
+  }, [resolutionCounts, resolutionFilter]);
 
-  const toggleGroup = (key: string) => {
-    setExpandedGroups((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      writeStoredGroupKeys(accountId, framework, next);
-      return next;
-    });
+  const toggleDomain = (key: string) => {
+    setOpenDomainKey((current) => (current === key ? null : key));
   };
 
   const openTechnicalStep = (item: ReadinessPlaybookItem, state: ChecklistState) => {
     const title = state === "action" ? item.activation_label || item.label : item.label;
     setSelectedTechnicalStep({ item, title, state });
-  };
-
-  const renderPlaybookGroups = (phaseId: ChecklistPhaseId, playbooks: PlaybookGroup[]) =>
-    playbooks.map(({ playbook, items }) => {
-      const groupKey = `${phaseId}:${playbook.key}`;
-      const isExpanded = expandedGroups.has(groupKey);
-      const isCompleted = phaseId === "completed";
-
-      return (
-        <div
-          key={groupKey}
-          className={`compliance-control-card compliance-checklist__group${isExpanded ? " is-expanded" : ""}`}
-        >
-          <button
-            type="button"
-            className="compliance-control-card__summary"
-            aria-expanded={isExpanded}
-            onClick={() => toggleGroup(groupKey)}
-          >
-            <div className="compliance-control-card__main">
-              <div className="compliance-control-card__title">
-                <h3>{playbook.label}</h3>
-                <p>{playbook.question}</p>
-              </div>
-            </div>
-            <div className="compliance-control-card__state">
-              <ChecklistGroupChip
-                tone={isCompleted ? "teal" : "amber"}
-                label={isCompleted ? `${items.length} verified` : `${items.length} to enable`}
-              />
-              <span
-                className={`compliance-control-card__chevron${isExpanded ? " is-open" : ""}`}
-                aria-hidden
-              >
-                ›
-              </span>
-            </div>
-          </button>
-
-          {isExpanded ? (
-            <div className="compliance-checklist__group-rows">
-              {items.map((item) => {
-                const state = stateForTechnicalItem(item.status);
-                const title =
-                  state === "action"
-                    ? item.activation_label || item.label
-                    : item.label;
-                const openDetail = () => openTechnicalStep(item, state);
-
-                return (
-                  <div
-                    key={item.key}
-                    role="button"
-                    tabIndex={0}
-                    className="compliance-checklist__item-row"
-                    onClick={openDetail}
-                    onKeyDown={(event) => activateRow(event, openDetail)}
-                  >
-                    <span className={`compliance-checklist__state is-${state}`} aria-hidden />
-                    <div className="compliance-checklist__item-main">
-                      <div className="compliance-checklist__item-line">
-                        <strong title={title}>{title}</strong>
-                        <ChecklistCcChips ids={item.controls} />
-                      </div>
-                    </div>
-                    {state === "action" ? (
-                      item.action_kind === "activate" && item.action_url ? (
-                        <a
-                          className="compliance-checklist__item-action"
-                          onClick={stopRowAction}
-                          href={item.action_url}
-                          target="_blank"
-                          rel="noreferrer"
-                        >
-                          Enable
-                        </a>
-                      ) : (
-                        <Link
-                          className="compliance-checklist__item-action"
-                          onClick={stopRowAction}
-                          to={findingsHref(item.check_ids, accountId)}
-                        >
-                          Review
-                        </Link>
-                      )
-                    ) : phaseId === "completed" ? (
-                      <span className="compliance-checklist__externally-covered-label">
-                        Verified
-                      </span>
-                    ) : null}
-                  </div>
-                );
-              })}
-            </div>
-          ) : null}
-        </div>
-      );
-    });
-
-  const renderManualGroup = (phaseId: ChecklistPhaseId, visibleManualControls: ChecklistControl[]) => {
-    if (visibleManualControls.length === 0) return null;
-
-    const manualUnmetCount = manualControls.filter(
-      (control) => !acceptedControlIds.has(control.id),
-    ).length;
-    const groupKey = `${phaseId}:manual-evidence`;
-    const isExpanded = expandedGroups.has(groupKey);
-
-    return (
-      <div
-        className={`compliance-control-card compliance-checklist__group compliance-checklist__group--manual${
-          isExpanded ? " is-expanded" : ""
-        }`}
-      >
-        <button
-          type="button"
-          className="compliance-control-card__summary"
-          aria-expanded={isExpanded}
-          onClick={() => toggleGroup(groupKey)}
-        >
-          <div className="compliance-control-card__main">
-            <div className="compliance-control-card__title">
-              <h3>Policies and human processes</h3>
-              <p>Do your policies, runbooks, exercises, and approvals have current evidence?</p>
-            </div>
-          </div>
-          <div className="compliance-control-card__state">
-            <ChecklistGroupChip
-              tone={phaseId === "completed" ? "teal" : "violet"}
-              label={
-                phaseId === "completed"
-                  ? `${visibleManualControls.length} accepted`
-                  : `${manualUnmetCount} evidence required`
-              }
-            />
-            <span
-              className={`compliance-control-card__chevron${isExpanded ? " is-open" : ""}`}
-              aria-hidden
-            >
-              ›
-            </span>
-          </div>
-        </button>
-
-        {isExpanded ? (
-          <div className="compliance-checklist__group-rows">
-            {visibleManualControls.map((control) => {
-              const accepted = acceptedControlIds.has(control.id);
-              const state: ChecklistState = accepted ? "verified" : "manual";
-              const selected = selectedControlId === control.id;
-              const openDetail = () => onSelectManualControl(control.id);
-              const hint = manualEvidenceHint(framework, control.control_id);
-
-              return (
-                <div
-                  key={control.id}
-                  role="button"
-                  tabIndex={0}
-                  aria-current={selected ? "true" : undefined}
-                  className={`compliance-checklist__item-row compliance-checklist__item-row--manual${
-                    selected ? " is-selected" : ""
-                  }`}
-                  onClick={openDetail}
-                  onKeyDown={(event) => activateRow(event, openDetail)}
-                >
-                  <span className={`compliance-checklist__state is-${state}`} aria-hidden />
-                  <div className="compliance-checklist__item-main">
-                    <div className="compliance-checklist__item-line">
-                      <strong title={control.title}>{control.title}</strong>
-                      <ChecklistCcChips ids={[control.control_id]} />
-                    </div>
-                    {!accepted && hint ? (
-                      <small className="compliance-checklist__evidence-hint">
-                        <b>Evidence:</b> {hint.expected}
-                        {hint.integration ? (
-                          <>
-                            {" "}
-                            <Link
-                              to={hint.integration.href}
-                              onClick={stopRowAction}
-                              className="compliance-checklist__evidence-hint-link"
-                            >
-                              {hint.integration.label} <span aria-hidden>→</span>
-                            </Link>
-                          </>
-                        ) : null}
-                      </small>
-                    ) : null}
-                    {accepted ? (
-                      <small className="compliance-checklist__externally-covered">
-                        Externally covered — accepted evidence attached
-                      </small>
-                    ) : null}
-                  </div>
-                  <div className="compliance-checklist__item-actions">
-                    {accepted && phaseId === "completed" ? (
-                      <span className="compliance-checklist__externally-covered-label">
-                        Externally covered
-                      </span>
-                    ) : null}
-                    <button
-                      type="button"
-                      className="compliance-checklist__item-action"
-                      onClick={(event) => {
-                        stopRowAction(event);
-                        openDetail();
-                      }}
-                    >
-                      {accepted ? "View evidence" : "Attach evidence"}
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-            {phaseId === "evidence-required" ? (
-              <p className="compliance-checklist__scope-note">
-                Program-level criteria without automated coverage (CC1–CC5, CC9) belong to your
-                GRC platform — Veritrail collects what it can't see.
-              </p>
-            ) : null}
-          </div>
-        ) : null}
-      </div>
-    );
   };
 
   if (readinessQ.isLoading) {
@@ -943,164 +595,231 @@ export function ComplianceChecklist({
 
   return (
     <div className="compliance-checklist">
-      <section className="compliance-checklist__intro">
-        <div className="compliance-checklist__intro-copy">
-          <p className="compliance-checklist__eyebrow">
-            {frameworkLabel(framework)} checklist
-          </p>
-          <h1>{frameworkLabel(framework)} technical readiness</h1>
-          <p>
-            {remaining > 0
-              ? `${remaining} requirement${remaining === 1 ? "" : "s"} still ${remaining === 1 ? "needs" : "need"} action or evidence before the mapped criteria are audit-ready.`
-              : "All mapped requirements are verified."}
-          </p>
-          <p className="compliance-checklist__honesty">
-            <span aria-hidden>ⓘ</span>
-            Automated checks verify technical controls; policies and processes count only after evidence is accepted.
-          </p>
-        </div>
-        <div className="compliance-checklist__intro-side">
-          <div className="compliance-checklist__readiness-ring" aria-hidden>
-            <svg viewBox="0 0 180 180">
-              <circle
-                className="compliance-checklist__readiness-ring-track"
-                cx="90"
-                cy="90"
-                r="70"
-              />
-              <circle
-                className={`compliance-checklist__readiness-ring-value${
-                  verifiedPct === 0 ? " is-empty" : ""
-                }`}
-                cx="90"
-                cy="90"
-                r="70"
-                pathLength="100"
-                strokeDasharray={`${verifiedPct} ${100 - verifiedPct}`}
-              />
-            </svg>
-            <div className="compliance-checklist__readiness-ring-copy">
-              <span>
-                <strong>{counts.verified}</strong>
-                <em>/{total || 0}</em>
-              </span>
-              <small>Verified</small>
-            </div>
+      <div className="compliance-checklist__surface">
+        <header className="compliance-checklist__intro">
+          <div className="compliance-checklist__intro-copy">
+            <h1>{frameworkLabel(framework)} readiness checklist</h1>
+            <p>
+              {remaining > 0
+                ? `${remaining} requirement${remaining === 1 ? "" : "s"} still ${remaining === 1 ? "needs" : "need"} action before the mapped criteria are audit-ready.`
+                : "Every mapped requirement is verified and ready for review."}
+            </p>
+            <p className="compliance-checklist__honesty">
+              <span aria-hidden>ⓘ</span>
+              Technical controls are checked automatically. Policies and processes count only after evidence is accepted.
+            </p>
           </div>
-          <div className="compliance-checklist__readiness-summary">
+          <div className="compliance-checklist__intro-side">
+            <div className="compliance-checklist__readiness-summary">
+              <div className="compliance-checklist__readiness-copy">
+                <span>
+                  <strong>{verifiedCount}</strong> of {total || 0} verified
+                </span>
+                <em>{verifiedPct}%</em>
+              </div>
+              <div
+                className="compliance-checklist__progress"
+                role="progressbar"
+                aria-label={`${verifiedCount} of ${total || 0} requirements verified`}
+                aria-valuemin={0}
+                aria-valuemax={total || 0}
+                aria-valuenow={verifiedCount}
+              >
+                <span style={{ width: `${verifiedPct}%` }} />
+              </div>
+            </div>
             {action ? <div className="compliance-checklist__export">{action}</div> : null}
-            <div
-              className="compliance-checklist__breakdown"
-              aria-label={`${counts.action} to enable, ${counts.manual} need evidence, ${counts.verified} verified`}
-            >
-              <div className="compliance-checklist__breakdown-head">
-                <p>Where the {total} requirement{total === 1 ? "" : "s"} stand</p>
-                <span className="compliance-checklist__breakdown-pct">{verifiedPct}% ready</span>
-              </div>
-              <div className="compliance-checklist__breakdown-bar" aria-hidden>
-                {readinessBreakdown.map((entry) => (
-                  <span
-                    key={entry.id}
-                    className={`is-${entry.tone}`}
-                    style={{ flexGrow: entry.count }}
-                  />
-                ))}
-              </div>
-              <div className="compliance-checklist__breakdown-legend">
-                {readinessBreakdown.map((entry) => (
-                  <span key={entry.id} className={`is-${entry.tone}`}>
-                    <i aria-hidden />
-                    <strong>{entry.count}</strong> {entry.label}
-                  </span>
-                ))}
-              </div>
-            </div>
           </div>
-        </div>
-      </section>
+        </header>
 
-      <div className="compliance-checklist__phases">
-        {CHECKLIST_PHASES.map((phase) => {
-          const playbooks = playbooksByPhase[phase.id];
-          const manualRows = manualControlsByPhase[phase.id];
-          const count = phaseCounts[phase.id];
-          const isExpanded = expandedPhases.has(phase.id);
-          const hasContent = playbooks.length > 0 || manualRows.length > 0;
-
-          return (
-            <section
-              key={phase.id}
-              className={`compliance-checklist__phase compliance-control-card is-${phase.tone}${
-                isExpanded ? " is-expanded" : ""
-              }`}
+        <section className="compliance-checklist__workqueue" aria-label="Readiness requirements">
+          <div className="compliance-checklist__workqueue-toolbar">
+            <div
+              className="compliance-checklist__status-tabs"
+              role="tablist"
+              aria-label="Requirement status"
             >
               <button
                 type="button"
-                className="compliance-checklist__phase-summary compliance-control-card__summary"
-                aria-expanded={isExpanded}
-                onClick={() => togglePhase(phase.id)}
+                role="tab"
+                aria-selected={statusFilter === "todo"}
+                className={`compliance-checklist__status-tab${statusFilter === "todo" ? " is-active" : ""}`}
+                onClick={() => setStatusFilter("todo")}
               >
-                <div className="compliance-control-card__main">
-                  <span className={`compliance-checklist__phase-marker is-${phase.tone}`} aria-hidden>
-                    {phase.marker}
-                  </span>
-                  <div className="compliance-control-card__title">
-                    <h2>{phase.title}</h2>
-                    <p>{phase.description}</p>
-                  </div>
-                </div>
-                <div className="compliance-control-card__state">
-                  <ChecklistGroupChip
-                    tone={count > 0 || phase.id !== "completed" ? phase.tone : "neutral"}
-                    label={
-                      phase.id === "completed"
-                        ? `${count} verified`
-                        : phase.id === "technical-gaps"
-                          ? `${count} to enable`
-                          : `${count} required`
-                    }
-                  />
-                  <span
-                    className={`compliance-control-card__chevron${isExpanded ? " is-open" : ""}`}
-                    aria-hidden
-                  >
-                    ›
-                  </span>
-                </div>
+                Open <span>{remaining}</span>
               </button>
-
-              <div
-                className="compliance-checklist__phase-progress"
-                role="progressbar"
-                aria-label={`${phase.title} progress`}
-                aria-valuenow={phaseProgress[phase.id]}
-                aria-valuemin={0}
-                aria-valuemax={100}
+              <button
+                type="button"
+                role="tab"
+                aria-selected={statusFilter === "verified"}
+                className={`compliance-checklist__status-tab${statusFilter === "verified" ? " is-active" : ""}`}
+                onClick={() => setStatusFilter("verified")}
               >
-                <span style={{ width: `${phaseProgress[phase.id]}%` }} />
-              </div>
+                Verified <span>{verifiedCount}</span>
+              </button>
+            </div>
 
-              {isExpanded ? (
-                <div className="compliance-checklist__phase-body">
-                  {hasContent ? (
-                    <div className="compliance-checklist__groups">
-                      {renderPlaybookGroups(phase.id, playbooks)}
-                      {renderManualGroup(phase.id, manualRows)}
-                    </div>
-                  ) : (
-                    <p className="compliance-checklist__no-results">
-                      {phase.id === "technical-gaps"
-                        ? "No capabilities currently need to be enabled."
-                        : phase.id === "evidence-required"
-                          ? "No evidence is currently required."
-                          : "No enabled capabilities or accepted evidence yet."}
-                    </p>
-                  )}
-                </div>
-              ) : null}
-            </section>
-          );
-        })}
+            <div className="compliance-checklist__resolution-bar">
+              <span className="compliance-checklist__resolution-label">Work type</span>
+              <div className="compliance-checklist__resolution-filters" aria-label="Resolution type">
+                {(
+                  [
+                    ["all", "All"],
+                    ["enable", "Enable"],
+                    ["connect", "Connect"],
+                    ["evidence", "Evidence"],
+                  ] as const
+                )
+                  .filter(([id]) => id === "all" || resolutionCounts[id] > 0)
+                  .map(([id, label]) => (
+                    <button
+                      key={id}
+                      type="button"
+                      aria-pressed={resolutionFilter === id}
+                      className={`compliance-checklist__resolution-filter${
+                        resolutionFilter === id ? " is-active" : ""
+                      }`}
+                      onClick={() => setResolutionFilter(id)}
+                    >
+                      {label} <span>{resolutionCounts[id]}</span>
+                    </button>
+                  ))}
+              </div>
+            </div>
+          </div>
+
+          {visibleDomains.length > 0 ? (
+            <div className="compliance-checklist__domain-list">
+              {visibleDomains.map((domain) => {
+                const isExpanded = openDomainKey === domain.key;
+
+                return (
+                  <section
+                    key={domain.key}
+                    className={`compliance-checklist__domain${isExpanded ? " is-expanded" : ""}`}
+                  >
+                    <button
+                      type="button"
+                      className="compliance-checklist__domain-summary"
+                      aria-expanded={isExpanded}
+                      onClick={() => toggleDomain(domain.key)}
+                    >
+                      <span className="compliance-checklist__domain-copy">
+                        <strong>{domain.label}</strong>
+                        <small>{domain.question}</small>
+                      </span>
+                      <span className="compliance-checklist__domain-meta">
+                        <span className="compliance-checklist__domain-count">
+                          <strong>{domain.items.length}</strong>{" "}
+                          {statusFilter === "todo" ? "open" : "verified"}
+                        </span>
+                        <span
+                          className={`compliance-checklist__domain-chevron${isExpanded ? " is-open" : ""}`}
+                          aria-hidden
+                        >
+                          ›
+                        </span>
+                      </span>
+                    </button>
+
+                    {isExpanded ? (
+                      <div className="compliance-checklist__requirement-list">
+                        {domain.items.map((workItem) => {
+                          const isSelected =
+                            workItem.kind === "manual"
+                              ? selectedControlId === workItem.control.id
+                              : selectedTechnicalStep?.item.key === workItem.item.key;
+                          const openDetail = () => {
+                            if (workItem.kind === "manual") {
+                              onSelectManualControl(workItem.control.id);
+                              return;
+                            }
+                            openTechnicalStep(
+                              workItem.item,
+                              workItem.status === "verified" ? "verified" : "action",
+                            );
+                          };
+                          const actionLabel =
+                            workItem.status === "verified"
+                              ? "View evidence"
+                              : workItem.resolution === "enable"
+                                ? "Enable"
+                                : workItem.resolution === "connect"
+                                  ? "Connect"
+                                  : "Add evidence";
+                          let detail = "";
+                          if (workItem.kind === "manual") {
+                            detail =
+                              workItem.status === "verified"
+                                ? "Accepted evidence attached"
+                                : workItem.hint?.expected ||
+                                  workItem.control.description ||
+                                  "External evidence required";
+                          } else {
+                            const resourceData = affectedResourcesForStep(
+                              workItem.item.check_ids,
+                              openFindingsByCheck,
+                              findingCountByCheck,
+                            );
+                            if (resourceData.kind === "absence") {
+                              detail =
+                                resourceData.regionCount > 0
+                                  ? `${resourceData.regionCount} region${resourceData.regionCount === 1 ? "" : "s"} affected`
+                                  : "Account-wide capability";
+                            } else {
+                              detail =
+                                resourceData.resources.length > 0
+                                  ? `${resourceData.resources.length} affected resource${resourceData.resources.length === 1 ? "" : "s"}`
+                                  : workItem.item.summary;
+                            }
+                          }
+
+                          return (
+                            <button
+                              key={workItem.id}
+                              type="button"
+                              aria-current={isSelected ? "true" : undefined}
+                              className={`compliance-checklist__requirement-row is-${workItem.resolution}${
+                                isSelected ? " is-selected" : ""
+                              }`}
+                              onClick={openDetail}
+                            >
+                              <span className="compliance-checklist__requirement-main">
+                                <strong className="compliance-checklist__requirement-title">
+                                  {workItem.title}
+                                </strong>
+                                <span className="compliance-checklist__requirement-meta">
+                                  {workItem.criteria.length > 0 ? (
+                                    <span>{workItem.criteria.slice(0, 4).join(" · ")}</span>
+                                  ) : null}
+                                  {workItem.criteria.length > 0 && detail ? <i aria-hidden /> : null}
+                                  {detail ? <span title={detail}>{detail}</span> : null}
+                                </span>
+                              </span>
+                              <span
+                                className={`compliance-checklist__requirement-action is-${
+                                  workItem.status === "verified" ? "verified" : workItem.resolution
+                                }`}
+                              >
+                                {actionLabel} <span aria-hidden>→</span>
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : null}
+                  </section>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="compliance-checklist__no-results">
+              {statusFilter === "verified"
+                ? "No verified requirements match this work type yet."
+                : "No open requirements match this work type."}
+            </p>
+          )}
+        </section>
       </div>
 
       {selectedTechnicalStep ? (

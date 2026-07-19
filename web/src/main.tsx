@@ -14,7 +14,6 @@ import Account from "./pages/Account";
 import Dashboard from "./pages/Dashboard";
 import Workspace from "./pages/Workspace";
 import Controls from "./pages/Controls";
-import Checklist from "./pages/Checklist";
 import GitHubIntegration from "./pages/GitHubIntegration";
 import GitHubIntegrationEdit from "./pages/GitHubIntegrationEdit";
 import GitLabIntegration from "./pages/GitLabIntegration";
@@ -30,6 +29,7 @@ import IntuneIntegration from "./pages/IntuneIntegration";
 import JamfIntegration from "./pages/JamfIntegration";
 import Questionnaire from "./pages/Questionnaire";
 import SiemIntegration from "./pages/SiemIntegration";
+import PagerDutyIntegration from "./pages/PagerDutyIntegration";
 import Integrations from "./pages/Integrations";
 import IntegrationCatalog from "./pages/IntegrationCatalog";
 import History from "./pages/History";
@@ -90,10 +90,10 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
             <Route path="/auditors" element={<Navigate to="/workspace#sharing" replace />} />
             <Route path="/members" element={<Navigate to="/workspace#access" replace />} />
             <Route path="/detection" element={<Navigate to="/workspace#scanning" replace />} />
-            <Route path="/checklist" element={<Checklist />} />
+            <Route path="/checklist" element={<Navigate to="/controls" replace />} />
             <Route path="/controls" element={<Controls />} />
-            <Route path="/audit" element={<Navigate to="/checklist" replace />} />
-            <Route path="/audit-readiness" element={<Navigate to="/checklist" replace />} />
+            <Route path="/audit" element={<Navigate to="/controls" replace />} />
+            <Route path="/audit-readiness" element={<Navigate to="/controls" replace />} />
             <Route path="/history" element={<History />} />
             <Route path="/compliance-history" element={<Navigate to="/history" replace />} />
             <Route path="/compliance-timeline" element={<Navigate to="/history" replace />} />
@@ -112,6 +112,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
             <Route path="/integrations/gcp" element={<GcpIntegration />} />
             <Route path="/integrations/azure" element={<AzureIntegration />} />
             <Route path="/integrations/scanners/:vendor" element={<VulnScannerIntegration />} />
+            <Route path="/integrations/pagerduty" element={<PagerDutyIntegration />} />
             <Route path="/integrations/intune" element={<IntuneIntegration />} />
             <Route path="/integrations/jamf" element={<JamfIntegration />} />
             <Route path="/questionnaire" element={<Questionnaire />} />

@@ -53,6 +53,7 @@ from app.services.evidence_vault import (
 from app.services.github_sync import provider_config
 from app.services.scanner_integrations import SCANNER_TYPES, public_config
 from app.services.siem_integrations import SIEM_TYPES, public_config as siem_public_config
+from app.services.pagerduty_integration import PAGERDUTY_PROVIDER_TYPE, public_config as pagerduty_public_config
 
 log = structlog.get_logger()
 
@@ -413,6 +414,10 @@ def build_evidence_pack(
         _write(
             "siem_integrations.json",
             json.dumps(_build_siem_integrations(db, org_id), indent=2, default=str),
+        )
+        _write(
+            "pagerduty_integration.json",
+            json.dumps(_build_pagerduty_integration(db, org_id), indent=2, default=str),
         )
 
         from app.services.pack_signing import signing_enabled
@@ -927,6 +932,27 @@ def _build_siem_integrations(db: Session, org_id: uuid.UUID) -> dict[str, Any]:
             }
         )
     return {"integrations": rows}
+
+
+def _build_pagerduty_integration(db: Session, org_id: uuid.UUID) -> dict[str, Any]:
+    """Export operational-response evidence without overstating what it proves."""
+    provider = db.scalar(
+        select(IdentityProvider).where(
+            IdentityProvider.org_id == org_id,
+            IdentityProvider.type == PAGERDUTY_PROVIDER_TYPE,
+        )
+    )
+    if not provider:
+        return {"connected": False, "scope": "incident_workflow"}
+    cfg = provider_config(provider)
+    return {
+        "connected": True,
+        "scope": "incident_workflow",
+        "status": provider.status,
+        "last_synced_at": provider.last_synced_at.isoformat() if provider.last_synced_at else None,
+        "limitation": "Shows configured on-call services and open incidents only; it does not verify triage quality, response plans, exercises, or post-incident reviews.",
+        **pagerduty_public_config(cfg),
+    }
 
 
 def _finding_scope(f: Finding) -> str:

@@ -337,6 +337,10 @@ function IntegrationsContent() {
     queryKey: ["siem-integration", "datadog"],
     queryFn: () => api("/v1/integrations/siem/datadog", { schema: scannerIntegrationSchema }),
   });
+  const pagerduty = useQuery({
+    queryKey: ["pagerduty-integration"],
+    queryFn: () => api("/v1/integrations/pagerduty", { schema: scannerIntegrationSchema }),
+  });
   const settings = useQuery({
     queryKey: ["settings"],
     queryFn: () => api("/v1/settings", { schema: settingsSchema }),
@@ -407,6 +411,7 @@ function IntegrationsContent() {
   const jiraConnected = !!jira.data?.connected;
   const splunkConnected = !!splunkSiem.data?.connected;
   const datadogConnected = !!datadogSiem.data?.connected;
+  const pagerdutyConnected = !!pagerduty.data?.connected;
 
   const awsHealth = cloudIntegrationHealth({
     scanning: awsScanRunning,
@@ -695,6 +700,25 @@ function IntegrationsContent() {
           } satisfies IntegrationRow,
         ]
       : []),
+    ...(pagerdutyConnected
+      ? [
+          {
+            key: "pagerduty",
+            name: "PagerDuty",
+            description: "Read-only evidence of on-call services and open incidents.",
+            icon: <IntegrationBrandIcon brand="pagerduty" size={48} />,
+            href: "/integrations/pagerduty",
+            connected: true,
+            loading: pagerduty.isLoading,
+            lastSyncAt: pagerduty.data?.config.last_synced_at ?? null,
+            healthLabel: pagerduty.data?.status === "error" ? "Needs reconnect" : "Healthy",
+            healthTone: (pagerduty.data?.status === "error" ? "danger" : "ok") as Tone,
+            permissionsLabel: "Read-only API token",
+            permissionsVerified: true,
+            capabilities: ["On-call services", "Open incidents"],
+          } satisfies IntegrationRow,
+        ]
+      : []),
   ];
 
   const activeRows = integrationRows.filter((row) => row.connected || row.syncing || row.key === "aws");
@@ -725,6 +749,7 @@ function IntegrationsContent() {
           jiraConnected,
           splunkConnected,
           datadogConnected,
+          pagerdutyConnected,
           connectedScanners: {
             snyk: !!snykScanner.data?.connected,
             wiz: !!wizScanner.data?.connected,

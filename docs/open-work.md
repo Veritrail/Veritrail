@@ -44,7 +44,29 @@ unwinnable. New cut:
 This supersedes "§A Compliance = the checklist" below. The rest of §0 stands. Nav is now
 7 items — the last addition this product tolerates.
 
-### Target IA — one job per page
+### REVISION 2 (July 16, 2026) — Compliance unification: the controls view returns
+
+The July-13 split failed in practice. Scoping the checklist to **activations only** produced
+a ~12-row finite settings list that four design passes could not make feel substantial —
+the content was too thin, not the paint. Meanwhile no page in the nav answered the product's
+core question ("how compliant am I, control by control, right now?"): Checklist answered
+"what setup remains," Criteria became a thin redirect to filtered Findings (a glorified
+saved search), and Findings — an *operations* page — became the de-facto strongest surface
+of a *compliance* product. The market never split these: Vanta/Drata's "checklist" IS the
+controls view — every control in three states, failing checks rolled up into control status.
+
+New cut (supersedes the July-13 table; full spec:
+[compliance-unification-spec.md](./compliance-unification-spec.md)):
+
+| Page | Job |
+|---|---|
+| **Compliance** (one nav item) | THE primary surface — composite controls view, three states per control: **Verified / Action needed / Needs evidence**. "Action needed" includes both not-enabled capabilities (ex-checklist rows) and failing-check rollups. Control drawer (fix / evidence / checks / mapping) unchanged. **Criteria demoted to a tab inside** — a criterion opens its mapped controls + live status; "view findings" is a secondary link within that, never the primary click. |
+| **Home** | Keeps "attention today," gains a **setup-journey module**: org-level rollup of missing activations across all accounts; drawer shows which accounts are missing it + per-account instructions; module disappears at 100%. |
+| Findings | Ongoing operations (unchanged). |
+
+**Checklist and Criteria leave the nav** (7 → 6 items). The "unwinnable score" concern that
+motivated the July-13 split is solved by **states, not a single %**: "14 verified · 9 need
+action · 4 need evidence" never lies and never becomes unwinnable.
 
 | Page | Job | State |
 |---|---|---|
@@ -127,9 +149,16 @@ run build` green.
 to prune later. CFN is **not** re-published to S3 — run `./scripts/upload-cfn.sh --dry-run`
 before deploying.
 
-## 1c. Checklist redesign (light/teal + ring + 4-tint phases) — **open** (spec ready)
+## 1c. Checklist redesign — **superseded by §0 REVISION 2**
 
-Locked design comp reskins `/checklist`. Full implementation spec:
+The standalone `/checklist` page is dissolving into the unified Compliance controls view +
+a Home setup module (see §0 REVISION 2 and
+[compliance-unification-spec.md](./compliance-unification-spec.md)). The note below stays
+useful only for its visual language (hero ring, states, drawer 1c design) — do not implement
+its page-level tiers as written; the shipped hero/ring/breakdown CSS carries over to the
+Compliance header.
+
+Original note: locked design comp reskins `/checklist`. Full implementation spec:
 [checklist-redesign-spec.md](./checklist-redesign-spec.md). Tier 1 (CSS reskin) + tier 2
 (hero ring + category split-bar) are low-risk, frontend-only. Tier 3 (split Connect vs Attach
 into two phases) is a product decision — recommended frontend-only via a `collectionMode` field

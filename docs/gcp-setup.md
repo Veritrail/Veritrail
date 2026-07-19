@@ -100,7 +100,7 @@ The Integrations UI surfaces degraded check IDs after verify. Scans still run; a
 | Collector | Check | Composite |
 |---|---|---|
 | OS Config vulnerability reports | `gcp.osconfig.vuln_report_present` | Vulnerability management |
-| Security Command Center | `gcp.scc.not_enabled` | Incident response / logging |
+| Security Command Center | `gcp.scc.not_enabled` | Threat detection / logging |
 | Cloud Asset Inventory (public IAM) | `gcp.asset.public_iam_binding` | Data protection / network boundary |
 
 See [multi-cloud-collectors.md](./multi-cloud-collectors.md) for scan pipeline details.

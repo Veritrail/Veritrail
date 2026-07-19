@@ -90,9 +90,31 @@ function rowSummary(row: ControlTimelineRow): {
   return { label: "No data", meta: null, tone: "no-data" };
 }
 
-function segmentTitle(row: ControlTimelineRow, status: string, from: string, to: string): string {
-  const state = status === "no_data" ? "no data" : status === "pass" ? "passing" : "failing";
-  return `${row.control_id} ${state} ${formatDay(from)} – ${formatDay(to)}`;
+type PostureChange = {
+  controlId: string;
+  title: string;
+  direction: "regressed" | "recovered";
+  at: string;
+};
+
+/** Last pass↔fail flip inside the window — no_data boundaries are not "changes". */
+function lastTransition(row: ControlTimelineRow, windowStartMs: number): PostureChange | null {
+  const graded = row.segments.filter(
+    (segment) =>
+      (segment.status === "pass" || segment.status === "fail") &&
+      new Date(segment.to).getTime() > windowStartMs,
+  );
+  for (let i = graded.length - 1; i > 0; i--) {
+    if (graded[i].status !== graded[i - 1].status) {
+      return {
+        controlId: row.control_id,
+        title: row.title,
+        direction: graded[i].status === "fail" ? "regressed" : "recovered",
+        at: graded[i].from,
+      };
+    }
+  }
+  return null;
 }
 
 function ControlDrilldown({
@@ -137,7 +159,18 @@ function ControlDrilldown({
       .slice(0, 12);
   }, [drillQ.data]);
 
-  const findingsHref = findingsHrefForCheckIds(checkIds);
+  // Pin the link to this board's account scope: the shared helper guesses a
+  // provider from check ids (mixed IAM + source-control controls came out as
+  // provider=source_control, landing users on an empty Findings scope).
+  const findingsHref = useMemo(() => {
+    const base = findingsHrefForCheckIds(checkIds);
+    if (!base) return null;
+    const [path, query] = base.split("?");
+    const params = new URLSearchParams(query ?? "");
+    params.delete("provider");
+    params.set("account_id", accountId);
+    return `${path}?${params.toString()}`;
+  }, [accountId, checkIds]);
 
   return (
     <div className="history-controls__drill">
@@ -252,6 +285,11 @@ export function ControlTimelineBoard({
   const failingCount = visibleRows.filter((row) => row.current_status === "fail").length;
   const passingCount = visibleRows.filter((row) => row.current_status === "pass").length;
   const noDataCount = visibleRows.length - failingCount - passingCount;
+  const postureChanges = visibleRows
+    .map((row) => lastTransition(row, windowStartMs))
+    .filter((change): change is PostureChange => change !== null)
+    .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
+  const changeByControlId = new Map(postureChanges.map((change) => [change.controlId, change]));
 
   return (
     <div className="history-controls">
@@ -267,6 +305,41 @@ export function ControlTimelineBoard({
           {noDataCount > 0 ? <span><strong>{noDataCount}</strong> no data</span> : null}
         </div>
       </div>
+
+      <section className="history-controls__changes" aria-label="Posture changes in period">
+        {postureChanges.length === 0 ? (
+          <p className="history-controls__changes-empty">
+            No posture changes in this period — every graded control has held the same state
+            since its first evidence.
+          </p>
+        ) : (
+          <ul className="history-controls__changes-list">
+            {postureChanges.map((change) => (
+              <li key={`${change.controlId}-${change.at}`}>
+                <button
+                  type="button"
+                  className={`history-controls__change is-${change.direction}`}
+                  onClick={() => {
+                    setSelectedControlId(change.controlId);
+                    requestAnimationFrame(() => {
+                      document
+                        .getElementById(`history-row-${change.controlId}`)
+                        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+                    });
+                  }}
+                >
+                  <span className="history-controls__change-badge">
+                    {change.direction === "regressed" ? "Regressed" : "Recovered"}
+                  </span>
+                  <strong>{change.controlId}</strong>
+                  <span className="history-controls__change-title">{change.title}</span>
+                  <span className="history-controls__change-date">{formatDay(change.at)}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       {groups.map((group) => (
         <section key={group.key} className="history-controls__group">
@@ -285,6 +358,7 @@ export function ControlTimelineBoard({
                 <Fragment key={row.control_id}>
                   <button
                     type="button"
+                    id={`history-row-${row.control_id}`}
                     className={`history-controls__row${isExpanded ? " is-expanded" : ""}`}
                     aria-expanded={isExpanded}
                     onClick={() =>
@@ -299,27 +373,31 @@ export function ControlTimelineBoard({
                       <span>{row.title}</span>
                     </span>
                     <span className="history-controls__bar-wrap">
-                      <span className="history-controls__bar">
-                        {row.segments.flatMap((segment, index) => {
-                          const toMs = new Date(segment.to).getTime();
-                          if (toMs <= windowStartMs) return [];
-                          const fromMs = Math.max(new Date(segment.from).getTime(), windowStartMs);
-                          return [
-                            <span
-                              key={`${segment.from}-${index}`}
-                              className={`history-controls__segment is-${segment.status.replace("_", "-")}`}
-                              style={{ flexGrow: Math.max(toMs - fromMs, 1) }}
-                              title={segmentTitle(
-                                row,
-                                segment.status,
-                                new Date(fromMs).toISOString(),
-                                segment.to,
-                              )}
-                            />,
-                          ];
-                        })}
-                      </span>
-                      <span className="history-controls__bar-dates"><span>{formatDay(new Date(windowStartMs).toISOString())}</span><span>Today</span></span>
+                      {(() => {
+                        const change = changeByControlId.get(row.control_id);
+                        if (!change) {
+                          return (
+                            <span className="history-controls__steady">
+                              {summary.tone === "no-data" ? "No evidence in period" : "No changes in period"}
+                            </span>
+                          );
+                        }
+                        const fromPass = change.direction === "regressed";
+                        return (
+                          <span className="history-controls__transition">
+                            <span className={`history-controls__transition-state is-${fromPass ? "pass" : "fail"}`}>
+                              <i aria-hidden />
+                              {fromPass ? "Passing" : "Failing"}
+                            </span>
+                            <span className="history-controls__transition-arrow" aria-hidden>→</span>
+                            <span className={`history-controls__transition-state is-${fromPass ? "fail" : "pass"}`}>
+                              <i aria-hidden />
+                              {fromPass ? "Failing" : "Passing"}
+                            </span>
+                            <span className="history-controls__transition-date">{formatDay(change.at)}</span>
+                          </span>
+                        );
+                      })()}
                     </span>
                     <span className={`history-controls__row-state is-${summary.tone}`}>
                       <strong>{summary.label}</strong>

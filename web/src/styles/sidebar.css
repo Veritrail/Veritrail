@@ -576,19 +576,6 @@
     0 12px 24px -18px rgba(0, 0, 0, 0.9);
 }
 
-/* Online status dot — anchors the avatar, recolored to the blue system. */
-.app-sidebar__workspace-avatar::after {
-  content: "";
-  position: absolute;
-  right: -1px;
-  bottom: -1px;
-  width: 10px;
-  height: 10px;
-  border-radius: 999px;
-  background: #3b82ff;
-  border: 2px solid #0a1522;
-}
-
 .app-sidebar__workspace-avatar svg {
   width: 1.25rem;
   height: 1.25rem;

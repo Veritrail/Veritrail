@@ -73,3 +73,17 @@ All ticketing integrations populate `remediation_ticket_key` / `remediation_tick
 
 - [multi-cloud-collectors.md](./multi-cloud-collectors.md) — GCP/Azure collectors, normalization APIs, composite mapping
 - [external-evidence.md](./external-evidence.md) — uploaded proof, coverage dashboard, evidence lifecycle
+
+## Coverage boundary (July 2026 scope decision)
+
+**Full per-control contract: [coverage-boundaries.md](./coverage-boundaries.md) — the
+authoritative verified / not-verified table.**
+
+Veritrail shows only what it can collect: technical cloud, code, and identity evidence.
+**Endpoint security / EDR, MDM enrollment, HR & security training, and vendor risk** are not
+displayed as controls — they cannot be verified by any Veritrail integration and belong to the
+customer's GRC platform (Vanta, Drata, etc.), which Veritrail feeds. The backend composite rows
+for these areas are retained so previously uploaded evidence keeps its reference, but they are
+hidden from the Compliance view. Device *encryption* remains covered via the Intune/Jamf sync
+checks under Identity Governance. Program-level criteria (CC1–CC5, CC9) are excluded on the
+same principle. The Compliance page states this boundary in a scope note.

@@ -73,6 +73,10 @@ export function useConnectedCatalogState() {
     queryKey: ["siem-integration", "datadog"],
     queryFn: () => api("/v1/integrations/siem/datadog", { schema: scannerIntegrationSchema }),
   });
+  const pagerduty = useQuery({
+    queryKey: ["pagerduty-integration"],
+    queryFn: () => api("/v1/integrations/pagerduty", { schema: scannerIntegrationSchema }),
+  });
 
   const accountsList = cloudAccounts.data ?? [];
   const awsRows = accountsList.filter((a) => a.provider === "aws");
@@ -91,6 +95,7 @@ export function useConnectedCatalogState() {
   const jiraConnected = !!jira.data?.connected;
   const splunkConnected = !!splunkSiem.data?.connected;
   const datadogConnected = !!datadogSiem.data?.connected;
+  const pagerdutyConnected = !!pagerduty.data?.connected;
   const snykConnected = !!snykScanner.data?.connected;
   const wizConnected = !!wizScanner.data?.connected;
   const tenableConnected = !!tenableScanner.data?.connected;
@@ -110,6 +115,7 @@ export function useConnectedCatalogState() {
     jiraConnected,
     splunkConnected,
     datadogConnected,
+    pagerdutyConnected,
     connectedScanners: {
       snyk: snykConnected,
       wiz: wizConnected,
@@ -134,6 +140,7 @@ export function useConnectedCatalogState() {
       jiraConnected,
       splunkConnected,
       datadogConnected,
+      pagerdutyConnected,
       snykConnected,
       wizConnected,
       tenableConnected,
@@ -161,6 +168,7 @@ export function useConnectedCatalogState() {
       aikidoScanner.isLoading ||
       jira.isLoading ||
       splunkSiem.isLoading ||
-      datadogSiem.isLoading,
+      datadogSiem.isLoading ||
+      pagerduty.isLoading,
   };
 }
