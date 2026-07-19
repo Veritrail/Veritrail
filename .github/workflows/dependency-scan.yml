@@ -40,25 +40,4 @@ jobs:
       - name: pip-audit (api)
         run: |
           pip install pip-audit
-          pip-audit -r api/requirements.txt --progress-spinner off --format json -o /tmp/pip-audit.json || true
-          python3 - <<'PY'
-          import json, sys
-          try:
-              data = json.load(open("/tmp/pip-audit.json"))
-          except (FileNotFoundError, json.JSONDecodeError):
-              sys.exit(0)
-          deps = data if isinstance(data, list) else data.get("dependencies", [])
-          crits = highs = 0
-          for dep in deps:
-              for vuln in dep.get("vulns", []):
-                  sev = (vuln.get("severity") or "").upper()
-                  if sev == "CRITICAL":
-                      crits += 1
-                  elif sev == "HIGH":
-                      highs += 1
-          if highs:
-              print(f"::warning ::pip-audit reported {highs} high-severity vulnerabilities in api/ (non-blocking)")
-          if crits:
-              print(f"::error ::pip-audit reported {crits} critical vulnerabilities in api/")
-              sys.exit(1)
-          PY
+          pip-audit -r api/requirements.txt --progress-spinner off
