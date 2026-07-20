@@ -8612,6 +8612,11 @@ button.accounts-flow-step:hover {
   white-space: nowrap;
 }
 
+/* Match Review / Enable chip width (longer label is "Review →"). */
+.org-home__next-action {
+  min-width: 5.75rem;
+}
+
 .org-home__primary-action:hover,
 .org-home__next-action:hover {
   border-color: #cbd5e1;
@@ -9090,11 +9095,6 @@ button.accounts-flow-step:hover {
   white-space: normal;
   text-overflow: clip;
   line-height: 1.4;
-}
-
-.org-home__priority-section--secondary .org-home__next-action {
-  min-height: 1.95rem;
-  padding: 0.32rem 0.58rem;
 }
 
 .org-home__timeline-section--compact {
