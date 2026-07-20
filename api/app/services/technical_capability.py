@@ -11,13 +11,37 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Any, Literal
 
+from app.services.capability_limitations import (
+    blocking_limitations,
+    has_blocking_limitation,
+    has_degrading_limitation,
+    primary_limitation,
+    serialize_limitations,
+)
+
 CoverageState = Literal[
     "covered",
     "partial",
+    "unvalidated",
     "not_covered",
     "stale",
     "not_applicable",
     "unknown",
+]
+
+CollectionStatus = Literal[
+    "complete",
+    "partial",
+    "failed",
+    "permission_denied",
+    "unavailable_by_plan",
+]
+
+AuditVerdict = Literal[
+    "verified_technical_evidence",
+    "partial_technical_evidence",
+    "insufficient_evidence",
+    "not_applicable",
 ]
 
 CapabilityId = Literal[
@@ -177,7 +201,7 @@ OPTIONAL_THIRD_PARTY_SCANNERS = frozenset(
 
 PASSING_STATES: frozenset[CoverageState] = frozenset({"covered", "not_applicable"})
 FAILING_ACTION_STATES: frozenset[CoverageState] = frozenset(
-    {"partial", "not_covered", "stale"}
+    {"partial", "unvalidated", "not_covered", "stale"}
 )
 
 
@@ -207,6 +231,30 @@ class OpenFindingsSummary:
 
 
 @dataclass
+class CollectionMeta:
+    """Pagination / multi-request completeness for one collector pass."""
+
+    collection_status: CollectionStatus = "complete"
+    pages_fetched: int = 0
+    items_fetched: int = 0
+    retry_count: int = 0
+    limited_by: str | None = None
+    started_at: str | None = None
+    completed_at: str | None = None
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "collection_status": self.collection_status,
+            "pages_fetched": self.pages_fetched,
+            "items_fetched": self.items_fetched,
+            "retry_count": self.retry_count,
+            "limited_by": self.limited_by,
+            "started_at": self.started_at,
+            "completed_at": self.completed_at,
+        }
+
+
+@dataclass
 class EvidenceEnvelope:
     """Normalized provider result before grading (spec §4)."""
 
@@ -224,6 +272,8 @@ class EvidenceEnvelope:
     oldest_open_finding_at: str | None = None
     source_reference: str | None = None
     limitations: list[str] = field(default_factory=list)
+    collection: CollectionMeta = field(default_factory=CollectionMeta)
+    validated: bool = True
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -241,6 +291,8 @@ class EvidenceEnvelope:
             "oldest_open_finding_at": self.oldest_open_finding_at,
             "source_reference": self.source_reference,
             "limitations": list(self.limitations),
+            "collection": self.collection.as_dict(),
+            "validated": self.validated,
         }
 
 
@@ -272,6 +324,74 @@ def is_fresh(
     return ts >= ref - timedelta(days=days)
 
 
+def apply_limitation_impacts(
+    status: CoverageState,
+    limitations: list[str] | None,
+    *,
+    collection_status: CollectionStatus = "complete",
+) -> CoverageState:
+    """Enforce Phase A honesty: blocking/incomplete collection cannot stay covered.
+
+    - blocking → cannot be ``covered`` (unknown for permission/plan/missing-inventory;
+      otherwise partial)
+    - degrading → cannot prove complete scope (covered → partial)
+    - informational → no change to an otherwise complete lane
+    - only ``collection_status=complete`` may remain covered
+    """
+    if status == "not_applicable":
+        return status
+
+    if collection_status != "complete":
+        if collection_status in ("permission_denied", "unavailable_by_plan", "failed"):
+            if status in ("covered", "partial", "stale"):
+                return "unknown"
+            return status
+        if status == "covered":
+            return "partial"
+
+    codes = list(limitations or [])
+    if status == "covered" and has_blocking_limitation(codes):
+        if _blocking_implies_unknown(codes):
+            return "unknown"
+        return "partial"
+
+    if status == "covered" and has_degrading_limitation(codes):
+        return "partial"
+    return status
+
+
+_UNKNOWN_BLOCKING_PREFIXES: tuple[str, ...] = (
+    "permission_denied",
+    "unavailable_by_plan",
+    "collection_error",
+    "inspector_status_not_collected",
+    "inspector_resource_coverage_not_collected",
+    "inspector_coverage_collection_failed",
+    "osconfig_",
+    "scc_not_collected",
+    "defender_status_not_collected",
+    "defender_resource_coverage_not_collected",
+    "no_ec2_inventory",
+    "no_ecr_inventory",
+    "no_lambda_inventory",
+    "no_gce_inventory",
+    "no_azure_vm_inventory",
+    "assessments_",
+    "generic_elasticsearch_not_security_solution",
+    "base_datadog_without_cloud_siem_signals",
+    "not_threat_detection",
+)
+
+
+def _blocking_implies_unknown(codes: list[str]) -> bool:
+    for code in blocking_limitations(codes):
+        if any(code == p or code.startswith(p) for p in _UNKNOWN_BLOCKING_PREFIXES):
+            return True
+        if code == "unavailable_by_plan_or_tier":
+            return True
+    return False
+
+
 def grade_from_enablement_and_activity(
     *,
     enabled: bool | None,
@@ -284,6 +404,8 @@ def grade_from_enablement_and_activity(
     eligible: int = 1,
     assessed: int = 0,
     now: datetime | None = None,
+    limitations: list[str] | None = None,
+    collection_status: CollectionStatus = "complete",
 ) -> CoverageState:
     """Core honesty rules: enablement alone never yields covered; unknown ≠ pass.
 
@@ -292,26 +414,35 @@ def grade_from_enablement_and_activity(
     - enabled without observable activity → partial
     - enabled + activity but stale → stale
     - enabled + fresh activity covering expected scope → covered
+    - blocking / incomplete collection never stay covered (Phase A)
     """
     if permission_denied:
-        return "unknown"
-    if unavailable_by_plan and not enabled:
-        return "unknown"
-    if intentionally_excluded:
-        return "not_applicable"
-    if enabled is None:
-        return "unknown"
-    if not enabled:
-        return "not_covered"
-    if not has_observable_activity:
+        base: CoverageState = "unknown"
+    elif unavailable_by_plan and not enabled:
+        base = "unknown"
+    elif intentionally_excluded:
+        base = "not_applicable"
+    elif enabled is None:
+        base = "unknown"
+    elif not enabled:
+        base = "not_covered"
+    elif not has_observable_activity:
         # Spec: Dependabot enabled with no successful/observable security activity
         # must not become fully verified.
-        return "partial"
-    if not is_fresh(last_successful_scan_at, capability, now=now):
-        return "stale"
-    if eligible > 0 and assessed < eligible:
-        return "partial"
-    return "covered"
+        base = "partial"
+    elif not is_fresh(last_successful_scan_at, capability, now=now):
+        base = "stale"
+    elif eligible > 0 and assessed < eligible:
+        base = "partial"
+    else:
+        base = "covered"
+
+    lim = list(limitations or [])
+    if permission_denied and "permission_denied" not in lim:
+        lim.append("permission_denied")
+    if unavailable_by_plan and "unavailable_by_plan" not in lim:
+        lim.append("unavailable_by_plan")
+    return apply_limitation_impacts(base, lim, collection_status=collection_status)
 
 
 def merge_lane_states(states: list[CoverageState]) -> CoverageState:
@@ -324,6 +455,16 @@ def merge_lane_states(states: list[CoverageState]) -> CoverageState:
     actionable = [s for s in states if s != "not_applicable"]
     if not actionable:
         return "not_applicable"
+    # Unvalidated must never promote to covered (load-bearing demotion lives in
+    # _summarize_lane; this is a fail-closed safety net for stray unvalidated inputs).
+    if any(s == "unvalidated" for s in actionable):
+        without = [s for s in actionable if s != "unvalidated"]
+        if not without:
+            return "unvalidated"
+        base = merge_lane_states(without)
+        if base == "covered":
+            return "unvalidated"
+        return base
     if any(s == "unknown" for s in actionable):
         # Unknown never passes; if anything is unknown and nothing is covered, prefer unknown.
         if not any(s == "covered" for s in actionable):
@@ -421,8 +562,23 @@ def envelope(
     unavailable_by_plan: bool = False,
     intentionally_excluded: bool = False,
     now: datetime | None = None,
+    collection: CollectionMeta | None = None,
+    collection_status: CollectionStatus | None = None,
+    validated: bool = True,
 ) -> EvidenceEnvelope:
     """Build a graded evidence envelope from raw collector signals."""
+    coll = collection or CollectionMeta()
+    if collection_status is not None:
+        coll = CollectionMeta(
+            collection_status=collection_status,
+            pages_fetched=coll.pages_fetched,
+            items_fetched=coll.items_fetched,
+            retry_count=coll.retry_count,
+            limited_by=coll.limited_by,
+            started_at=coll.started_at,
+            completed_at=coll.completed_at,
+        )
+    lim = list(limitations or [])
     status = grade_from_enablement_and_activity(
         enabled=enabled,
         has_observable_activity=has_observable_activity,
@@ -434,17 +590,21 @@ def envelope(
         eligible=eligible,
         assessed=assessed if has_observable_activity and enabled else assessed,
         now=now,
+        limitations=lim,
+        collection_status=coll.collection_status,
     )
     # When enabled + activity + fresh, mark assessed.
     if status == "covered" and assessed == 0 and eligible > 0:
         assessed = eligible
-    lim = list(limitations or [])
     if enabled and not has_observable_activity:
-        lim.append("enabled_without_observable_activity")
-    if unavailable_by_plan:
+        if "enabled_without_observable_activity" not in lim:
+            lim.append("enabled_without_observable_activity")
+    if unavailable_by_plan and "unavailable_by_plan" not in lim:
         lim.append("unavailable_by_plan")
-    if permission_denied:
+    if permission_denied and "permission_denied" not in lim:
         lim.append("permission_denied")
+    # Re-apply after auto-appended limitation codes (e.g. enablement-without-activity).
+    status = apply_limitation_impacts(status, lim, collection_status=coll.collection_status)
     return EvidenceEnvelope(
         capability=capability,
         provider=provider,
@@ -460,4 +620,150 @@ def envelope(
         oldest_open_finding_at=oldest_open_finding_at,
         source_reference=source_reference,
         limitations=lim,
+        collection=coll,
+        validated=validated,
     )
+
+
+def _lane_collection_complete(lane: dict[str, Any]) -> bool:
+    """True when every envelope reports complete collection (or none are present)."""
+    envelopes = lane.get("envelopes") or []
+    if not envelopes:
+        # Summaries without envelopes still carry limitations; treat missing meta as
+        # complete only when status is not claiming verified coverage via export path.
+        return True
+    for env in envelopes:
+        coll = env.get("collection") if isinstance(env, dict) else None
+        status = (coll or {}).get("collection_status", "complete")
+        if status != "complete":
+            return False
+    return True
+
+
+def _denominator_known(lane: dict[str, Any]) -> bool:
+    coverage = lane.get("coverage") or {}
+    eligible = coverage.get("eligible")
+    if eligible is None:
+        return False
+    limitations = list(lane.get("limitations") or [])
+    if any(
+        c
+        in (
+            "asset_denominator_not_collected",
+            "scanner_connected_without_assessed_assets",
+            "no_ec2_inventory",
+            "no_ecr_inventory",
+            "no_lambda_inventory",
+            "no_gce_inventory",
+            "no_azure_vm_inventory",
+        )
+        for c in limitations
+    ):
+        return False
+    return True
+
+
+def audit_verdict_for_lane(lane: dict[str, Any]) -> dict[str, Any]:
+    """Derive an export-safe verdict from the same lane summary Controls uses.
+
+    Fail closed to ``insufficient_evidence``. Never emit verified when a blocking
+    limitation, unknown denominator, stale timestamp, or incomplete collection exists.
+    """
+    status = lane.get("status") or "unknown"
+    limitations = list(lane.get("limitations") or [])
+    coverage = lane.get("coverage") or {}
+    eligible = int(coverage.get("eligible") or 0)
+    assessed = int(coverage.get("assessed") or 0)
+    label = (lane.get("label") or lane.get("capability") or "this capability").lower()
+    blocking = blocking_limitations(limitations)
+    primary = primary_limitation(limitations)
+    scope_statement = (
+        "Technical evidence only; human policy and process operation are not assessed."
+    )
+
+    def _pack(
+        verdict: AuditVerdict,
+        reason: str,
+        *,
+        next_action: str | None = None,
+    ) -> dict[str, Any]:
+        return {
+            "audit_verdict": verdict,
+            "verdict_reason": reason,
+            "scope_statement": scope_statement,
+            "blocking_limitations": blocking,
+            "limitations_detail": serialize_limitations(limitations),
+            "next_action": next_action
+            or (primary.action if primary else None)
+            or lane.get("action"),
+        }
+
+    if status == "not_applicable":
+        return _pack(
+            "not_applicable",
+            f"No applicable assets were found for {label} in the connected scope.",
+        )
+
+    if status == "covered":
+        if has_blocking_limitation(limitations):
+            return _pack(
+                "insufficient_evidence",
+                f"Lane is marked covered but blocking limitations remain for {label}.",
+                next_action=primary.action if primary else None,
+            )
+        if not _lane_collection_complete(lane):
+            return _pack(
+                "insufficient_evidence",
+                f"Collection for {label} is incomplete, so coverage cannot be verified.",
+            )
+        if eligible > 0 and not _denominator_known(lane):
+            return _pack(
+                "insufficient_evidence",
+                f"Eligible-asset denominator for {label} is unknown.",
+            )
+        if has_degrading_limitation(limitations):
+            return _pack(
+                "partial_technical_evidence",
+                f"Evidence for {label} is present but incomplete scope proof remains.",
+            )
+        return _pack(
+            "verified_technical_evidence",
+            f"Fresh complete evidence covers {assessed} of {eligible} eligible assets."
+            if eligible > 0
+            else f"Fresh complete evidence verifies {label}.",
+        )
+
+    if status == "partial":
+        return _pack(
+            "partial_technical_evidence",
+            f"Evidence covers {assessed} of {eligible} in-scope assets for {label}."
+            if eligible > 0
+            else f"Evidence for {label} is incomplete.",
+        )
+
+    if status == "unvalidated":
+        return _pack(
+            "insufficient_evidence",
+            "Evidence is present from an unvalidated Beta provider; "
+            "verdict withheld until live validation.",
+        )
+
+    if status == "stale":
+        return _pack(
+            "insufficient_evidence",
+            f"The last complete evidence for {label} is outside the freshness window.",
+        )
+
+    if status == "not_covered":
+        return _pack(
+            "insufficient_evidence",
+            f"No qualifying source is protecting in-scope assets for {label}.",
+        )
+
+    # unknown or anything unexpected — fail closed
+    reason = (
+        primary.explanation
+        if primary
+        else f"Veritrail could not determine coverage for {label}."
+    )
+    return _pack("insufficient_evidence", reason)

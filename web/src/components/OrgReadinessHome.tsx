@@ -246,6 +246,45 @@ export function OrgReadinessHome() {
     };
   }, [controlsQ.data]);
 
+  // Hero coverage: how much of the framework is actually assessed. Denominator is
+  // ALL controls (incl. no_data), so unevaluated controls are never hidden —
+  // "% passing of the graded few" would over-state readiness. Null until
+  // something is graded, so the hero stays clean pre-baseline.
+  const readiness = useMemo(() => {
+    const assessed = controlsSummary.passing + controlsSummary.failing + controlsSummary.atRisk;
+    const total = controlsQ.data?.length ?? 0;
+    if (!controlsSummary.graded || total === 0) return null;
+    const notAssessed = total - assessed;
+    const segments = [
+      { value: controlsSummary.passing, color: "#0e9268" },
+      { value: controlsSummary.atRisk, color: "#eea23d" },
+      { value: controlsSummary.failing, color: "#e15564" },
+      { value: notAssessed, color: "#dde2e9" },
+    ].filter((segment) => segment.value > 0);
+    let cursor = 0;
+    const gap = 1.4;
+    const ringStops: string[] = [];
+    for (const segment of segments) {
+      const start = cursor;
+      const end = cursor + (segment.value / total) * 360;
+      const colorStart = Math.min(start + gap / 2, end);
+      const colorEnd = Math.max(end - gap / 2, colorStart);
+      ringStops.push(
+        `#ffffff ${start}deg ${colorStart}deg`,
+        `${segment.color} ${colorStart}deg ${colorEnd}deg`,
+        `#ffffff ${colorEnd}deg ${end}deg`,
+      );
+      cursor = end;
+    }
+    return {
+      total,
+      assessed,
+      notAssessed,
+      pct: Math.round((assessed / total) * 100),
+      ring: `conic-gradient(${ringStops.join(", ")})`,
+    };
+  }, [controlsSummary, controlsQ.data]);
+
   const anyScanCompleted = connectedAccounts.some((account) => !!account.last_scan_at);
 
   const findingsLoading =
@@ -396,7 +435,7 @@ export function OrgReadinessHome() {
         <div>
           <p className="org-home__section-kicker">SOC 2 readiness</p>
           <h1 className="org-home__title">
-            {orgName}
+            <span className="org-home__title-brand">{orgName}</span>
             {homeState === "action" && highCount > 0 ? (
               <span className="org-home__title-statement">
                 {" — "}
@@ -419,6 +458,31 @@ export function OrgReadinessHome() {
                   : actionSubline}
           </p>
         </div>
+        {readiness ? (
+          <div
+            className="org-home__readiness"
+            role="img"
+            aria-label={`${readiness.assessed} of ${readiness.total} SOC 2 controls assessed (${readiness.pct}%): ${controlsSummary.passing} passing, ${controlsSummary.atRisk} at risk, ${controlsSummary.failing} failing, ${readiness.notAssessed} not assessed`}
+          >
+            <div className="org-home__readiness-ring" style={{ background: readiness.ring }} aria-hidden>
+              <div className="org-home__readiness-ring-value">
+                <strong>{readiness.pct}%</strong>
+                <span>assessed</span>
+              </div>
+            </div>
+            <div className="org-home__readiness-copy">
+              <span className="org-home__readiness-label">Assessment coverage</span>
+              <ul className="org-home__readiness-legend">
+                <li className="is-pass"><i aria-hidden /><b>{controlsSummary.passing}</b> passing</li>
+                {controlsSummary.atRisk > 0 ? (
+                  <li className="is-risk"><i aria-hidden /><b>{controlsSummary.atRisk}</b> at risk</li>
+                ) : null}
+                <li className="is-fail"><i aria-hidden /><b>{controlsSummary.failing}</b> failing</li>
+                <li className="is-none"><i aria-hidden /><b>{readiness.notAssessed}</b> not assessed</li>
+              </ul>
+            </div>
+          </div>
+        ) : null}
       </header>
 
       <div className={`org-home__content-grid${enableActions.length === 0 ? " is-single" : ""}`}>
@@ -452,7 +516,9 @@ export function OrgReadinessHome() {
                 ))}
                 {blockerGroups.length > priorityFindings.length ? (
                   <div className="org-home__next-footer">
-                    {blockerGroups.length - priorityFindings.length} additional priorit{blockerGroups.length - priorityFindings.length === 1 ? "y" : "ies"}
+                    <Link to={defaultFindingsHref}>
+                      {blockerGroups.length - priorityFindings.length} additional priorit{blockerGroups.length - priorityFindings.length === 1 ? "y" : "ies"} <span aria-hidden>→</span>
+                    </Link>
                   </div>
                 ) : null}
               </div>
@@ -489,9 +555,6 @@ export function OrgReadinessHome() {
                   <div className="org-home__next-list">
                     {enableActions.map((action, index) => (
                       <div key={action.key} className="org-home__next-row">
-                        <span className="org-home__next-rank" aria-label={`Enablement priority ${index + 1}`}>
-                          {index + 1}
-                        </span>
                         <div className="org-home__next-copy">
                           <strong>{action.title}</strong>
                           <span>{action.detail}</span>
@@ -505,7 +568,9 @@ export function OrgReadinessHome() {
                     ))}
                     {capabilityItems.length > enableActions.length ? (
                       <div className="org-home__next-footer">
-                        {capabilityItems.length - enableActions.length} additional enablement priorit{capabilityItems.length - enableActions.length === 1 ? "y" : "ies"}
+                        <Link to="/controls">
+                          {capabilityItems.length - enableActions.length} additional enablement priorit{capabilityItems.length - enableActions.length === 1 ? "y" : "ies"} <span aria-hidden>→</span>
+                        </Link>
                       </div>
                     ) : null}
                   </div>
@@ -546,6 +611,22 @@ export function OrgReadinessHome() {
                   </ul>
                 )}
               </section>
+      ) : null}
+
+      {hasEvidenceData ? (
+        <footer className="org-home__meta">
+          <span>SOC 2 technical framework</span>
+          {readiness ? (
+            <>
+              <span aria-hidden>·</span>
+              <span>{readiness.total} controls tracked</span>
+            </>
+          ) : null}
+          <span aria-hidden>·</span>
+          <span>
+            {connectedAccounts.length} account{connectedAccounts.length === 1 ? "" : "s"} connected
+          </span>
+        </footer>
       ) : null}
     </div>
   );

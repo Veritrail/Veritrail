@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from app.core.html_email import html_email as h
 from app.models.evidence_artifact import EvidenceArtifact
 from app.models.org import Org, User
+from app.services.email_template import render_email
 from app.services.mail import send_mail
 from app.services.scan_alert import resolve_alert_recipient
 
@@ -98,19 +99,23 @@ def send_evidence_renewal_email(*, to: str, org_name: str, items: list[dict[str,
         f"<td style='padding:6px 0;color:#71717a'>{h(item.get('reason') or '')}</td></tr>"
         for item in items[:25]
     )
-    html = f"""
-    <div style="font-family:system-ui,sans-serif;line-height:1.5;color:#18181b;max-width:560px">
-      <h2 style="margin:0 0 12px;font-size:18px">Evidence renewal reminder</h2>
-      <p style="margin:0 0 16px;color:#52525b">
-        <strong>{count}</strong> external evidence item(s) at <strong>{h(org_name)}</strong>
-        expire within {REMINDER_WINDOW_DAYS} days or are already stale.
-      </p>
-      <table style="width:100%;border-collapse:collapse;font-size:14px">{rows_html}</table>
-      <p style="margin:16px 0 0;color:#71717a;font-size:13px">
-        Open Veritrail → Compliance Groups to upload refreshed evidence.
-      </p>
-    </div>
-    """
+    from app.services.digest import _findings_app_url
+
+    compliance_url = f"{_findings_app_url().rstrip('/')}/controls"
+    html = render_email(
+        eyebrow="Evidence reminder",
+        title="Evidence needs renewal",
+        preheader=f"{count} evidence item{'s' if count != 1 else ''} need attention.",
+        body_html=(
+            f'<p style="margin:0 0 16px"><strong style="color:#273247">{count}</strong> external evidence '
+            f'item{"s" if count != 1 else ""} for <strong style="color:#273247">{h(org_name)}</strong> '
+            f'expire within {REMINDER_WINDOW_DAYS} days or are already stale.</p>'
+            f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
+            f'style="border-collapse:collapse;font-size:14px">{rows_html}</table>'
+        ),
+        cta_label="Review evidence",
+        cta_url=compliance_url,
+    )
     sent, err = send_mail(to=to, subject=subject, text=text, html=html)
     if not sent:
         log.error("evidence_renewal_reminder.failed", to=to, error=err)

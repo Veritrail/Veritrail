@@ -47,6 +47,11 @@ def check_gitlab_health(db: Session, provider: IdentityProvider) -> str:
 
 
 def check_github_health(db: Session, provider: IdentityProvider) -> str:
+    """Auth-only health check via ``/user``.
+
+    Does **not** call security endpoints and must not be treated as evidence freshness.
+    Evidence health is derived separately from stored capability sync records.
+    """
     config = github_provider_config(provider)
     token = config.get("access_token")
     if not token:

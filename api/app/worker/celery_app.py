@@ -45,6 +45,10 @@ celery_app.conf.update(
             "task": "app.worker.tasks.expire_evidence_artifacts",
             "schedule": crontab(hour=5, minute=0),  # daily 05:00 UTC
         },
+        "prune-capability-coverage-snapshots": {
+            "task": "app.worker.tasks.prune_capability_coverage_snapshots",
+            "schedule": crontab(hour=5, minute=30),  # daily 05:30 UTC
+        },
         "evidence-renewal-reminders": {
             "task": "app.worker.tasks.notify_evidence_renewals",
             "schedule": crontab(hour=8, minute=30),  # daily 08:30 UTC

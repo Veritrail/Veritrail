@@ -49,7 +49,7 @@ def test_org_framework_crud(db_session):
         label="Internal SOC",
         description="Custom controls",
         control_definitions=[
-            {"control_id": "INT-1", "title": "Laptops", "check_ids": ["intune.device.not_encrypted"]},
+            {"control_id": "INT-1", "title": "Laptops", "check_ids": ["iam.root.mfa_not_enabled"]},
         ],
     )
     db_session.commit()
@@ -67,38 +67,6 @@ def test_sync_evidence_requirements(db_session):
     n = sync_evidence_requirements(db_session, org.id, "soc2")
     db_session.commit()
     assert n > 0
-
-
-def test_intune_sync_mock(db_session):
-    from app.models.github import IdentityProvider
-    from app.services.intune_sync import set_provider_config, sync_intune_provider
-
-    org = _org(db_session)
-    provider = IdentityProvider(
-        id=uuid.uuid4(),
-        org_id=org.id,
-        type="intune",
-        config_json_encrypted="{}",
-        status="pending",
-    )
-    db_session.add(provider)
-    set_provider_config(
-        provider,
-        {"tenant_id": "tenant-1", "access_token": "tok"},
-    )
-    db_session.commit()
-    devices = [
-        {"id": "d1", "deviceName": "MacBook", "isEncrypted": False, "complianceState": "noncompliant", "operatingSystem": "macOS"},
-        {"id": "d2", "deviceName": "Surface", "isEncrypted": True, "complianceState": "compliant", "operatingSystem": "Windows"},
-    ]
-
-    def fake_paginate(_client, _token):
-        return devices
-
-    with patch("app.services.intune_sync._paginate_devices", fake_paginate):
-        stats = sync_intune_provider(db_session, provider)
-    assert stats.devices == 2
-    assert stats.unencrypted == 1
 
 
 def test_hr_vendor_categories_registered():

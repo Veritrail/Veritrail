@@ -44,6 +44,12 @@ class GitHubProviderOut(BaseModel):
     protected_branches: int
     pull_requests: int
     selected_repos: list[str]
+    # Phase B: auth health vs evidence health (derived from stored syncs, not /user).
+    evidence_status: str | None = None
+    last_successful_evidence_at: str | None = None
+    evidence_needs_attention: bool = False
+    evidence_limitations: list[str] = []
+    affected_capabilities: list[str] = []
 
 
 class GitHubSyncIn(BaseModel):
@@ -140,6 +146,8 @@ def _provider_for_org(db: Session, org_id: str) -> IdentityProvider | None:
 
 
 def _provider_out(db: Session, provider: IdentityProvider) -> GitHubProviderOut:
+    from app.services.capability_evidence_health import github_evidence_health
+
     config = provider_config(provider)
     org_logins = config.get("org_logins") or ([config["org_login"]] if config.get("org_login") else [])
     identity_users = db.scalar(select(func.count()).select_from(IdentityUser).where(IdentityUser.provider_id == provider.id)) or 0
@@ -154,6 +162,7 @@ def _provider_out(db: Session, provider: IdentityProvider) -> GitHubProviderOut:
         )
         or 0
     )
+    evidence = github_evidence_health(db, provider)
     return GitHubProviderOut(
         id=str(provider.id),
         status=provider.status,
@@ -166,6 +175,11 @@ def _provider_out(db: Session, provider: IdentityProvider) -> GitHubProviderOut:
         protected_branches=protected,
         pull_requests=prs,
         selected_repos=config.get("selected_repos") or [],
+        evidence_status=evidence.get("evidence_status"),
+        last_successful_evidence_at=evidence.get("last_successful_evidence_at"),
+        evidence_needs_attention=bool(evidence.get("needs_attention")),
+        evidence_limitations=list(evidence.get("limitations") or []),
+        affected_capabilities=list(evidence.get("affected_capabilities") or []),
     )
 
 

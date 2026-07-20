@@ -38,8 +38,8 @@ The technical workspace categories map to compliance composites:
 Endpoint/EDR, MDM enrollment, HR training, and vendor-risk evidence belong in the
 customer's GRC platform, not Veritrail's Compliance view. Veritrail focuses on
 technical cloud, source-control, and identity evidence it can collect and
-continuously verify. Device *encryption* remains in scope through the Intune and
-Jamf sync checks under Identity Governance.
+continuously verify. The Intune/Jamf device-sync checks were removed with this
+scope decision (July 2026): device encryption is not collected or claimed.
 
 Legacy evidence-source and artifact records for the excluded categories are
 preserved for existing customers, but they do not create Compliance controls.

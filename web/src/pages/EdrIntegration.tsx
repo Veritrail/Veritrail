@@ -1,11 +1,26 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api, formatApiError } from "../api";
 import { scannerIntegrationSchema } from "../lib/apiSchemas";
 import { IntegrationBrandIcon } from "../components/IntegrationsUi";
 import type { IntegrationBrandId } from "../lib/integrationBrands";
 import "../styles/integration-setup.css";
+
+const CROWDSTRIKE_REGION_PRESETS = [
+  { id: "us-1", label: "US-1 (Commercial)", base_url: "https://api.crowdstrike.com" },
+  { id: "us-2", label: "US-2", base_url: "https://api.us-2.crowdstrike.com" },
+  { id: "eu-1", label: "EU-1", base_url: "https://api.eu-1.crowdstrike.com" },
+  { id: "us-gov-1", label: "US-GOV-1", base_url: "https://api.laggar.gcw.crowdstrike.com" },
+] as const;
+
+function regionIdForBaseUrl(baseUrl: string): string {
+  const normalized = baseUrl.trim().replace(/\/$/, "").toLowerCase();
+  const match = CROWDSTRIKE_REGION_PRESETS.find(
+    (p) => p.base_url.replace(/\/$/, "").toLowerCase() === normalized,
+  );
+  return match?.id ?? "custom";
+}
 
 const VENDOR_META: Record<
   string,
@@ -15,14 +30,14 @@ const VENDOR_META: Record<
     name: "CrowdStrike",
     brand: "crowdstrike",
     blurb:
-      "OAuth API client with Hosts read (and Spotlight when licensed). Veritrail grades managed-device coverage and sensor health for host/workload scanning — not endpoint policy administration.",
+      "OAuth API client with Hosts read (and Spotlight when licensed). Veritrail grades managed-device coverage and sensor health for host/workload scanning — not endpoint policy administration. Spotlight is optional and assessed separately from host/sensor evidence.",
     fields: "crowdstrike",
   },
   sentinelone: {
     name: "SentinelOne",
     brand: "sentinelone",
     blurb:
-      "Management console URL and API token with Agents read. Veritrail grades agent coverage and health for host/workload scanning — not human endpoint-policy workflows.",
+      "Management console URL and API token with Agents read. Veritrail grades agent coverage and health for host/workload scanning — not human endpoint-policy workflows. Threats and Vulnerability module access are optional and assessed separately from agent health.",
     fields: "sentinelone",
   },
 };
@@ -34,7 +49,8 @@ export default function EdrIntegration() {
   const qc = useQueryClient();
   const [clientId, setClientId] = useState("");
   const [clientSecret, setClientSecret] = useState("");
-  const [baseUrl, setBaseUrl] = useState("");
+  const [regionId, setRegionId] = useState("us-1");
+  const [customBaseUrl, setCustomBaseUrl] = useState("");
   const [managementUrl, setManagementUrl] = useState("");
   const [apiToken, setApiToken] = useState("");
   const [saveError, setSaveError] = useState("");
@@ -46,6 +62,25 @@ export default function EdrIntegration() {
   });
   const connected = !!data?.connected;
 
+  useEffect(() => {
+    if (!data?.config || meta?.fields !== "crowdstrike") return;
+    const saved = String(data.config.base_url ?? "https://api.crowdstrike.com");
+    const id = regionIdForBaseUrl(saved);
+    setRegionId(id);
+    if (id === "custom") setCustomBaseUrl(saved);
+  }, [data?.config, meta?.fields]);
+
+  useEffect(() => {
+    if (!data?.config || meta?.fields !== "sentinelone") return;
+    const saved = String(data.config.management_url ?? "");
+    if (saved && !managementUrl) setManagementUrl(saved);
+  }, [data?.config, meta?.fields, managementUrl]);
+
+  const resolvedBaseUrl = useMemo(() => {
+    if (regionId === "custom") return customBaseUrl.trim();
+    return CROWDSTRIKE_REGION_PRESETS.find((p) => p.id === regionId)?.base_url ?? "";
+  }, [regionId, customBaseUrl]);
+
   const save = useMutation({
     mutationFn: () => {
       const body =
@@ -53,7 +88,7 @@ export default function EdrIntegration() {
           ? {
               client_id: clientId.trim() || undefined,
               client_secret: clientSecret.trim() || undefined,
-              base_url: baseUrl.trim() || undefined,
+              base_url: resolvedBaseUrl || undefined,
             }
           : {
               management_url: managementUrl.trim() || undefined,
@@ -96,7 +131,7 @@ export default function EdrIntegration() {
 
   const canConnect =
     meta.fields === "crowdstrike"
-      ? connected || (clientId.trim() && clientSecret.trim())
+      ? connected || (clientId.trim() && clientSecret.trim() && !!resolvedBaseUrl)
       : connected || (managementUrl.trim() && apiToken.trim());
 
   return (
@@ -108,8 +143,14 @@ export default function EdrIntegration() {
         <div className="integration-setup__brand">
           <IntegrationBrandIcon brand={meta.brand} size={48} />
           <div>
-            <h1 className="integration-setup__title">{meta.name}</h1>
-            <p className="integration-setup__subtitle">Endpoint / workload scanning evidence.</p>
+            <div className="integration-setup__title-row">
+              <h1 className="integration-setup__title">{meta.name}</h1>
+              <span className="integration-setup__badge integration-setup__badge--beta">Beta</span>
+              {connected && <span className="integration-setup__badge">Connected</span>}
+            </div>
+            <p className="integration-setup__subtitle">
+              Endpoint / workload scanning evidence. Remains Beta until a real-tenant validation gate passes.
+            </p>
           </div>
         </div>
       </header>
@@ -121,14 +162,47 @@ export default function EdrIntegration() {
             {meta.fields === "crowdstrike" ? (
               <>
                 <div>
-                  <label className="integration-setup__field-label">API base URL (optional)</label>
-                  <input
+                  <label className="integration-setup__field-label" htmlFor="cs-region">
+                    Cloud region
+                  </label>
+                  <select
+                    id="cs-region"
                     className="integration-setup__input"
-                    value={baseUrl}
-                    onChange={(e) => setBaseUrl(e.target.value)}
-                    placeholder={String(data?.config?.base_url ?? "https://api.crowdstrike.com")}
-                  />
+                    value={regionId}
+                    onChange={(e) => setRegionId(e.target.value)}
+                  >
+                    {CROWDSTRIKE_REGION_PRESETS.map((preset) => (
+                      <option key={preset.id} value={preset.id}>
+                        {preset.label}
+                      </option>
+                    ))}
+                    <option value="custom">Custom base URL</option>
+                  </select>
+                  <p className="integration-setup__field-hint">
+                    OAuth and Hosts must use the Falcon cloud that matches your tenant. Wrong region often looks like
+                    a credentials failure.
+                  </p>
                 </div>
+                {regionId === "custom" && (
+                  <div>
+                    <label className="integration-setup__field-label" htmlFor="cs-base-url">
+                      API base URL
+                    </label>
+                    <input
+                      id="cs-base-url"
+                      className="integration-setup__input"
+                      value={customBaseUrl}
+                      onChange={(e) => setCustomBaseUrl(e.target.value)}
+                      placeholder="https://api.example.crowdstrike.com"
+                    />
+                  </div>
+                )}
+                {regionId !== "custom" && (
+                  <div>
+                    <label className="integration-setup__field-label">API base URL</label>
+                    <input className="integration-setup__input" value={resolvedBaseUrl} readOnly disabled />
+                  </div>
+                )}
                 <div>
                   <label className="integration-setup__field-label">Client ID</label>
                   <input
@@ -147,18 +221,28 @@ export default function EdrIntegration() {
                     onChange={(e) => setClientSecret(e.target.value)}
                     placeholder={connected ? "Enter a new secret to replace" : "OAuth client secret"}
                   />
+                  <p className="integration-setup__field-hint">
+                    Requires Hosts read. Spotlight licensing is optional and does not block host/sensor evidence.
+                  </p>
                 </div>
               </>
             ) : (
               <>
                 <div>
-                  <label className="integration-setup__field-label">Management URL</label>
+                  <label className="integration-setup__field-label" htmlFor="s1-mgmt">
+                    Management URL
+                  </label>
                   <input
+                    id="s1-mgmt"
                     className="integration-setup__input"
                     value={managementUrl}
                     onChange={(e) => setManagementUrl(e.target.value)}
                     placeholder={String(data?.config?.management_url ?? "https://usea1.sentinelone.net")}
                   />
+                  <p className="integration-setup__field-hint">
+                    Must be an https management console host (example: <code>https://usea1.sentinelone.net</code>).
+                    Validated before save.
+                  </p>
                 </div>
                 <div>
                   <label className="integration-setup__field-label">API token</label>
@@ -169,6 +253,9 @@ export default function EdrIntegration() {
                     onChange={(e) => setApiToken(e.target.value)}
                     placeholder={connected ? "Enter a new token to replace" : "API token"}
                   />
+                  <p className="integration-setup__field-hint">
+                    Requires Agents read. Threats and Vulnerability module access are optional and assessed separately.
+                  </p>
                 </div>
               </>
             )}

@@ -15,9 +15,14 @@ from app.core.route_deps import RequireAdmin
 from app.core.security import current_principal
 from app.models.github import IdentityProvider
 from app.services.edr_integrations import (
+    DEFAULT_CROWDSTRIKE_BASE,
+    CROWDSTRIKE_REGION_PRESETS,
+    EDR_LABELS,
+    crowdstrike_region_for_base_url,
     edr_type_for_vendor,
     public_config,
     sync_summary,
+    validate_sentinelone_management_url,
     verify_edr_connection,
 )
 from app.services.github_sync import provider_config, set_provider_config
@@ -58,13 +63,33 @@ class EdrIntegrationIn(BaseModel):
     api_token: str | None = None
 
 
+class EdrGaValidatedIn(BaseModel):
+    ga_validated: bool
+
+
 @router.get("/edr/{vendor}", response_model=EdrIntegrationOut)
 def get_edr(vendor: str, p=Depends(current_principal), db: Session = Depends(get_db)):
     org = resolve_org(db, p)
     key = _vendor(vendor)
     provider = _provider(db, org.id, key)
     if not provider:
-        return EdrIntegrationOut(connected=False, status="not_configured", vendor=key, config={})
+        empty: dict = {
+            "vendor": key,
+            "label": EDR_LABELS.get(key, key),
+            "beta": True,
+            "ga_validated": False,
+        }
+        if key == "crowdstrike":
+            empty.update(
+                {
+                    "base_url": DEFAULT_CROWDSTRIKE_BASE,
+                    "region": crowdstrike_region_for_base_url(DEFAULT_CROWDSTRIKE_BASE),
+                    "region_presets": list(CROWDSTRIKE_REGION_PRESETS),
+                    "has_client_id": False,
+                    "has_client_secret": False,
+                }
+            )
+        return EdrIntegrationOut(connected=False, status="not_configured", vendor=key, config=empty)
     return EdrIntegrationOut(
         connected=True,
         status=provider.status,
@@ -100,7 +125,10 @@ def put_edr(
             )
     else:
         if body.management_url:
-            config["management_url"] = normalize_api_base_url(body.management_url.strip())
+            try:
+                config["management_url"] = validate_sentinelone_management_url(body.management_url)
+            except ValueError as exc:
+                raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
         if body.api_token:
             config["api_token"] = body.api_token.strip()
         if not all([config.get("management_url"), config.get("api_token")]):
@@ -108,6 +136,13 @@ def put_edr(
                 status.HTTP_400_BAD_REQUEST,
                 "SentinelOne requires management_url and api_token",
             )
+        # Re-validate stored URL even when only the token is rotated.
+        try:
+            config["management_url"] = validate_sentinelone_management_url(
+                str(config.get("management_url") or "")
+            )
+        except ValueError as exc:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
 
     try:
         verify_edr_connection(key, config)
@@ -124,6 +159,37 @@ def put_edr(
     set_provider_config(provider, config)
     provider.status = "connected"
     provider.last_synced_at = datetime.fromisoformat(summary["last_synced_at"])
+    db.commit()
+    db.refresh(provider)
+    return get_edr(vendor=key, p=p, db=db)
+
+
+@router.put(
+    "/edr/{vendor}/ga-validated",
+    response_model=EdrIntegrationOut,
+    summary="Mark EDR provider as GA-validated for grading",
+    description=(
+        "Set ga_validated=true only after the checklist in "
+        "docs/edr-live-validation-record.md is satisfied for that provider. "
+        "Connect/sync alone must never set this flag."
+    ),
+)
+def put_edr_ga_validated(
+    vendor: str,
+    body: EdrGaValidatedIn,
+    _rbac: RequireAdmin,
+    p=Depends(current_principal),
+    db: Session = Depends(get_db),
+):
+    """Flip the live-validation grading gate for an EDR provider (admin only)."""
+    org = resolve_org(db, p)
+    key = _vendor(vendor)
+    provider = _provider(db, org.id, key)
+    if not provider:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, f"{key} is not configured")
+    config = dict(provider_config(provider))
+    config["ga_validated"] = bool(body.ga_validated)
+    set_provider_config(provider, config)
     db.commit()
     db.refresh(provider)
     return get_edr(vendor=key, p=p, db=db)

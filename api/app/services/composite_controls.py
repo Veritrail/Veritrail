@@ -180,8 +180,6 @@ _PRIMARY_COMPOSITE_BY_CHECK: dict[str, str] = {
     # Device encryption is collectable through Intune/Jamf sync and belongs with
     # identity governance. The separate MDM composite is intentionally outside
     # the product's visible technical-evidence scope.
-    "intune.device.not_encrypted": "identity_governance",
-    "jamf.device.not_encrypted": "identity_governance",
 }
 
 

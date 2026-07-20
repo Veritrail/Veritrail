@@ -421,11 +421,33 @@ def build_evidence_pack(
         )
         try:
             from app.services.capability_lane_coverage import build_capability_lane_coverage
+            from app.services.technical_capability import audit_verdict_for_lane
 
             lane_payload = build_capability_lane_coverage(
                 db, org_id, persist_snapshot=False
             )
-            # Distinguish "no findings" from "no data" in export.
+            # Distinguish "no findings" from "no data" and attach export verdicts.
+            # Fail closed: never omit the capability file or substitute "covered".
+            lean_lanes: dict[str, Any] = {}
+            for key, lane in (lane_payload.get("lanes") or {}).items():
+                lean = {kk: vv for kk, vv in lane.items() if kk != "envelopes"}
+                if "audit_verdict" not in lean:
+                    lean.update(audit_verdict_for_lane(lean))
+                # Invariant: verified never coexists with blocking / incomplete / unknown denom.
+                if lean.get("audit_verdict") == "verified_technical_evidence":
+                    check = audit_verdict_for_lane({**lean, "envelopes": lane.get("envelopes") or []})
+                    if check.get("audit_verdict") != "verified_technical_evidence":
+                        lean.update(check)
+                lean_lanes[key] = lean
+
+            operational = lane_payload.get("operational") or {}
+            op_lanes = {}
+            for key, lane in (operational.get("lanes") or {}).items():
+                lean = {kk: vv for kk, vv in lane.items() if kk != "envelopes"}
+                if "audit_verdict" not in lean:
+                    lean.update(audit_verdict_for_lane(lean))
+                op_lanes[key] = lean
+
             lean = {
                 "generated_at": lane_payload.get("generated_at"),
                 "connected_providers": lane_payload.get("connected_providers"),
@@ -433,11 +455,8 @@ def build_evidence_pack(
                 "vulnerability_management_rollup": lane_payload.get(
                     "vulnerability_management_rollup"
                 ),
-                "lanes": {
-                    k: {kk: vv for kk, vv in lane.items() if kk != "envelopes"}
-                    for k, lane in (lane_payload.get("lanes") or {}).items()
-                },
-                "operational": lane_payload.get("operational"),
+                "lanes": lean_lanes,
+                "operational": {**operational, "lanes": op_lanes} if op_lanes else operational,
                 "data_collected": bool(
                     lane_payload.get("connected_providers")
                     or (lane_payload.get("operational") or {}).get("connected_providers")
@@ -448,9 +467,26 @@ def build_evidence_pack(
                 json.dumps(lean, indent=2, default=str),
             )
         except Exception:  # noqa: BLE001
+            # Fail closed — never imply coverage when grading is unavailable.
             _write(
                 "capability_lane_coverage.json",
-                json.dumps({"data_collected": False, "error": "capability_grading_unavailable"}),
+                json.dumps(
+                    {
+                        "data_collected": False,
+                        "error": "capability_grading_unavailable",
+                        "audit_verdict": "insufficient_evidence",
+                        "verdict_reason": (
+                            "Capability grading was unavailable; Veritrail cannot verify "
+                            "technical evidence for this export."
+                        ),
+                        "scope_statement": (
+                            "Technical evidence only; human policy and process operation "
+                            "are not assessed."
+                        ),
+                        "blocking_limitations": [],
+                        "lanes": {},
+                    }
+                ),
             )
 
         from app.services.pack_signing import signing_enabled

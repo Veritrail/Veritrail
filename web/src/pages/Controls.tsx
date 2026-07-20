@@ -52,10 +52,10 @@ import {
 } from "../lib/compositeRecommendedAction";
 import type { ExternalEvidenceArtifact } from "../lib/externalEvidence";
 import { evidenceIsStale } from "../lib/externalEvidence";
+import { presentCapabilityLane, presentRollupLabel } from "../lib/capabilityPresentation";
 import {
   EXTERNAL_ONLY_CONTROLS,
   externalOnlyBlockingGapSummary,
-  externalOnlyGuidance,
   isExternalOnlyComposite,
 } from "../lib/externalOnlyControls";
 import { externalEvidenceCompositeDisplayStatus } from "../lib/externalEvidenceCompositeStatus";
@@ -172,7 +172,16 @@ type CompositeControlRow = {
       coverage: { eligible: number; assessed: number; excluded: number };
       open_findings: { critical: number; high: number; medium: number; low: number };
       limitations: string[];
+      limitations_detail?: {
+        code: string;
+        impact?: string;
+        title: string;
+        explanation: string;
+        action: string;
+      }[];
       action: string | null;
+      verdict_reason?: string | null;
+      next_action?: string | null;
     }[];
   } | null;
   evidence_integrations?: {
@@ -2572,15 +2581,6 @@ function ControlDetailSection({
   );
 }
 
-const CAPABILITY_LANE_STATUS_LABEL: Record<string, string> = {
-  covered: "Covered",
-  partial: "Partial",
-  not_covered: "Not covered",
-  stale: "Stale",
-  not_applicable: "Not applicable",
-  unknown: "Unknown",
-};
-
 /** Lane-level coverage behind Vulnerability Management / Secure SDLC rollups. */
 function CapabilityLanesPanel({ ctrl }: { ctrl: CompositeControlRow }) {
   const lanes = ctrl.capability_lanes;
@@ -2589,20 +2589,22 @@ function CapabilityLanesPanel({ ctrl }: { ctrl: CompositeControlRow }) {
     lanes.scope_summary ?? (lanes.repos_eligible > 0
       ? `${lanes.repos_eligible} in-scope repositor${lanes.repos_eligible === 1 ? "y" : "ies"}`
       : "No in-scope repositories yet");
+  const rollupLabel = presentRollupLabel(lanes.rollup);
 
   return (
     <ControlDetailSection title="Capability coverage" panel>
       <p className="capability-lanes__summary">
         {denom}
-        {lanes.rollup ? (
+        {rollupLabel ? (
           <>
             {" "}
-            · rollup: <strong>{lanes.rollup.replace(/_/g, " ")}</strong>
+            · <strong>{rollupLabel}</strong>
           </>
         ) : null}
       </p>
       <ul className="capability-lanes">
         {lanes.lanes.map((lane) => {
+          const presented = presentCapabilityLane(lane);
           const openSevere =
             (lane.open_findings?.critical ?? 0) + (lane.open_findings?.high ?? 0);
           return (
@@ -2610,9 +2612,10 @@ function CapabilityLanesPanel({ ctrl }: { ctrl: CompositeControlRow }) {
               <div className="capability-lanes__main">
                 <span className="capability-lanes__label">{lane.label}</span>
                 <span className={`capability-lanes__status is-${lane.status}`}>
-                  {CAPABILITY_LANE_STATUS_LABEL[lane.status] ?? lane.status}
+                  {presented.title}
                 </span>
               </div>
+              <p className="capability-lanes__explain">{presented.explanation}</p>
               <div className="capability-lanes__meta">
                 <span>
                   {lane.coverage.assessed}/{lane.coverage.eligible} assessed
@@ -2624,9 +2627,8 @@ function CapabilityLanesPanel({ ctrl }: { ctrl: CompositeControlRow }) {
                 )}
                 {openSevere > 0 ? <span>{openSevere} critical/high open</span> : null}
               </div>
-              {lane.action ? <p className="capability-lanes__action">{lane.action}</p> : null}
-              {lane.limitations?.length ? (
-                <p className="capability-lanes__limit">{lane.limitations[0].replace(/_/g, " ")}</p>
+              {presented.action ? (
+                <p className="capability-lanes__action">{presented.action}</p>
               ) : null}
             </li>
           );
@@ -3100,70 +3102,6 @@ function CompositeGapResolution({
   );
 }
 
-type GuidanceBlock =
-  | { type: "p"; text: string }
-  | { type: "ul"; items: string[] };
-
-function parseGuidanceBlocks(text: string): GuidanceBlock[] {
-  return text
-    .split(/\n\n+/)
-    .map((block) => block.trim())
-    .filter(Boolean)
-    .map((block) => {
-      const lines = block
-        .split("\n")
-        .map((line) => line.trim())
-        .filter(Boolean);
-      const bulletLines = lines.filter((line) => /^[-•]\s/.test(line));
-      if (bulletLines.length >= 2 && bulletLines.length === lines.length) {
-        return {
-          type: "ul" as const,
-          items: lines.map((line) => line.replace(/^[-•]\s+/, "")),
-        };
-      }
-      return { type: "p" as const, text: block.replace(/\n/g, " ") };
-    });
-}
-
-function ControlGuidanceContent({ text }: { text: string }) {
-  const blocks = parseGuidanceBlocks(text);
-  return (
-    <div className="control-detail-guidance">
-      {blocks.map((block, index) =>
-        block.type === "ul" ? (
-          <ul key={index} className="control-detail-guidance__list">
-            {block.items.map((item, itemIndex) => (
-              <li key={itemIndex}>{item}</li>
-            ))}
-          </ul>
-        ) : (
-          <p key={index} className="control-detail-guidance__text">
-            {block.text}
-          </p>
-        ),
-      )}
-    </div>
-  );
-}
-
-function ControlGuidanceFooter({
-  guidance,
-}: {
-  guidance: string | null;
-}) {
-  return (
-    <ControlDetailSection>
-      <ControlDetailPillCard label="Guidance">
-        {guidance ? (
-          <ControlGuidanceContent text={guidance} />
-        ) : (
-          <p className="control-detail-empty">No written guidance yet for this control.</p>
-        )}
-      </ControlDetailPillCard>
-    </ControlDetailSection>
-  );
-}
-
 function MappedControlsList({ mappedControls }: { mappedControls: GuidanceMappedControl[] }) {
   if (mappedControls.length === 0) {
     return (
@@ -3171,8 +3109,7 @@ function MappedControlsList({ mappedControls }: { mappedControls: GuidanceMapped
     );
   }
   return (
-    <div className="control-detail-guidance-footer">
-      <p className="control-detail-mapped-controls__heading">Mapped controls</p>
+    <div className="control-detail-mapped-controls-wrap">
       <ul className="control-detail-mapped-controls">
         {mappedControls.map((c) => (
           <li
@@ -3184,11 +3121,6 @@ function MappedControlsList({ mappedControls }: { mappedControls: GuidanceMapped
               <span className="control-detail-mapped-controls__label">
                 {frameworkLabel(c.framework)} {c.control_id}
               </span>
-              {c.description ? (
-                <span className="control-detail-mapped-controls__description">
-                  {c.description}
-                </span>
-              ) : null}
             </span>
             {c.status ? (
               <span
@@ -3333,7 +3265,7 @@ function buildCompositeTabs({
   return [
     {
       id: "gaps",
-      label: "Fix",
+      label: "Overview",
       content: (
         <div className="control-detail-stack control-detail-stack--composite">
           {displayStatus === "needs_evidence" && isExternalOnly ? (
@@ -3384,40 +3316,34 @@ function buildCompositeTabs({
             </ControlDetailSection>
           ) : null}
 
-          {!isVerified ? (
-            <ControlGuidanceFooter
-              guidance={externalOnlyGuidance(ctrl.id, ctrl.guidance)}
-            />
-          ) : null}
-        </div>
-      ),
-    },
-    {
-      id: "evidence",
-      label: "Evidence",
-      content: (
-        <div className="control-detail-stack control-detail-stack--composite">
-          <ControlDetailSection>
-            <ControlDetailPillCard label="External evidence">
+          <ControlDetailSection title="External evidence">
+            {linkedEvidence.length === 0 ? (
+              <div className="control-evidence-dropzone">
+                <span className="control-evidence-dropzone__icon" aria-hidden>
+                  <svg fill="none" stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m6.75 12H9m5.25 3H9M7.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9z"
+                    />
+                  </svg>
+                </span>
+                <strong>No external evidence uploaded yet</strong>
+                <span>Add policies, attestations, or exports auditors can review — via the resolution path above.</span>
+              </div>
+            ) : (
               <ExternalEvidenceArtifactList
                 artifacts={linkedEvidence}
-                emptyMessage="No external evidence uploaded for this control group yet."
                 canComment={canEditEvidence}
                 framework={framework}
               />
-            </ControlDetailPillCard>
+            )}
           </ControlDetailSection>
-        </div>
-      ),
-    },
-    {
-      id: "mappings",
-      label: "Mapping",
-      content: (
-        <div className="control-detail-stack control-detail-stack--composite">
-          <ControlDetailSection title="Framework mapping">
+
+          <ControlDetailSection title="Mapped controls">
             <MappedControlsList mappedControls={mappedControls} />
           </ControlDetailSection>
+
         </div>
       ),
     },

@@ -98,7 +98,7 @@ export function CustomFrameworkSettings() {
         </label>
         <label className="text-sm sm:col-span-2">
           <span className="font-medium">Check IDs (comma-separated)</span>
-          <input className={accessInput} value={checkIds} onChange={(e) => setCheckIds(e.target.value)} placeholder="intune.device.not_encrypted" />
+          <input className={accessInput} value={checkIds} onChange={(e) => setCheckIds(e.target.value)} placeholder="iam.root.mfa_not_enabled" />
         </label>
       </div>
       {error ? <p className="mt-2 text-sm text-red-600">{error}</p> : null}

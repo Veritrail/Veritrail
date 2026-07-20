@@ -8515,7 +8515,7 @@ button.accounts-flow-step:hover {
 
 .org-home__section-kicker {
   margin: 0 0 0.25rem;
-  color: #0f766e;
+  color: #7c8698;
   font-size: 0.6875rem;
   font-weight: 720;
   letter-spacing: 0.08em;
@@ -8658,7 +8658,7 @@ button.accounts-flow-step:hover {
 
 .org-home__actions-head .org-home__section-link,
 .org-home__timeline-section--compact .org-home__section-link {
-  color: #0f766e;
+  color: #4f6283;
   font-size: 0.75rem;
 }
 
@@ -8723,12 +8723,12 @@ button.accounts-flow-step:hover {
 
 .org-home__next-footer a {
   margin-left: 0.35rem;
-  color: #0f766e;
+  color: #4f6283;
   font-weight: 650;
   text-decoration: none;
 }
 
-.org-home__next-footer a:hover { color: #0d9488; }
+.org-home__next-footer a:hover { color: #354968; }
 
 .org-home__actions-empty {
   display: flex;
@@ -8745,7 +8745,7 @@ button.accounts-flow-step:hover {
 .org-home__actions-empty button {
   border: 0;
   background: none;
-  color: #0f766e;
+  color: #4f6283;
   cursor: pointer;
   font: inherit;
   font-weight: 650;
@@ -8786,32 +8786,177 @@ button.accounts-flow-step:hover {
 
 /* Home hierarchy: one dominant work queue with quieter supporting context. */
 .org-home {
-  max-width: 92rem;
+  box-sizing: border-box;
+  max-width: 110rem;
   margin-inline: auto;
+  padding-inline: clamp(1.5rem, 2.6vw, 3.25rem);
 }
 
 .org-home__top {
-  position: relative;
-  overflow: hidden;
   align-items: center;
   margin-bottom: 1.5rem;
-  border: 1px solid #e2e8f0;
-  border-left: 3px solid #0d9488;
+  border: 1px solid #e1e5eb;
   border-radius: 1rem;
-  background: linear-gradient(115deg, #fff 58%, #f0fdfa 100%);
-  padding: 1.4rem 1.55rem;
-  box-shadow: 0 1px 2px rgb(15 23 42 / 3%);
+  background: #fff;
+  padding: 1.75rem 1.9rem;
+  gap: 2.25rem;
+  box-shadow:
+    0 1px 2px rgb(15 23 42 / 4%),
+    0 10px 28px -22px rgb(15 23 42 / 22%);
 }
+
+.org-home__top > div:first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* The ring shows the full control distribution. It stays integrated with the
+   hero instead of becoming a second floating card. */
+.org-home__readiness {
+  display: flex;
+  flex: 0 0 min(29rem, 40%);
+  align-items: center;
+  gap: 1.15rem;
+  min-width: 24rem;
+  padding-left: 1.8rem;
+}
+
+.org-home__readiness-ring {
+  position: relative;
+  display: grid;
+  width: 5.75rem;
+  height: 5.75rem;
+  flex: 0 0 5.75rem;
+  place-items: center;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px #edf0f3;
+}
+
+.org-home__readiness-ring::before {
+  position: absolute;
+  inset: 0.52rem;
+  border: 1px solid #eef0f3;
+  border-radius: 50%;
+  background: #fff;
+  content: "";
+}
+
+.org-home__readiness-ring-value {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+}
+
+.org-home__readiness-ring-value strong {
+  color: #172033;
+  font-size: 1.35rem;
+  font-weight: 720;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.04em;
+}
+
+.org-home__readiness-ring-value span {
+  margin-top: 0.18rem;
+  color: #929cab;
+  font-size: 0.5rem;
+  font-weight: 720;
+  letter-spacing: 0.075em;
+  text-transform: uppercase;
+}
+
+.org-home__readiness-copy {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.org-home__readiness-label {
+  color: #56678f;
+  font-size: 0.65rem;
+  font-weight: 720;
+  letter-spacing: 0.075em;
+  text-transform: uppercase;
+}
+
+
+.org-home__readiness-legend {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-content: center;
+  gap: 0.42rem 0.75rem;
+  margin: 0.7rem 0 0;
+  padding: 0;
+  list-style: none;
+  color: #667188;
+  font-size: 0.68rem;
+}
+
+.org-home__readiness-legend li {
+  display: flex;
+  align-items: center;
+  gap: 0.38rem;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.org-home__readiness-legend i {
+  flex: 0 0 auto;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.org-home__readiness-legend b {
+  min-width: 1rem;
+  color: #1b2333;
+  font-weight: 720;
+  font-variant-numeric: tabular-nums;
+}
+
+.org-home__readiness-legend .is-pass i { background: #0e9268; }
+.org-home__readiness-legend .is-risk i { background: #eea23d; }
+.org-home__readiness-legend .is-fail i { background: #e15564; }
+.org-home__readiness-legend .is-none i { background: #dde2e9; }
+
+/* Bottom meta strip — gives the page an edge instead of dying into whitespace. */
+.org-home__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem 0.7rem;
+  margin-top: 1.75rem;
+  padding-top: 1.1rem;
+  border-top: 1px solid #edf1f5;
+  color: #94a1b2;
+  font-size: 0.72rem;
+}
+
+.org-home__meta span[aria-hidden] { color: #cbd5e1; }
 
 .org-home__top .org-home__section-kicker {
   margin-bottom: 0.4rem;
+  color: #56678f;
+}
+
+.org-home__title-brand {
+  color: #172033;
+}
+
+.org-home__headline-em {
+  color: #a73b50;
+  white-space: nowrap;
 }
 
 .org-home__content-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.35fr) minmax(19rem, 0.85fr);
   align-items: stretch;
-  gap: 1.25rem;
+  gap: 1.5rem;
 }
 
 .org-home__content-grid.is-single {
@@ -8827,10 +8972,12 @@ button.accounts-flow-step:hover {
 .org-home__priority-section,
 .org-home__timeline-section--compact {
   overflow: hidden;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #e1e5eb;
   border-radius: 1rem;
   background: #fff;
-  box-shadow: 0 1px 2px rgb(15 23 42 / 3%);
+  box-shadow:
+    0 1px 2px rgb(15 23 42 / 4%),
+    0 10px 28px -24px rgb(15 23 42 / 18%);
 }
 
 .org-home__content-grid > .org-home__priority-section {
@@ -8853,6 +9000,13 @@ button.accounts-flow-step:hover {
   align-items: center;
   margin: 0;
   padding: 1.15rem 1.25rem;
+  background: #fcfcfd;
+}
+
+.org-home__priority-section--primary .org-home__section-kicker { color: #a24c59; }
+.org-home__priority-section--secondary .org-home__section-kicker { color: #56678f; }
+.org-home__priority-section--secondary .org-home__priority-heading {
+  background: #fcfcfd;
 }
 
 .org-home__section-title {
@@ -8871,7 +9025,7 @@ button.accounts-flow-step:hover {
 
 .org-home__section-link {
   flex: 0 0 auto;
-  color: #0f766e;
+  color: #4f6283;
   font-size: 0.73rem;
   font-weight: 650;
   text-decoration: none;
@@ -8879,7 +9033,7 @@ button.accounts-flow-step:hover {
 }
 
 .org-home__section-link:hover {
-  color: #0d9488;
+  color: #354968;
 }
 
 .org-home__priority-section .org-home__actions {
@@ -8921,18 +9075,21 @@ button.accounts-flow-step:hover {
 }
 
 .org-home__priority-section--secondary .org-home__next-row {
-  grid-template-columns: 1.75rem minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 0.65rem;
   min-height: 4.25rem;
-  padding: 0.65rem 1rem;
+  padding: 0.65rem 1.15rem;
 }
 
-.org-home__priority-section--secondary .org-home__next-rank {
-  width: 1.5rem;
-  height: 1.5rem;
-  border-color: #ccfbf1;
-  background: #f0fdfa;
-  color: #0f766e;
+/* Enablement details are instructions — wrap to two lines, never mid-word cut. */
+.org-home__priority-section--secondary .org-home__next-copy span {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  white-space: normal;
+  text-overflow: clip;
+  line-height: 1.4;
 }
 
 .org-home__priority-section--secondary .org-home__next-action {
@@ -8946,7 +9103,7 @@ button.accounts-flow-step:hover {
 }
 
 .org-home__timeline-section--wide {
-  margin-top: 1.25rem;
+  margin-top: 1.6rem;
 }
 
 .org-home__timeline-section--compact .org-home__section-head {
@@ -8956,7 +9113,10 @@ button.accounts-flow-step:hover {
   gap: 1rem;
   margin: 0;
   padding: 1rem 1.1rem 0.85rem;
+  background: #fcfcfd;
 }
+
+.org-home__timeline-section--compact .org-home__section-kicker { color: #68738a; }
 
 .org-home__timeline-section--compact .org-home__timeline {
   min-height: 12.4rem;
@@ -9030,7 +9190,30 @@ button.accounts-flow-step:hover {
   to { background-position: -100% 0; }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .org-home__timeline-skeleton {
+    transition: none;
+    animation: none;
+  }
+}
+
 @media (max-width: 1350px) {
+  .org-home__top {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+
+  .org-home__readiness {
+    width: 100%;
+    min-width: 0;
+    align-self: stretch;
+    justify-content: flex-start;
+    padding: 1.2rem 0 0;
+    border-top: 1px solid #e5e8ed;
+    border-left: 0;
+  }
+
   .org-home__content-grid {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -9041,7 +9224,6 @@ button.accounts-flow-step:hover {
 }
 
 @media (max-width: 800px) {
-  .org-home__top { align-items: flex-start; flex-direction: column; gap: 0.8rem; }
   .org-home__secondary-column { grid-template-columns: minmax(0, 1fr); }
   .org-home__timeline-section--wide .org-home__timeline {
     min-height: 12.4rem;
@@ -9060,11 +9242,19 @@ button.accounts-flow-step:hover {
   .org-home { padding: 1.25rem 1rem 4rem; }
   .org-home__top { padding: 1.15rem 1.1rem; }
   .org-home__title { font-size: 1.45rem; }
+  .org-home__readiness { gap: 0.9rem; }
+  .org-home__readiness-ring {
+    width: 5rem;
+    height: 5rem;
+    flex-basis: 5rem;
+  }
+  .org-home__readiness-ring::before { inset: 0.46rem; }
+  .org-home__readiness-legend { gap: 0.38rem 0.55rem; }
   .org-home__empty-card { align-items: flex-start; flex-direction: column; }
   .org-home__next-row { grid-template-columns: 2rem minmax(0, 1fr); }
   .org-home__next-action { grid-column: 2; justify-self: start; }
-  .org-home__priority-section--secondary .org-home__next-row { grid-template-columns: 1.75rem minmax(0, 1fr); }
-  .org-home__priority-section--secondary .org-home__next-action { grid-column: 2; }
+  .org-home__priority-section--secondary .org-home__next-row { grid-template-columns: minmax(0, 1fr); }
+  .org-home__priority-section--secondary .org-home__next-action { grid-column: 1; justify-self: start; }
   .org-home__next-copy strong,
   .org-home__next-copy span { white-space: normal; }
 }

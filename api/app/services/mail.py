@@ -1,14 +1,16 @@
 """Outbound email via SMTP (stdlib)."""
 from __future__ import annotations
 
-import smtplib
 from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from pathlib import Path
+import smtplib
 
 import structlog
 
 from app.core.config import get_settings
+from app.services.email_template import render_plain_text_email
 
 log = structlog.get_logger()
 
@@ -45,15 +47,26 @@ def send_mail(
     if not from_addr:
         return False, "Set MAIL_FROM or SMTP_USER in .env."
 
+    if html is None:
+        html = render_plain_text_email(title=subject, text=text)
+
+    images = dict(inline_images or {})
+    if "cid:veritrail-mark" in html and "veritrail-mark" not in images:
+        mark_path = Path(__file__).resolve().parents[1] / "assets" / "veritrail-mark.png"
+        try:
+            images["veritrail-mark"] = mark_path.read_bytes()
+        except OSError:
+            log.warning("mail.brand_mark_unavailable", path=str(mark_path))
+
     alternative = MIMEMultipart("alternative")
     alternative.attach(MIMEText(text, "plain", "utf-8"))
     if html:
         alternative.attach(MIMEText(html, "html", "utf-8"))
 
-    if inline_images:
+    if images:
         msg = MIMEMultipart("related")
         msg.attach(alternative)
-        for cid, data in inline_images.items():
+        for cid, data in images.items():
             img = MIMEImage(data, _subtype="png")
             img.add_header("Content-ID", f"<{cid}>")
             img.add_header("Content-Disposition", "inline", filename=f"{cid}.png")

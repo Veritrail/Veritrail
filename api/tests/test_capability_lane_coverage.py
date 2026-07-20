@@ -164,3 +164,102 @@ def test_build_capability_lane_coverage_empty_org_unknown_lanes(mock_db):
         data["lanes"]["dependency_scanning"]["action"] or ""
     )
     assert "operational" in data
+
+
+def _edr_host_envelope(
+    *,
+    validated: bool,
+    provider: str = "crowdstrike",
+    scope_id: str = "tenant-default",
+    eligible: int = 12,
+    assessed: int = 12,
+    high: int = 3,
+):
+    from app.services.technical_capability import CoverageCounts, EvidenceEnvelope
+
+    now = datetime(2026, 7, 20, tzinfo=timezone.utc)
+    limitations = [] if validated else ["edr_unvalidated_beta"]
+    return EvidenceEnvelope(
+        capability="host_workload_scanning",
+        provider=provider,
+        scope_type="tenant",
+        scope_id=scope_id,
+        asset_type="managed_device",
+        status="covered",
+        enabled=True,
+        last_successful_scan_at=now.isoformat(),
+        coverage=CoverageCounts(eligible=eligible, assessed=assessed, excluded=0),
+        open_findings=OpenFindingsSummary(high=high),
+        limitations=limitations,
+        validated=validated,
+    )
+
+
+def test_edr_beta_alone_is_unvalidated_not_verified():
+    from app.services.technical_capability import rollup_control_status
+
+    env = _edr_host_envelope(validated=False)
+    lane = _summarize_lane("host_workload_scanning", [env], {"crowdstrike"})
+    assert lane["status"] == "unvalidated"
+    assert lane["audit_verdict"] == "insufficient_evidence"
+    assert lane["audit_verdict"] != "verified_technical_evidence"
+    assert lane["coverage"]["eligible"] == 12
+    assert lane["coverage"]["assessed"] == 12
+    assert lane["open_findings"]["high"] == 3
+    assert "edr_unvalidated_beta" in lane["limitations"]
+    assert (
+        rollup_control_status(
+            {"host_workload_scanning": lane["status"]},
+            required_lanes=("host_workload_scanning",),
+        )
+        == "action_needed"
+    )
+
+
+def test_edr_ga_validated_can_verify():
+    env = _edr_host_envelope(validated=True)
+    lane = _summarize_lane("host_workload_scanning", [env], {"crowdstrike"})
+    assert lane["status"] == "covered"
+    assert lane["audit_verdict"] == "verified_technical_evidence"
+
+
+def test_edr_beta_not_load_bearing_keeps_covered():
+    now = datetime(2026, 7, 20, tzinfo=timezone.utc)
+    from app.services.technical_capability import CoverageCounts, EvidenceEnvelope
+
+    inspector = envelope(
+        capability="host_workload_scanning",
+        provider="amazon_inspector_ec2",
+        scope_type="aws_account",
+        scope_id="111122223333",
+        asset_type="ec2_instance",
+        enabled=True,
+        has_observable_activity=True,
+        last_successful_scan_at=now.isoformat(),
+        eligible=10,
+        assessed=10,
+        open_findings=OpenFindingsSummary(high=1),
+        now=now,
+    )
+    # Same scope as Inspector so Beta is clearly not independently load-bearing.
+    beta = EvidenceEnvelope(
+        capability="host_workload_scanning",
+        provider="crowdstrike",
+        scope_type="aws_account",
+        scope_id="111122223333",
+        asset_type="managed_device",
+        status="covered",
+        enabled=True,
+        last_successful_scan_at=now.isoformat(),
+        coverage=CoverageCounts(eligible=10, assessed=10, excluded=0),
+        open_findings=OpenFindingsSummary(high=3),
+        limitations=["edr_unvalidated_beta"],
+        validated=False,
+    )
+    lane = _summarize_lane(
+        "host_workload_scanning",
+        [inspector, beta],
+        {"amazon_inspector_ec2", "crowdstrike"},
+    )
+    assert lane["status"] == "covered"
+    assert lane["audit_verdict"] == "verified_technical_evidence"

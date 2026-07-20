@@ -72,7 +72,12 @@ export default function IntegrationCatalog() {
                           className="integration-catalog-card__icon"
                         />
                         <div className="integration-catalog-card__body">
-                          <div className="integration-catalog-card__name">{entry.name}</div>
+                          <div className="integration-catalog-card__name-row">
+                            <div className="integration-catalog-card__name">{entry.name}</div>
+                            {entry.beta ? (
+                              <span className="integration-catalog-card__beta">Beta</span>
+                            ) : null}
+                          </div>
                           <p className="integration-catalog-card__desc">{entry.description}</p>
                         </div>
                         {isComingSoon ? (

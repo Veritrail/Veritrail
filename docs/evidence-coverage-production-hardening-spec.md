@@ -1,6 +1,6 @@
 # Technical Evidence Coverage — Production Hardening Spec
 
-**Status:** Proposed  
+**Status:** Phase A–E implemented (Jul 2026)  
 **Owner:** Veritrail engineering  
 **Source:** `premortem-report-20260719-230505.html`  
 **Applies to:** Technical evidence capability lanes, provider integrations, control grading, audit exports, and the Compliance drawer

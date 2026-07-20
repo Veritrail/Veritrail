@@ -835,6 +835,11 @@ export const integrationStatusSchema = z
     two_step_verification_enforced: z.boolean().nullable().optional(),
     tenant_id: z.string().nullable().optional(),
     security_defaults_enabled: z.boolean().nullable().optional(),
+    evidence_status: z.string().nullable().optional(),
+    last_successful_evidence_at: z.string().nullable().optional(),
+    evidence_needs_attention: z.boolean().optional(),
+    evidence_limitations: z.array(z.string()).optional(),
+    affected_capabilities: z.array(z.string()).optional(),
   })
   .passthrough();
 

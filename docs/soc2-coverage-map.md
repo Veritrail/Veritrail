@@ -67,7 +67,7 @@ require becoming a GRC suite.
    SSO-enforcement, and a **quarterly access-review export** (CC6.3 / CC6.1).
 3. **Incident + recovery enrichment** (CC7.3–7.5, CC9.1): pull alert routing
    from Slack/PagerDuty; surface backup/DR evidence; attest the runbook.
-4. **Endpoint / MDM** (Kandji, Jamf, Intune) — disk encryption + lock screen
+4. **Endpoint / MDM** (Kandji, Jamf, Intune) — disk encryption + lock screen (no sync integration; external evidence only)
    (CC6.x device controls). Fully technical, new collector.
 5. **Cloud parity** (GCP / Azure collectors) — only when customers ask. Mirrors
    the AWS work; highest effort, lowest near-term leverage.

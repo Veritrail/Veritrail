@@ -3,16 +3,19 @@
 Machine-verifiable device denominator, sensor/agent health, and vulnerability /
 detection evidence where licensed APIs expose it. Human endpoint-policy admin
 remains out of scope.
+
+Host/sensor (or agent) coverage is graded independently of optional vulnerability
+modules (CrowdStrike Spotlight, SentinelOne Threats / vulnerability APIs).
 """
 from __future__ import annotations
 
 from datetime import datetime, timezone
 from typing import Any
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 
 import httpx
 
-from app.services.integration_input import api_access_error, normalize_api_base_url
+from app.services.integration_input import normalize_api_base_url
 from app.services.technical_capability import OpenFindingsSummary, envelope
 
 EDR_TYPES = {
@@ -27,6 +30,26 @@ EDR_LABELS = {
 
 DEFAULT_CROWDSTRIKE_BASE = "https://api.crowdstrike.com"
 
+# Cloud-region presets for Falcon OAuth / Hosts / Spotlight. Custom base URLs
+# are allowed when the customer cloud is not listed.
+CROWDSTRIKE_REGION_PRESETS: tuple[dict[str, str], ...] = (
+    {"id": "us-1", "label": "US-1 (Commercial)", "base_url": "https://api.crowdstrike.com"},
+    {"id": "us-2", "label": "US-2", "base_url": "https://api.us-2.crowdstrike.com"},
+    {"id": "eu-1", "label": "EU-1", "base_url": "https://api.eu-1.crowdstrike.com"},
+    {"id": "us-gov-1", "label": "US-GOV-1", "base_url": "https://api.laggar.gcw.crowdstrike.com"},
+)
+
+# Optional vulnerability / detection modules — informational limitations only.
+# They must not invalidate independently complete host/sensor evidence.
+OPTIONAL_VULN_MODULE_LIMITATIONS = frozenset(
+    {
+        "spotlight_vulnerabilities_not_licensed",
+        "spotlight_vulnerabilities_unavailable",
+        "threats_api_forbidden",
+        "vulnerability_module_not_available",
+    }
+)
+
 
 def edr_type_for_vendor(vendor: str) -> str:
     key = (vendor or "").strip().lower()
@@ -35,11 +58,97 @@ def edr_type_for_vendor(vendor: str) -> str:
     return EDR_TYPES[key]
 
 
+def crowdstrike_region_for_base_url(base_url: str | None) -> str:
+    """Return preset id for a known Falcon base URL, else ``custom``."""
+    normalized = normalize_api_base_url(base_url or DEFAULT_CROWDSTRIKE_BASE).rstrip("/").lower()
+    for preset in CROWDSTRIKE_REGION_PRESETS:
+        if preset["base_url"].rstrip("/").lower() == normalized:
+            return preset["id"]
+    return "custom"
+
+
+def validate_sentinelone_management_url(raw: str) -> str:
+    """Normalize and validate a SentinelOne management console URL before save.
+
+    Accepts ``https://<site>.sentinelone.net`` (and other https hosts). Rejects
+    empty values, non-https schemes, credentials-in-URL, and localhost/private hosts.
+    """
+    value = (raw or "").strip()
+    if not value:
+        raise ValueError(
+            "SentinelOne management URL is required "
+            "(example: https://usea1.sentinelone.net)."
+        )
+    try:
+        normalized = normalize_api_base_url(value)
+    except ValueError as exc:
+        raise ValueError(f"Invalid SentinelOne management URL: {exc}") from exc
+    parsed = urlparse(normalized)
+    if parsed.scheme != "https":
+        raise ValueError("SentinelOne management URL must use https://")
+    if parsed.username or parsed.password:
+        raise ValueError("SentinelOne management URL must not include credentials")
+    host = (parsed.hostname or "").lower()
+    if not host:
+        raise ValueError("SentinelOne management URL must include a hostname")
+    if host == "localhost" or host.endswith(".local") or host.endswith(".internal"):
+        raise ValueError("SentinelOne management URL must be a public management console host")
+    if host.replace(".", "").isdigit() or ":" in host:
+        raise ValueError("SentinelOne management URL must use a hostname, not a raw IP address")
+    return normalized
+
+
+def _crowdstrike_oauth_error(status_code: int, base: str) -> str:
+    if status_code in (401, 403):
+        return (
+            "CrowdStrike OAuth rejected these credentials (or they do not match this cloud region). "
+            f"Confirm client_id/client_secret and that the API base URL ({base}) matches your Falcon cloud."
+        )
+    if status_code == 404:
+        return (
+            f"CrowdStrike OAuth endpoint not found at {base}. "
+            "Select the correct cloud region preset or enter a custom API base URL."
+        )
+    return f"CrowdStrike OAuth error ({status_code}) at {base}."
+
+
+def _crowdstrike_hosts_error(status_code: int, base: str) -> str:
+    if status_code in (401, 403):
+        return (
+            "CrowdStrike authenticated, but Hosts read failed. "
+            "Grant the Hosts (devices) read scope on the API client, then retry. "
+            "Spotlight licensing is separate and optional for host/sensor evidence."
+        )
+    if status_code == 404:
+        return (
+            f"CrowdStrike Hosts API not found at {base}. "
+            "Confirm the cloud region / API base URL."
+        )
+    return f"CrowdStrike Hosts query error ({status_code})."
+
+
+def _sentinelone_agents_error(status_code: int, mgmt: str) -> str:
+    if status_code in (401, 403):
+        return (
+            "SentinelOne rejected Agents API access. "
+            "Confirm the API token and grant Agents read permission. "
+            "Threats and Vulnerability module access are separate and optional."
+        )
+    if status_code == 404:
+        return (
+            f"SentinelOne Agents API not found at {mgmt}. "
+            "Confirm the management console URL."
+        )
+    return f"SentinelOne Agents API error ({status_code})."
+
+
 def public_config(vendor: str, cfg: dict[str, Any]) -> dict[str, Any]:
     key = vendor.lower()
     base = {
         "vendor": key,
         "label": EDR_LABELS.get(key, key),
+        "beta": True,
+        "ga_validated": cfg.get("ga_validated") is True,
         "last_synced_at": cfg.get("last_synced_at"),
         "device_count": cfg.get("device_count"),
         "healthy_device_count": cfg.get("healthy_device_count"),
@@ -47,9 +156,12 @@ def public_config(vendor: str, cfg: dict[str, Any]) -> dict[str, Any]:
         "has_capability_evidence": bool(cfg.get("capability_evidence")),
     }
     if key == "crowdstrike":
+        base_url = cfg.get("base_url") or DEFAULT_CROWDSTRIKE_BASE
         base.update(
             {
-                "base_url": cfg.get("base_url") or DEFAULT_CROWDSTRIKE_BASE,
+                "base_url": base_url,
+                "region": crowdstrike_region_for_base_url(str(base_url)),
+                "region_presets": list(CROWDSTRIKE_REGION_PRESETS),
                 "has_client_id": bool(cfg.get("client_id")),
                 "has_client_secret": bool(cfg.get("client_secret")),
             }
@@ -76,18 +188,12 @@ def verify_edr_connection(vendor: str, cfg: dict[str, Any]) -> dict[str, Any]:
                 params={"limit": 1},
             )
         if resp.status_code >= 400:
-            raise ValueError(
-                api_access_error(
-                    "CrowdStrike",
-                    resp.status_code,
-                    hint="Use an API client with Hosts read scope; set base_url for your cloud region.",
-                )
-            )
+            raise ValueError(_crowdstrike_hosts_error(resp.status_code, base))
         return {"ok": True, "vendor": "crowdstrike"}
     if key == "sentinelone":
-        mgmt = normalize_api_base_url(cfg.get("management_url") or "")
+        mgmt = validate_sentinelone_management_url(str(cfg.get("management_url") or ""))
         token = (cfg.get("api_token") or "").strip()
-        if not mgmt or not token:
+        if not token:
             raise ValueError("SentinelOne requires management_url and api_token")
         with httpx.Client(timeout=30.0) as client:
             resp = client.get(
@@ -96,13 +202,7 @@ def verify_edr_connection(vendor: str, cfg: dict[str, Any]) -> dict[str, Any]:
                 params={"limit": 1},
             )
         if resp.status_code >= 400:
-            raise ValueError(
-                api_access_error(
-                    "SentinelOne",
-                    resp.status_code,
-                    hint="Use a management console URL and API token with Agents read permission.",
-                )
-            )
+            raise ValueError(_sentinelone_agents_error(resp.status_code, mgmt))
         return {"ok": True, "vendor": "sentinelone"}
     raise ValueError(f"Unsupported EDR vendor: {vendor}")
 
@@ -129,7 +229,7 @@ def _crowdstrike_token(cfg: dict[str, Any]) -> str:
             headers={"Content-Type": "application/x-www-form-urlencoded"},
         )
     if resp.status_code >= 400:
-        raise ValueError(api_access_error("CrowdStrike", resp.status_code, hint="Check OAuth client credentials and base_url."))
+        raise ValueError(_crowdstrike_oauth_error(resp.status_code, base))
     token = resp.json().get("access_token")
     if not token:
         raise ValueError("CrowdStrike token response missing access_token")
@@ -149,7 +249,7 @@ def _sync_crowdstrike(cfg: dict[str, Any]) -> dict[str, Any]:
             params: dict[str, Any] = {"limit": 100, "offset": offset}
             resp = client.get(f"{base}/devices/queries/devices/v1", headers=headers, params=params)
             if resp.status_code >= 400:
-                raise ValueError(f"CrowdStrike hosts query error {resp.status_code}")
+                raise ValueError(_crowdstrike_hosts_error(resp.status_code, base))
             payload = resp.json()
             resources = list(payload.get("resources") or [])
             device_ids.extend(str(r) for r in resources)
@@ -253,9 +353,9 @@ def _sync_crowdstrike(cfg: dict[str, Any]) -> dict[str, Any]:
 
 
 def _sync_sentinelone(cfg: dict[str, Any]) -> dict[str, Any]:
-    mgmt = normalize_api_base_url(cfg.get("management_url") or "")
+    mgmt = validate_sentinelone_management_url(str(cfg.get("management_url") or ""))
     token = (cfg.get("api_token") or "").strip()
-    if not mgmt or not token:
+    if not token:
         raise ValueError("SentinelOne requires management_url and api_token")
     headers = {"Authorization": f"ApiToken {token}"}
     agents: list[dict[str, Any]] = []
@@ -272,7 +372,7 @@ def _sync_sentinelone(cfg: dict[str, Any]) -> dict[str, Any]:
                 params=params,
             )
             if resp.status_code >= 400:
-                raise ValueError(f"SentinelOne agents error {resp.status_code}")
+                raise ValueError(_sentinelone_agents_error(resp.status_code, mgmt))
             payload = resp.json()
             batch = list(payload.get("data") or [])
             agents.extend(batch)
@@ -379,6 +479,7 @@ def envelopes_from_edr_config(cfg: dict[str, Any], *, now: datetime | None = Non
     raw = cfg.get("capability_evidence")
     if not isinstance(raw, list):
         return []
+    validated = cfg.get("ga_validated") is True
     out = []
     for row in raw:
         if not isinstance(row, dict):
@@ -386,6 +487,9 @@ def envelopes_from_edr_config(cfg: dict[str, Any], *, now: datetime | None = Non
         of = row.get("open_findings") if isinstance(row.get("open_findings"), dict) else {}
         cov = row.get("coverage") if isinstance(row.get("coverage"), dict) else {}
         status = row.get("status") or "unknown"
+        limitations = list(row.get("limitations") or [])
+        if not validated and "edr_unvalidated_beta" not in limitations:
+            limitations.append("edr_unvalidated_beta")
         out.append(
             EE(
                 capability=row.get("capability") or "host_workload_scanning",  # type: ignore[arg-type]
@@ -409,7 +513,8 @@ def envelopes_from_edr_config(cfg: dict[str, Any], *, now: datetime | None = Non
                     low=int(of.get("low") or 0),
                 ),
                 source_reference=row.get("source_reference"),
-                limitations=list(row.get("limitations") or []),
+                limitations=limitations,
+                validated=validated,
             )
         )
     _ = ref

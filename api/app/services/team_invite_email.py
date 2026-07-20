@@ -4,6 +4,7 @@ from __future__ import annotations
 from datetime import datetime
 
 from app.core.html_email import html_email as h
+from app.services.email_template import fallback_link, render_email
 from app.services.mail import send_mail
 
 
@@ -23,19 +24,18 @@ def send_team_invite_email(
         f"Accept invite: {invite_url}\n\n"
         f"{expiry_line}"
     )
-    html = f"""
-    <div style="font-family:system-ui,sans-serif;max-width:520px;margin:0 auto;padding:24px">
-      <h2 style="margin:0 0 12px;font-size:18px">Join {h(org_name)} on Veritrail</h2>
-      <p style="margin:0 0 16px;color:#52525b">
-        You've been invited as <strong>{h(role)}</strong>.
-      </p>
-      <p style="margin:0 0 20px">
-        <a href="{h(invite_url)}" style="display:inline-block;background:#0ea5e9;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:600">
-          Accept invite
-        </a>
-      </p>
-      <p style="margin:0;font-size:12px;color:#71717a">{h(expiry_line)} If you didn't expect this, ignore this email.</p>
-    </div>
-    """
+    html = render_email(
+        eyebrow="Workspace invitation",
+        title=f"Join {org_name} on Veritrail",
+        preheader=f"You have been invited to {org_name} as {role}.",
+        body_html=(
+            f'<p style="margin:0">You have been invited to join <strong style="color:#273247">{h(org_name)}</strong> '
+            f'as <strong style="color:#273247">{h(role)}</strong>.</p>'
+            f'<p style="margin:14px 0 0">{h(expiry_line)} If you did not expect this invitation, you can ignore it.</p>'
+        ),
+        cta_label="Accept invitation",
+        cta_url=invite_url,
+        after_cta_html=fallback_link(invite_url),
+    )
     sent, _ = send_mail(to=to, subject=subject, text=text, html=html)
     return sent

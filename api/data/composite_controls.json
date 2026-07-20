@@ -30,8 +30,6 @@
       "google_workspace.admin.unreviewed",
       "google_workspace.org.mfa_not_enforced",
       "google_workspace.user.inactive_90d",
-      "intune.device.not_encrypted",
-      "jamf.device.not_encrypted",
       "iam.access_inventory_gap",
       "iam.access_key.multiple_active",
       "iam.access_key.no_rotation_90d",
@@ -468,7 +466,7 @@
     "control_id": "COMPOSITE.ENDPOINT_SECURITY",
     "title": "Endpoint Security & EDR",
     "description": "Confirms workstations and servers are monitored by endpoint protection outside native AWS visibility.",
-    "guidance": "Export a device or agent coverage report from your EDR platform and upload it below.\n\n- CrowdStrike, SentinelOne, and Microsoft Defender for Endpoint are common sources\n- Auditors want agent coverage across the employee fleet and real-time alerting enabled\n- Include a recent export dated within your audit period\n\nDeclare your platform in Workspace → Evidence to streamline future uploads.",
+    "guidance": "Export a device or agent coverage report from your EDR platform and upload it below.\n\n- CrowdStrike, SentinelOne, and Microsoft Defender for Endpoint are common sources\n- Auditors want agent coverage across the employee fleet and real-time alerting enabled\n- Include a recent export dated within your audit period\n\nDeclare your platform in Workspace \u2192 Evidence to streamline future uploads.",
     "soc2_criteria": [
       "CC6",
       "CC7"
@@ -481,8 +479,8 @@
     "id": "mdm_endpoint",
     "control_id": "COMPOSITE.MDM_ENDPOINT",
     "title": "Device Management (MDM)",
-    "description": "Corporate device enrollment, encryption, and compliance live outside AWS. Veritrail cannot verify MDM from cloud posture alone — connect Intune or Jamf for supplemental device sync, and upload accepted manual evidence for audit.",
-    "guidance": "Upload a device compliance report from your MDM platform and declare the vendor in Workspace → Evidence.\n\n- Microsoft Intune and Jamf Pro can be connected for live device inventory sync, but audit coverage still requires accepted external evidence\n- Auditors want proof that in-scope laptops and mobile devices are enrolled with disk encryption and screen-lock enforcement\n- Include a recent export dated within your audit period\n\nIf no managed devices are in your audit boundary, mark this control out of scope with a rationale instead.",
+    "description": "Corporate device enrollment, encryption, and compliance live outside AWS. Veritrail cannot verify MDM from cloud posture \u2014 provide device compliance evidence from your MDM platform for auditor review.",
+    "guidance": "Upload a device compliance report from your MDM platform (Intune, Jamf Pro, Kandji, ...) and declare the vendor in Workspace \u2192 Evidence. Veritrail does not sync MDM data; exports are auditor-reviewed evidence, not machine-verified coverage.",
     "soc2_criteria": [
       "CC6"
     ],
@@ -495,7 +493,7 @@
     "control_id": "COMPOSITE.HR_TRAINING",
     "title": "HR & Security Awareness Training",
     "description": "Security awareness and role-based training completion for personnel.",
-    "guidance": "Upload annual security training completion report or LMS export. Declare your HR/training platform in Workspace → Evidence.",
+    "guidance": "Upload annual security training completion report or LMS export. Declare your HR/training platform in Workspace \u2192 Evidence.",
     "soc2_criteria": [
       "CC1",
       "CC2"

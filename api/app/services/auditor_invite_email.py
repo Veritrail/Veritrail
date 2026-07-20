@@ -4,6 +4,7 @@ from __future__ import annotations
 from datetime import datetime
 
 from app.core.html_email import html_email as h
+from app.services.email_template import fallback_link, render_email
 from app.services.mail import send_mail
 
 
@@ -27,20 +28,20 @@ def send_auditor_invite_email(
         "If you did not expect this invite, you can ignore this email."
     )
 
-    html = f"""
-    <div style="font-family:system-ui,sans-serif;line-height:1.5;color:#18181b;max-width:560px">
-      <h2 style="margin:0 0 12px;font-size:18px">You're invited to Veritrail</h2>
-      <p style="margin:0 0 16px;color:#52525b">
-        <strong>{h(org_name)}</strong> invited you to review compliance evidence with read-only auditor access.
-      </p>
-      <p style="margin:0 0 20px">
-        <a href="{h(verify_url)}" style="display:inline-block;background:#0ea5e9;color:#fff;text-decoration:none;
-        padding:10px 18px;border-radius:8px;font-weight:600">Open auditor portal</a>
-      </p>
-      <p style="margin:0 0 8px;color:#71717a;font-size:13px">Or copy this link:</p>
-      <p style="margin:0 0 16px;font-size:12px;word-break:break-all;color:#3f3f46">{h(verify_url)}</p>
-      <p style="margin:0;color:#71717a;font-size:13px">Access expires on {expiry_label}.</p>
-    </div>
-    """
+    html = render_email(
+        eyebrow="Auditor access",
+        title="Review compliance evidence",
+        preheader=f"{org_name} invited you to a read-only auditor session.",
+        body_html=(
+            f'<p style="margin:0">Hi {h(greeting)},</p>'
+            f'<p style="margin:14px 0 0"><strong style="color:#273247">{h(org_name)}</strong> invited you to review '
+            "compliance evidence in a read-only Veritrail auditor session.</p>"
+            f'<p style="margin:14px 0 0">Access expires on <strong style="color:#273247">{h(expiry_label)}</strong>. '
+            "If you did not expect this invitation, you can ignore it.</p>"
+        ),
+        cta_label="Open auditor portal",
+        cta_url=verify_url,
+        after_cta_html=fallback_link(verify_url),
+    )
 
     return send_mail(to=to, subject=subject, text=text, html=html)

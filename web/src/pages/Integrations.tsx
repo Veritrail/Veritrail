@@ -83,6 +83,7 @@ type IntegrationRow = {
   permissionsVerified?: boolean;
   capabilities: string[];
   troubleshootTarget?: CloudTroubleshootTarget;
+  beta?: boolean;
 };
 
 function integrationCta(connected: boolean): string {
@@ -156,6 +157,7 @@ function IntegrationsTableRow({
           <div className="integrations-table__identity min-w-0">
             <div className="integrations-table__name-row">
               <span className="integrations-table__name">{row.name}</span>
+              {row.beta && <span className="integrations-table__badge integrations-table__badge--beta">Beta</span>}
               {row.connected && <span className="integrations-table__badge">Connected</span>}
             </div>
           </div>
@@ -486,10 +488,20 @@ function IntegrationsContent() {
         ? "Syncing"
         : github.data?.status === "error"
           ? "Needs reconnect"
-          : githubConnected
-            ? "Healthy"
-            : "Not configured",
-      healthTone: githubSync.isSyncing ? "sync" : github.data?.status === "error" ? "danger" : githubConnected ? "ok" : "idle",
+          : githubConnected && github.data?.evidence_needs_attention
+            ? "Evidence needs attention"
+            : githubConnected
+              ? "Healthy"
+              : "Not configured",
+      healthTone: githubSync.isSyncing
+        ? "sync"
+        : github.data?.status === "error"
+          ? "danger"
+          : githubConnected && github.data?.evidence_needs_attention
+            ? "warn"
+            : githubConnected
+              ? "ok"
+              : "idle",
       permissionsLabel: githubConnected ? "OAuth connected" : "Not connected",
       permissionsVerified: githubConnected,
       capabilities: ["Repositories", "Branch protection", "Review evidence"],
@@ -769,6 +781,7 @@ function IntegrationsContent() {
             permissionsLabel: "OAuth API client",
             permissionsVerified: true,
             capabilities: ["Device coverage", "Sensor health"],
+            beta: true,
           } satisfies IntegrationRow,
         ]
       : []),
@@ -788,6 +801,7 @@ function IntegrationsContent() {
             permissionsLabel: "API token",
             permissionsVerified: true,
             capabilities: ["Agent coverage", "Threat findings"],
+            beta: true,
           } satisfies IntegrationRow,
         ]
       : []),
@@ -905,7 +919,10 @@ function RecommendedIntegrations({ hiddenKeys }: { hiddenKeys: ReadonlySet<strin
           <article key={entry.key} className="integrations-explore-card">
             <IntegrationBrandIcon brand={entry.brand} size={40} variant="plain" className="integrations-explore-card__icon" />
             <div className="integrations-explore-card__body">
-              <div className="integrations-explore-card__name">{entry.name}</div>
+              <div className="integrations-explore-card__name-row">
+                <div className="integrations-explore-card__name">{entry.name}</div>
+                {entry.beta ? <span className="integration-catalog-card__beta">Beta</span> : null}
+              </div>
               <p className="integrations-explore-card__desc">{entry.description}</p>
             </div>
             <Link to={entry.href!} className="integrations-connect-btn">

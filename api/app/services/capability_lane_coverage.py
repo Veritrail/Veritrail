@@ -9,6 +9,10 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.github import IdentityProvider, Repo, RepoProtection
+from app.services.capability_limitations import (
+    primary_limitation,
+    serialize_limitations,
+)
 from app.services.technical_capability import (
     CAPABILITY_LABELS,
     SECURE_SDLC_LANES,
@@ -17,6 +21,8 @@ from app.services.technical_capability import (
     CoverageState,
     EvidenceEnvelope,
     OpenFindingsSummary,
+    apply_limitation_impacts,
+    audit_verdict_for_lane,
     envelope,
     merge_lane_states,
     rollup_control_status,
@@ -78,7 +84,20 @@ def _envelope_from_capability_block(
     block: dict[str, Any],
     now: datetime,
 ) -> EvidenceEnvelope:
+    from app.services.technical_capability import CollectionMeta
+
     perm = (block.get("permission_status") or "ok").lower()
+    coll_raw = block.get("collection") if isinstance(block.get("collection"), dict) else {}
+    coll_status = coll_raw.get("collection_status") or "complete"
+    collection = CollectionMeta(
+        collection_status=coll_status,  # type: ignore[arg-type]
+        pages_fetched=int(coll_raw.get("pages_fetched") or 0),
+        items_fetched=int(coll_raw.get("items_fetched") or 0),
+        retry_count=int(coll_raw.get("retry_count") or 0),
+        limited_by=coll_raw.get("limited_by"),
+        started_at=coll_raw.get("started_at"),
+        completed_at=coll_raw.get("completed_at"),
+    )
     return envelope(
         capability=capability,
         provider=provider,
@@ -98,6 +117,7 @@ def _envelope_from_capability_block(
         permission_denied=perm in ("denied", "permission_denied"),
         unavailable_by_plan=perm == "unavailable_by_plan",
         now=now,
+        collection=collection,
     )
 
 
@@ -251,6 +271,23 @@ def _gitlab_repo_envelopes(repo: Repo, *, now: datetime) -> list[EvidenceEnvelop
     return out
 
 
+def _merge_scope_states(envelopes: list[EvidenceEnvelope]) -> CoverageState:
+    """Union per-scope envelope statuses into one lane CoverageState."""
+    if not envelopes:
+        return "unknown"
+    by_scope: dict[tuple[str, str], list[EvidenceEnvelope]] = {}
+    for env in envelopes:
+        by_scope.setdefault((env.scope_type, env.scope_id), []).append(env)
+    scope_states: list[CoverageState] = []
+    for scoped in by_scope.values():
+        scoped_states = [e.status for e in scoped]
+        if any(state == "covered" for state in scoped_states):
+            scope_states.append("covered")
+        else:
+            scope_states.append(merge_lane_states(scoped_states))
+    return merge_lane_states(scope_states) if scope_states else "unknown"
+
+
 def _summarize_lane(
     capability: CapabilityId,
     envelopes: list[EvidenceEnvelope],
@@ -264,14 +301,7 @@ def _summarize_lane(
     for env in envelopes:
         by_scope.setdefault((env.scope_type, env.scope_id), []).append(env)
 
-    scope_states: list[CoverageState] = []
-    for scoped in by_scope.values():
-        scoped_states = [e.status for e in scoped]
-        if any(state == "covered" for state in scoped_states):
-            scope_states.append("covered")
-        else:
-            scope_states.append(merge_lane_states(scoped_states))
-    merged = merge_lane_states(scope_states) if scope_states else "unknown"
+    merged = _merge_scope_states(envelopes)
     # No repos in inventory → unknown (empty response ≠ not_applicable).
     if not envelopes:
         merged = "unknown"
@@ -295,12 +325,50 @@ def _summarize_lane(
     providers = sorted({e.provider for e in envelopes if e.enabled or e.status == "covered"})
     limitations: list[str] = []
     for e in envelopes:
-        if e.status in ("partial", "stale", "not_covered", "unknown"):
+        # Surface limitations from incomplete statuses and from unvalidated sources
+        # (even when the collector still reports covered).
+        if e.status in ("partial", "stale", "not_covered", "unknown") or not e.validated:
             for lim in e.limitations:
                 if lim not in limitations:
                     limitations.append(lim)
+    # Incomplete collection on any envelope cannot leave the lane covered.
+    collection_statuses = [e.collection.collection_status for e in envelopes]
+    coll_status: str = "complete"
+    if any(s != "complete" for s in collection_statuses):
+        if any(s == "permission_denied" for s in collection_statuses):
+            coll_status = "permission_denied"
+        elif any(s == "unavailable_by_plan" for s in collection_statuses):
+            coll_status = "unavailable_by_plan"
+        elif any(s == "failed" for s in collection_statuses):
+            coll_status = "failed"
+        else:
+            coll_status = "partial"
+    merged = apply_limitation_impacts(
+        merged,  # type: ignore[arg-type]
+        limitations,
+        collection_status=coll_status,  # type: ignore[arg-type]
+    )
+
+    # Unvalidated Beta EDR cannot be load-bearing for a covered verdict.
+    if merged == "covered" and any(not e.validated for e in envelopes):
+        validated_only = [e for e in envelopes if e.validated]
+        state_without_unvalidated: CoverageState = (
+            _merge_scope_states(validated_only) if validated_only else "unknown"
+        )
+        if validated_only:
+            state_without_unvalidated = vendor_absence_does_not_fail(
+                capability,
+                connected_providers,
+                lane_state_from_connected=state_without_unvalidated,
+            )
+        if state_without_unvalidated != "covered":
+            merged = "unvalidated"
+            if "edr_unvalidated_beta" not in limitations:
+                limitations.append("edr_unvalidated_beta")
+
     action = None
     label = CAPABILITY_LABELS[capability].lower()
+    primary = primary_limitation(limitations)
     if merged == "partial" and eligible > assessed:
         missing = eligible - assessed
         if capability in (
@@ -316,10 +384,17 @@ def _summarize_lane(
         action = f"Enable {label} for in-scope assets (native cloud, source control, or an equivalent scanner)"
     elif merged == "stale":
         action = f"Refresh {label} evidence (last scan outside freshness window)"
+    elif merged == "unvalidated":
+        action = (
+            "Complete live validation for this EDR provider before treating "
+            "host/workload evidence as verified"
+        )
     elif merged == "unknown" and not envelopes:
         action = f"Connect a qualifying source or collect inventory so {label} can be assessed"
+    elif primary is not None and not action:
+        action = primary.action
 
-    return {
+    summary = {
         "capability": capability,
         "label": CAPABILITY_LABELS[capability],
         "status": merged,
@@ -331,9 +406,12 @@ def _summarize_lane(
         },
         "open_findings": open_findings.as_dict(),
         "limitations": limitations[:8],
+        "limitations_detail": serialize_limitations(limitations[:8]),
         "action": action,
         "envelopes": [e.as_dict() for e in envelopes[:50]],
     }
+    summary.update(audit_verdict_for_lane(summary))
+    return summary
 
 
 _SCANNER_PROVIDER_TYPES = (

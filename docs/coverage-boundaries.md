@@ -12,7 +12,7 @@ so explicitly everywhere a status is shown.
 
 | Control (Compliance page) | Verified by checks | NOT verified (needs your evidence or your GRC) |
 |---|---|---|
-| Identity Governance & Access Review | root/MFA posture, unused credentials, privileged access, key rotation, device encryption (via Intune/Jamf sync) | formal quarterly access-review sign-offs |
+| Identity Governance & Access Review | root/MFA posture, unused credentials, privileged access, key rotation | formal quarterly access-review sign-offs; device encryption (no MDM sync — July 2026 removal) |
 | Identity & Access Inventory | inactive/dormant identities, unused credentials, inventory gaps across sources | owner attribution of accounts |
 | Secure SDLC | branch protection, required reviews, CI security scanning, self-merge; capability lanes for dependency / SAST / secret / CI enforcement from GitHub/GitLab (enablement alone is not verified) | — (thorough for its claim) |
 | Change Management | code review + branch protection; CloudTrail events for **Lambda + RDS changes only** | change approval for infrastructure; EC2/IAM/SG change events; ticket linkage |

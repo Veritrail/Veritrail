@@ -33,6 +33,13 @@ class Settings(BaseSettings):
     # Shared secret for verifying inbound GitHub webhook signatures (X-Hub-Signature-256) on the
     # IaC PR/push scan trigger. Empty => the webhook endpoint rejects everything (fail closed).
     GITHUB_WEBHOOK_SECRET: str = ""
+    # GitHub security evidence pagination budgets (hardening Phase B). Celery soft/hard
+    # limits are 15m/20m; these caps stop one large repo from unbounded Link pagination.
+    # 50 pages × 100 alerts = 5k alerts/endpoint; 90s wall clock fits many repos per task.
+    GITHUB_SECURITY_MAX_PAGES: int = 50
+    GITHUB_SECURITY_MAX_REQUESTS: int = 60
+    GITHUB_SECURITY_MAX_RETRIES: int = 3
+    GITHUB_SECURITY_WALL_CLOCK_SECONDS: float = 90.0
 
     GITLAB_CLIENT_ID: str = ""
     GITLAB_CLIENT_SECRET: str = ""
@@ -149,6 +156,10 @@ class Settings(BaseSettings):
     EVIDENCE_ARTIFACTS_DEFAULT_EXPIRY_DAYS: int = 365
     # Purge rejected/expired artifact rows (+ S3 objects) older than this many days. 0 = keep rows.
     EVIDENCE_ARTIFACTS_RETENTION_DAYS: int = 0
+
+    # Prune capability_coverage_snapshots older than this many days. Default 400 covers a
+    # full SOC 2 evidence window plus buffer. 0 = unlimited (no prune; explicit opt-out).
+    CAPABILITY_SNAPSHOT_RETENTION_DAYS: int = 400
 
     # Optional ClamAV INSTREAM scan before persisting uploaded evidence files.
     EVIDENCE_CLAMAV_ENABLED: bool = False

@@ -166,8 +166,6 @@ export const checkLabels: Record<string, string> = {
   "entra.org.mfa_not_enforced": "Entra MFA not enforced",
   "entra.user.inactive_90d": "Entra inactive user",
   "entra.admin.unreviewed": "Entra admin unreviewed",
-  "intune.device.not_encrypted": "Intune device not encrypted",
-  "jamf.device.not_encrypted": "Jamf device not encrypted",
   "identity_center.user.inactive_90d": "Identity Center user stale",
 };
 

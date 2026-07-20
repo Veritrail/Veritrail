@@ -18,6 +18,7 @@ from app.core.rbac import get_org_user, role_at_least
 from app.core.route_deps import RequireAdmin
 from app.core.evidence_rbac import (
     assert_evidence_readable,
+    can_review_evidence,
     is_auditor_viewer,
     membership_evidence_role,
     require_evidence_comment,
@@ -492,7 +493,7 @@ async def upload_evidence_artifact(
     db: Session = Depends(get_db),
 ):
     user = get_org_user(db, p)
-    require_evidence_upload(db, user.id, user.org_id, org_role=user.role)
+    uploader_evidence_role = require_evidence_upload(db, user.id, user.org_id, org_role=user.role)
     form = await request.form()
     file = form.get("file")
     has_file = file is not None and hasattr(file, "read")
@@ -601,6 +602,10 @@ async def upload_evidence_artifact(
 
     parsed_expires = _parse_date(expires_at) or default_expires_at()
 
+    # Reviewer-role uploaders skip the two-step: self-review is ceremony, and the
+    # trail still records who accepted and when (marked as auto-accepted).
+    auto_accept = can_review_evidence(uploader_evidence_role)
+
     row = EvidenceArtifact(
         org_id=org_id,
         control_id=ctrl_id,
@@ -617,7 +622,7 @@ async def upload_evidence_artifact(
         policy_ref=policy_ref[:200] if policy_ref else None,
         external_url=external_url[:500] if external_url else None,
         owner=owner[:200] if owner else None,
-        status="submitted",
+        status="accepted" if auto_accept else "submitted",
         expires_at=parsed_expires,
         filename=original_name,
         storage_path=relative_path,
@@ -628,7 +633,17 @@ async def upload_evidence_artifact(
         suggested_mappings=suggestions,
         created_by=user.id,
     )
+    if auto_accept:
+        row.reviewed_by = user.id
+        row.reviewed_at = datetime.now(timezone.utc)
+        row.review_notes = "Auto-accepted: uploader holds the reviewer role."
     db.add(row)
+    if auto_accept:
+        # Flush first: `id` is a flush-time default, and supersession stamps
+        # superseded_by with it — unflushed it would write NULL and strand the
+        # prior artifact (reinstate-on-delete matches by superseded_by).
+        db.flush()
+        supersede_prior_accepted(db, org_id=org_id, new_artifact=row)
     log_org_activity(
         db,
         org_id=org_id,
@@ -644,6 +659,7 @@ async def upload_evidence_artifact(
             "composite_control_id": composite_control_id,
             "filename": original_name,
             "external_url": bool(external_url),
+            "auto_accepted": auto_accept,
         },
     )
     db.commit()
@@ -674,6 +690,22 @@ def delete_evidence_artifact(
     if row.storage_path:
         delete_artifact(row.storage_path)
 
+    # Deleting the current accepted artifact reinstates what it superseded:
+    # those rows were accepted before and only shadowed by this one. Chains
+    # resolve one hop — an artifact superseded by an older link stays put.
+    reinstated = 0
+    if row.status == "accepted":
+        for prior in db.scalars(
+            select(EvidenceArtifact).where(
+                EvidenceArtifact.org_id == org_id,
+                EvidenceArtifact.superseded_by == row.id,
+                EvidenceArtifact.status == "superseded",
+            )
+        ):
+            prior.status = "accepted"
+            prior.superseded_by = None
+            reinstated += 1
+
     log_org_activity(
         db,
         org_id=org_id,
@@ -689,6 +721,7 @@ def delete_evidence_artifact(
             "composite_control_id": row.composite_control_id,
             "filename": row.filename,
             "had_external_url": bool(row.external_url),
+            "reinstated_superseded": reinstated,
         },
     )
     db.delete(row)

@@ -186,6 +186,12 @@
   box-shadow: inset 0 0 0 1px var(--is-success-border);
 }
 
+.integration-setup__badge--beta {
+  color: #92400e;
+  background: #fffbeb;
+  box-shadow: inset 0 0 0 1px #fcd34d;
+}
+
 .integration-setup__card {
   border: 1px solid var(--is-border);
   border-radius: 1rem;

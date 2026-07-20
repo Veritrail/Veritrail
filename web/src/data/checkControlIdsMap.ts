@@ -124,8 +124,6 @@ export const CHECK_CONTROL_IDS_MAP: Record<string, CheckControlRef[]> = {
   "iam.user.direct_policy_attachment": [{ framework: "cis_aws_l1", control_id: "1.14" }, { framework: "iso27001", control_id: "A.9.2.2" }, { framework: "soc2", control_id: "CC6.3" }],
   "iam.user.no_mfa": [{ framework: "cis_aws_l1", control_id: "1.10" }, { framework: "iso27001", control_id: "A.9.2.4" }, { framework: "iso27001", control_id: "A.9.4.2" }, { framework: "soc2", control_id: "CC6.6" }],
   "identity_center.user.inactive_90d": [{ framework: "iso27001", control_id: "A.9.2.1" }, { framework: "soc2", control_id: "CC6.1" }],
-  "intune.device.not_encrypted": [{ framework: "iso27001", control_id: "A.10.1.1" }, { framework: "soc2", control_id: "CC6.8" }],
-  "jamf.device.not_encrypted": [{ framework: "iso27001", control_id: "A.10.1.1" }, { framework: "soc2", control_id: "CC6.8" }],
   "kms.key.no_rotation": [{ framework: "cis_aws_l1", control_id: "3.8" }, { framework: "iso27001", control_id: "A.10.1.1" }, { framework: "soc2", control_id: "CC6.8" }],
   "kms.key.policy_wildcard_principal": [{ framework: "iso27001", control_id: "A.10.1.1" }],
   "lambda.function.deprecated_runtime": [{ framework: "iso27001", control_id: "A.12.6.1" }, { framework: "soc2", control_id: "CC7.1" }],

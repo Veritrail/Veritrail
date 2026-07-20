@@ -151,9 +151,7 @@
       "s3.bucket.no_default_encryption",
       "dynamodb.table.no_encryption",
       "sns.topic.no_encryption",
-      "sqs.queue.no_encryption",
-      "intune.device.not_encrypted",
-      "jamf.device.not_encrypted"
+      "sqs.queue.no_encryption"
     ],
     "soc2_scope_category": "security"
   },
@@ -580,9 +578,7 @@
       "dynamodb.table.no_encryption",
       "sns.topic.no_encryption",
       "sqs.queue.no_encryption",
-      "cloudtrail.event.kms_key_disabled_or_deleted",
-      "intune.device.not_encrypted",
-      "jamf.device.not_encrypted"
+      "cloudtrail.event.kms_key_disabled_or_deleted"
     ],
     "iso_applicability": "applicable",
     "iso_applicability_rationale": "In scope: mapped to automated AWS evidence collection in Veritrail control catalog."

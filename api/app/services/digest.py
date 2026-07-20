@@ -34,7 +34,10 @@ def _posture_score(counts: dict[str, int]) -> int:
 
 def _veritrail_mark_path() -> Path | None:
     here = Path(__file__).resolve()
-    candidates = [here.parent / "assets" / "veritrail-mark.png"]
+    candidates = [
+        here.parents[1] / "assets" / "veritrail-mark.png",
+        here.parent / "assets" / "veritrail-mark.png",
+    ]
     if len(here.parents) > 3:
         candidates.append(here.parents[3] / "web" / "public" / "favicon.png")
     for path in candidates:

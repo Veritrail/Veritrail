@@ -25,8 +25,6 @@ import JiraIntegration from "./pages/JiraIntegration";
 import GcpIntegration from "./pages/GcpIntegration";
 import AzureIntegration from "./pages/AzureIntegration";
 import VulnScannerIntegration from "./pages/VulnScannerIntegration";
-import IntuneIntegration from "./pages/IntuneIntegration";
-import JamfIntegration from "./pages/JamfIntegration";
 import Questionnaire from "./pages/Questionnaire";
 import SiemIntegration from "./pages/SiemIntegration";
 import PagerDutyIntegration from "./pages/PagerDutyIntegration";
@@ -115,8 +113,6 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
             <Route path="/integrations/scanners/:vendor" element={<VulnScannerIntegration />} />
             <Route path="/integrations/pagerduty" element={<PagerDutyIntegration />} />
             <Route path="/integrations/edr/:vendor" element={<EdrIntegration />} />
-            <Route path="/integrations/intune" element={<IntuneIntegration />} />
-            <Route path="/integrations/jamf" element={<JamfIntegration />} />
             <Route path="/questionnaire" element={<Questionnaire />} />
             <Route path="/integrations/siem/:vendor" element={<SiemIntegration />} />
             <Route path="/integrations/github-issues" element={<Navigate to="/integrations" replace />} />

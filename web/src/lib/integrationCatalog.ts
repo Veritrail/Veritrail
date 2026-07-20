@@ -9,6 +9,8 @@ export type CatalogEntry = {
   tags: [string, string, string];
   href?: string;
   comingSoon?: boolean;
+  /** Provider remains Beta until a real-tenant GA gate passes. */
+  beta?: boolean;
 };
 
 export type CatalogCategory = {
@@ -77,8 +79,8 @@ export const INTEGRATION_CATALOG: CatalogCategory[] = [
     title: "Endpoint & workload agents",
     blurb: "Managed-device coverage and sensor health for host/workload scanning evidence.",
     entries: [
-      { key: "crowdstrike", brand: "crowdstrike", name: "CrowdStrike", description: "Device denominator, sensor health, and Spotlight findings.", tags: ["EDR", "Hosts", "Findings"], href: "/integrations/edr/crowdstrike" },
-      { key: "sentinelone", brand: "sentinelone", name: "SentinelOne", description: "Agent coverage, health, and threat findings.", tags: ["EDR", "Hosts", "Findings"], href: "/integrations/edr/sentinelone" },
+      { key: "crowdstrike", brand: "crowdstrike", name: "CrowdStrike", description: "Device denominator, sensor health, and Spotlight findings.", tags: ["EDR", "Hosts", "Findings"], href: "/integrations/edr/crowdstrike", beta: true },
+      { key: "sentinelone", brand: "sentinelone", name: "SentinelOne", description: "Agent coverage, health, and threat findings.", tags: ["EDR", "Hosts", "Findings"], href: "/integrations/edr/sentinelone", beta: true },
     ],
   },
   {

@@ -280,14 +280,7 @@ def test_mdm_endpoint_is_external_evidence_only():
     by_id = {d["id"]: d for d in composite_control_definitions()}
     mdm = by_id["mdm_endpoint"]
     assert mdm["checks"] == []
-    assert "manual evidence" in mdm["description"].lower()
-
-
-def test_collectable_device_encryption_rolls_up_to_identity_governance():
-    from app.services.composite_controls import primary_composite_id_for_check
-
-    assert primary_composite_id_for_check("intune.device.not_encrypted") == "identity_governance"
-    assert primary_composite_id_for_check("jamf.device.not_encrypted") == "identity_governance"
+    assert "cannot verify mdm" in mdm["description"].lower()
 
 
 def test_evidence_integrations_for_check_ids():

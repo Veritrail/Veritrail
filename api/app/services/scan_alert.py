@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.core.html_email import html_email as h
 from app.models import AwsAccount, Finding, FindingEvent, ScanRun
 from app.models.org import Org, User
+from app.services.email_template import detail_rows, render_email
 from app.services.mail import send_mail
 
 log = structlog.get_logger()
@@ -50,20 +51,29 @@ def send_scan_failure_email(
         f"{error_summary}\n\n"
         "Open Veritrail → Accounts to verify your IAM role and trigger a re-scan."
     )
-    html = f"""
-    <div style="font-family:system-ui,sans-serif;line-height:1.5;color:#18181b;max-width:560px">
-      <h2 style="margin:0 0 12px;font-size:18px">Scan failed</h2>
-      <p style="margin:0 0 16px;color:#52525b">
-        A Veritrail scan failed for <strong>{h(account_label)}</strong>{h(acct)}.
-      </p>
-      <table style="width:100%;border-collapse:collapse;font-size:14px">
-        <tr><td style="padding:6px 0;color:#71717a;width:100px">Step</td><td>{h(failed_step or "unknown")}</td></tr>
-        <tr><td style="padding:6px 0;color:#71717a">Error</td><td>{h(error_type or "Error")}</td></tr>
-      </table>
-      <pre style="margin:16px 0;padding:12px;background:#fafafa;border:1px solid #e4e4e7;border-radius:8px;font-size:12px;white-space:pre-wrap;word-break:break-word">{h(error_summary[:800])}</pre>
-      <p style="margin:0;color:#71717a;font-size:13px">Open Veritrail → Accounts to verify your IAM role and trigger a re-scan.</p>
-    </div>
-    """
+    from app.services.digest import _findings_app_url
+
+    accounts_url = f"{_findings_app_url().rstrip('/')}/accounts"
+    html = render_email(
+        eyebrow="Collection alert",
+        title="Cloud scan failed",
+        preheader=f"Evidence collection failed for {account_label}.",
+        body_html=(
+            f'<p style="margin:0 0 16px">Veritrail could not complete evidence collection for '
+            f'<strong style="color:#273247">{h(account_label)}</strong>{h(acct)}.</p>'
+            + detail_rows([
+                ("Workspace", org_name),
+                ("Failed step", failed_step or "Unknown"),
+                ("Error type", error_type or "Error"),
+            ])
+            + f'<div style="margin-top:16px;padding:12px 14px;background:#fff7ed;border:1px solid #fed7aa;'
+            f'border-radius:7px;color:#9a3412;font-family:Menlo,Consolas,monospace;font-size:12px;'
+            f'line-height:1.5;word-break:break-word">{h(error_summary[:800])}</div>'
+            '<p style="margin:16px 0 0">Verify the account role, then start a new scan.</p>'
+        ),
+        cta_label="Review account",
+        cta_url=accounts_url,
+    )
     sent, err = send_mail(to=to, subject=subject, text=text, html=html)
     if not sent:
         log.error("scan_alert.failed", to=to, error=err)
@@ -198,15 +208,18 @@ def send_new_findings_email(
         + (f"\n…and {n - len(shown)} more." if n > len(shown) else "")
         + f"\n\nReview: {app_url}"
     )
-    html = f"""
-    <div style="font-family:system-ui,sans-serif;line-height:1.5;color:#18181b;max-width:560px">
-      <h2 style="margin:0 0 12px;font-size:18px">{n} new critical/high finding{plural}</h2>
-      <p style="margin:0 0 16px;color:#52525b">Account <strong>{h(account_label)}</strong>{h(acct)}.</p>
-      <table style="width:100%;border-collapse:collapse;font-size:14px">{rows}</table>
-      {more}
-      <p style="margin:16px 0 0"><a href="{h(app_url)}" style="color:#4f46e5;font-weight:600">Review in Veritrail →</a></p>
-    </div>
-    """
+    html = render_email(
+        eyebrow="Risk alert",
+        title=f"{n} new critical/high finding{plural}",
+        preheader=f"New findings require attention in {account_label}.",
+        body_html=(
+            f'<p style="margin:0 0 16px">Detected in <strong style="color:#273247">{h(account_label)}</strong>{h(acct)}.</p>'
+            f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
+            f'style="border-collapse:collapse;font-size:14px">{rows}</table>{more}'
+        ),
+        cta_label="Review findings",
+        cta_url=app_url,
+    )
     sent, err = send_mail(to=to, subject=subject, text=text, html=html)
     if not sent:
         log.error("new_findings_alert.email_failed", to=to, error=err)
@@ -315,7 +328,24 @@ def send_stale_scan_email(
         "Continuous evidence has a gap until the next successful scan. Open "
         "Veritrail → Accounts to verify the IAM role and trigger a scan."
     )
-    sent, err = send_mail(to=to, subject=subject, text=text)
+    from app.services.digest import _findings_app_url
+
+    accounts_url = f"{_findings_app_url().rstrip('/')}/accounts"
+    html = render_email(
+        eyebrow="Evidence coverage",
+        title="Cloud scan is overdue",
+        preheader=f"Evidence collection is overdue for {account_label}.",
+        body_html=(
+            f'<p style="margin:0">Veritrail has not completed a scan for '
+            f'<strong style="color:#273247">{h(account_label)}</strong>{h(acct)} in more than '
+            f'<strong style="color:#273247">{hours_overdue} hours</strong>.</p>'
+            f'<p style="margin:14px 0 0">The last successful scan was {h(last_scan_label)}. '
+            "Continuous evidence has a gap until the next successful scan.</p>"
+        ),
+        cta_label="Review account",
+        cta_url=accounts_url,
+    )
+    sent, err = send_mail(to=to, subject=subject, text=text, html=html)
     if not sent:
         log.error("stale_scan_alert.email_failed", error=err)
     return sent

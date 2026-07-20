@@ -61,8 +61,6 @@ const OTHER_PROVIDER_LABEL: Record<string, string> = {
   github: "GitHub",
   gitlab: "GitLab",
   google_workspace: "Google Workspace",
-  intune: "Intune",
-  jamf: "Jamf",
 };
 
 export function serviceForCheck(checkId: string): ServiceMeta | null {

@@ -16,8 +16,8 @@ export type ExternalOnlyControlCopy = {
  * the customer's GRC platform — surfacing them here meant a permanent
  * "Coverage gap" no scan could ever clear. Backend composite rows are retained
  * so previously uploaded evidence keeps its reference; they are simply no
- * longer displayed. Device *encryption* remains covered via the Intune/Jamf
- * sync checks under Identity Governance.
+ * longer displayed. The Intune/Jamf device-sync path was removed with them —
+ * device encryption is not collected or claimed anywhere.
  */
 export const EXTERNAL_ONLY_CONTROLS: ExternalOnlyControlCopy[] = [];
 

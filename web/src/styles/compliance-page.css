@@ -4131,6 +4131,10 @@
   color: #0f766e;
 }
 
+.capability-lanes__status.is-unvalidated {
+  color: #64748b;
+}
+
 .capability-lanes__status.is-partial,
 .capability-lanes__status.is-stale {
   color: #b45309;
@@ -4155,6 +4159,13 @@
   font-size: 0.75rem;
   font-weight: 500;
   color: #1f2937;
+}
+
+.capability-lanes__explain {
+  margin: 0.25rem 0 0;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: #64748b;
 }
 
 .capability-lanes__limit {
@@ -6076,3 +6087,88 @@
 .control-detail-mapped-controls__status.is-at-risk i { background: #e0932a; }
 .control-detail-mapped-controls__status.is-pending { color: #5b419e; }
 .control-detail-mapped-controls__status.is-pending i { background: #8b6fd0; }
+
+/* Single-column composite drawer: v2-style empty evidence dropzone. */
+.control-evidence-dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 1.6rem 1.2rem 1.8rem;
+  border: 1.5px dashed #d7dde5;
+  border-radius: 0.85rem;
+  background: #fbfcfe;
+  text-align: center;
+}
+
+.control-evidence-dropzone__icon {
+  display: grid;
+  place-items: center;
+  width: 2.6rem;
+  height: 2.6rem;
+  margin-bottom: 0.35rem;
+  border-radius: 50%;
+  background: #eef2fb;
+  color: #5b74c7;
+}
+
+.control-evidence-dropzone__icon svg { width: 1.25rem; height: 1.25rem; }
+
+.control-evidence-dropzone strong {
+  color: #1c2534;
+  font-size: 0.83rem;
+  font-weight: 650;
+}
+
+.control-evidence-dropzone > span:last-child {
+  max-width: 26rem;
+  color: #8792a3;
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+.control-detail-mapped-controls-wrap { margin-top: 0.1rem; }
+
+.compliance-external-evidence__hint {
+  margin: 0.3rem 0 0;
+  color: #94a1b2;
+  font-size: 0.68rem;
+  line-height: 1.4;
+}
+
+.compliance-external-evidence__hint--warn {
+  color: #a76400;
+}
+
+/* Either/or evidence source toggle. */
+.compliance-external-evidence__mode-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.compliance-external-evidence__mode {
+  display: inline-flex;
+  padding: 2px;
+  border: 1px solid #e4e8ee;
+  border-radius: 0.55rem;
+  background: #f4f6f9;
+}
+
+.compliance-external-evidence__mode button {
+  border: 0;
+  border-radius: 0.42rem;
+  background: transparent;
+  padding: 0.24rem 0.7rem;
+  color: #64707f;
+  font-size: 0.72rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.compliance-external-evidence__mode button.is-active {
+  background: #fff;
+  color: #1c2534;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 8%);
+}

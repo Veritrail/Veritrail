@@ -416,15 +416,10 @@ export function DrawerDateField({
             type="button"
             className={`drawer-date-field__footer-btn drawer-date-field__footer-btn--today${isAudit ? " drawer-date-field__footer-btn--use-today" : ""}`}
             onClick={() => {
-              if (isAudit) {
-                onChange("");
-                closePopover();
-                return;
-              }
               const t = todayIso();
               if (t >= minIso && t <= max) pick(t);
             }}
-            disabled={!isAudit && (todayIso() < minIso || todayIso() > max)}
+            disabled={todayIso() < minIso || todayIso() > max}
           >
             {resolvedTodayLabel}
           </button>

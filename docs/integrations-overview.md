@@ -111,5 +111,5 @@ Veritrail shows only what it can collect: technical cloud, code, identity, optio
 SIEM, and machine-verifiable EDR evidence. **MDM enrollment programs, HR & security training,
 and vendor risk** are not displayed as controls. CrowdStrike/SentinelOne contribute
 host/workload *coverage* evidence only — not endpoint-policy administration. Device
-*encryption* remains covered via Intune/Jamf under Identity Governance. Program-level criteria
+*encryption* is out of scope (Intune/Jamf sync removed July 2026). Program-level criteria
 (CC1–CC5, CC9) are excluded. The Compliance page states this boundary in a scope note.

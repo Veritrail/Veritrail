@@ -61,6 +61,7 @@ export function ExternalEvidencePanel({
   const [controlId, setControlId] = useState("");
   const [checkId, setCheckId] = useState("");
   const [externalUrl, setExternalUrl] = useState("");
+  const [evidenceMode, setEvidenceMode] = useState<"file" | "link">("file");
   const [owner, setOwner] = useState("");
   const [note, setNote] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -139,6 +140,7 @@ export function ExternalEvidencePanel({
     setOwner("");
     setNote("");
     setFile(null);
+    setEvidenceMode("file");
     setError("");
     setModalStep(showIntakeWizard ? "wizard" : "form");
     if (fileRef.current) fileRef.current.value = "";
@@ -248,8 +250,9 @@ export function ExternalEvidencePanel({
       );
     }
     if (!intake.useToolPicker) setSource(resolvedSource);
-    const gapCheck = openAbsenceGaps[0];
-    if (gapCheck && !checkId) setCheckId(gapCheck);
+    // Related check stays "None" unless the user picks one — evidence usually
+    // covers the control area, not a single check, and a silent pre-selection
+    // narrowed the artifact's linkage without the user noticing.
     setModalStep("form");
   }
 
@@ -364,6 +367,7 @@ export function ExternalEvidencePanel({
                 className="w-full"
                 {...selectMenuProps}
               />
+              <p className="compliance-external-evidence__hint">{intake.scheduleHint}</p>
             </div>
             {error && <p className="compliance-external-evidence__error">{error}</p>}
             <div className="compliance-external-evidence-modal__footer">
@@ -473,9 +477,34 @@ export function ExternalEvidencePanel({
               />
             </div>
 
-            <div className="compliance-external-evidence__grid">
-              <div className="compliance-external-evidence__field">
-                <label htmlFor={`ext-file-${compositeId}`}>File</label>
+            <div className="compliance-external-evidence__field">
+              <div className="compliance-external-evidence__mode-row">
+                <label htmlFor={`ext-file-${compositeId}`}>Evidence</label>
+                <div className="compliance-external-evidence__mode" role="group" aria-label="Evidence source">
+                  <button
+                    type="button"
+                    className={evidenceMode === "file" ? "is-active" : ""}
+                    onClick={() => {
+                      setEvidenceMode("file");
+                      setExternalUrl("");
+                    }}
+                  >
+                    File
+                  </button>
+                  <button
+                    type="button"
+                    className={evidenceMode === "link" ? "is-active" : ""}
+                    onClick={() => {
+                      setEvidenceMode("link");
+                      setFile(null);
+                      if (fileRef.current) fileRef.current.value = "";
+                    }}
+                  >
+                    Link
+                  </button>
+                </div>
+              </div>
+              {evidenceMode === "file" ? (
                 <div className="compliance-external-evidence__file">
                   <label htmlFor={`ext-file-${compositeId}`} className="compliance-external-evidence__file-btn">
                     Choose file
@@ -492,9 +521,7 @@ export function ExternalEvidencePanel({
                     {file?.name ?? "No file chosen"}
                   </span>
                 </div>
-              </div>
-              <div className="compliance-external-evidence__field">
-                <label htmlFor={`ext-url-${compositeId}`}>Or link</label>
+              ) : (
                 <input
                   id={`ext-url-${compositeId}`}
                   className="compliance-external-evidence__input"
@@ -502,8 +529,9 @@ export function ExternalEvidencePanel({
                   value={externalUrl}
                   onChange={(e) => setExternalUrl(e.target.value)}
                   placeholder="https://…"
+                  aria-label="Evidence link"
                 />
-              </div>
+              )}
             </div>
 
             <div className="compliance-external-evidence__field">

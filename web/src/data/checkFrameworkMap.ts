@@ -123,8 +123,6 @@ export const CHECK_FRAMEWORK_MAP: Record<string, string[]> = {
   "iam.user.direct_policy_attachment": ["cis_aws_l1", "iso27001", "soc2"],
   "iam.user.no_mfa": ["cis_aws_l1", "iso27001", "soc2"],
   "identity_center.user.inactive_90d": ["iso27001", "soc2"],
-  "intune.device.not_encrypted": ["iso27001", "soc2"],
-  "jamf.device.not_encrypted": ["iso27001", "soc2"],
   "kms.key.no_rotation": ["cis_aws_l1", "iso27001", "soc2"],
   "kms.key.policy_wildcard_principal": ["iso27001"],
   "lambda.function.deprecated_runtime": ["iso27001", "soc2"],

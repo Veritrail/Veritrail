@@ -45,8 +45,6 @@ from app.checks import (
     entra_org_mfa,
     entra_user_inactive,
     entra_admin_unreviewed,
-    intune_device_not_encrypted,
-    jamf_device_not_encrypted,
     identity_center_user_inactive,
     backup_plan_missing,
     access_analyzer_not_enabled,
@@ -270,8 +268,6 @@ ALL_CHECKS = [
     entra_org_mfa,
     entra_user_inactive,
     entra_admin_unreviewed,
-    intune_device_not_encrypted,
-    jamf_device_not_encrypted,
     identity_center_user_inactive,
     # AWS gap checks (session 18)
     s3_no_default_encryption,
@@ -344,7 +340,7 @@ def source_control_checks_for(provider_type: str) -> list:
 
 # Identity/MDM integration checks (Entra, Google Workspace, Intune, Jamf) are
 # org-level — driven by integration sync, not cloud-account scan.
-INTEGRATION_SYNC_PREFIXES = ("entra.", "google_workspace.", "intune.", "jamf.")
+INTEGRATION_SYNC_PREFIXES = ("entra.", "google_workspace.")
 
 
 def is_integration_sync_check(check_id: str) -> bool:

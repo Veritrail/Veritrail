@@ -44,6 +44,8 @@ export type CategoryIntakeConfig = {
   scopeOptions?: readonly string[];
   useScopePicker: boolean;
   scheduleLabel: string;
+  /** One-line hint under the schedule field: where the answer ends up. */
+  scheduleHint: string;
   defaultEvidenceType: string;
 };
 
@@ -56,7 +58,8 @@ const DEFAULT_INTAKE: CategoryIntakeConfig = {
   scopeLabel: "Scope covered",
   scopePlaceholder: "e.g. Production AWS accounts, all regions",
   useScopePicker: false,
-  scheduleLabel: "Schedule (optional)",
+  scheduleLabel: "How often does this process run? (optional)",
+  scheduleHint: "Included in your audit package as the process cadence.",
   defaultEvidenceType: "Policy / attestation",
 };
 
@@ -73,6 +76,7 @@ export const CATEGORY_INTAKE: Record<string, CategoryIntakeConfig> = {
     scopeOptions: VULN_ASSET_SCOPES,
     useScopePicker: true,
     scheduleLabel: "Scan schedule",
+    scheduleHint: "Included in your audit package as the scan cadence.",
     defaultEvidenceType: "Scanner export",
   },
   identity_access: {
@@ -81,10 +85,11 @@ export const CATEGORY_INTAKE: Record<string, CategoryIntakeConfig> = {
     toolLabel: "Identity provider or review tool",
     toolPlaceholder: "e.g. Entra ID, Google Workspace, SailPoint",
     useToolPicker: false,
-    scopeLabel: "Population reviewed",
+    scopeLabel: "Who is covered by the review",
     scopePlaceholder: "e.g. All production users, privileged access",
     useScopePicker: false,
-    scheduleLabel: "Schedule (optional)",
+    scheduleLabel: "How often is this review performed? (optional)",
+    scheduleHint: "Included in your audit package as the review cadence.",
     defaultEvidenceType: "Policy / attestation",
   },
   logging_monitoring: {
@@ -96,7 +101,8 @@ export const CATEGORY_INTAKE: Record<string, CategoryIntakeConfig> = {
     scopeLabel: "Log sources covered",
     scopePlaceholder: "e.g. VPC, CloudTrail, application tiers",
     useScopePicker: false,
-    scheduleLabel: "Schedule (optional)",
+    scheduleLabel: "How often is monitoring reviewed? (optional)",
+    scheduleHint: "Included in your audit package as the review cadence.",
     defaultEvidenceType: "Dashboard screenshot",
   },
   change_management: {
@@ -108,7 +114,8 @@ export const CATEGORY_INTAKE: Record<string, CategoryIntakeConfig> = {
     scopeLabel: "Systems in scope",
     scopePlaceholder: "e.g. Production repos, infrastructure changes",
     useScopePicker: false,
-    scheduleLabel: "Schedule (optional)",
+    scheduleLabel: "How often are changes reviewed? (optional)",
+    scheduleHint: "Included in your audit package as the review cadence.",
     defaultEvidenceType: "Policy / attestation",
   },
   secure_sdlc: {
@@ -121,6 +128,7 @@ export const CATEGORY_INTAKE: Record<string, CategoryIntakeConfig> = {
     scopePlaceholder: "e.g. Production services, release branches",
     useScopePicker: false,
     scheduleLabel: "Scan schedule (optional)",
+    scheduleHint: "Included in your audit package as the scan cadence.",
     defaultEvidenceType: "Scanner export",
   },
   data_protection: {
@@ -132,7 +140,8 @@ export const CATEGORY_INTAKE: Record<string, CategoryIntakeConfig> = {
     scopeLabel: "Data or systems covered",
     scopePlaceholder: "e.g. Customer PII stores, production databases",
     useScopePicker: false,
-    scheduleLabel: "Schedule (optional)",
+    scheduleLabel: "How often is this process reviewed? (optional)",
+    scheduleHint: "Included in your audit package as the review cadence.",
     defaultEvidenceType: "Policy / attestation",
   },
   backup_resilience: {
@@ -145,6 +154,7 @@ export const CATEGORY_INTAKE: Record<string, CategoryIntakeConfig> = {
     scopePlaceholder: "e.g. RDS, EBS, critical workloads",
     useScopePicker: false,
     scheduleLabel: "Backup schedule (optional)",
+    scheduleHint: "Included in your audit package as the backup cadence.",
     defaultEvidenceType: "Policy / attestation",
   },
   asset_inventory: {
@@ -157,6 +167,7 @@ export const CATEGORY_INTAKE: Record<string, CategoryIntakeConfig> = {
     scopePlaceholder: "e.g. All production accounts and regions",
     useScopePicker: false,
     scheduleLabel: "Refresh schedule (optional)",
+    scheduleHint: "Included in your audit package as the refresh cadence.",
     defaultEvidenceType: "Policy / attestation",
   },
   endpoint_security: {
@@ -170,6 +181,7 @@ export const CATEGORY_INTAKE: Record<string, CategoryIntakeConfig> = {
     scopePlaceholder: "e.g. All employee laptops, production servers",
     useScopePicker: false,
     scheduleLabel: "Coverage schedule (optional)",
+    scheduleHint: "Included in your audit package as the coverage cadence.",
     defaultEvidenceType: "Policy / attestation",
   },
   mdm_endpoint: {
@@ -183,6 +195,7 @@ export const CATEGORY_INTAKE: Record<string, CategoryIntakeConfig> = {
     scopePlaceholder: "e.g. Corporate laptops, mobile devices",
     useScopePicker: false,
     scheduleLabel: "Compliance schedule (optional)",
+    scheduleHint: "Included in your audit package as the compliance cadence.",
     defaultEvidenceType: "Policy / attestation",
   },
   hr_training: {
@@ -196,6 +209,7 @@ export const CATEGORY_INTAKE: Record<string, CategoryIntakeConfig> = {
     scopePlaceholder: "e.g. All full-time employees",
     useScopePicker: false,
     scheduleLabel: "Training cadence (optional)",
+    scheduleHint: "Included in your audit package as the training cadence.",
     defaultEvidenceType: "Policy / attestation",
   },
   vendor_risk: {
@@ -209,6 +223,7 @@ export const CATEGORY_INTAKE: Record<string, CategoryIntakeConfig> = {
     scopePlaceholder: "e.g. Critical and high-risk vendors",
     useScopePicker: false,
     scheduleLabel: "Review cadence (optional)",
+    scheduleHint: "Included in your audit package as the review cadence.",
     defaultEvidenceType: "Policy / attestation",
   },
 };

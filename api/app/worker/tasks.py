@@ -461,6 +461,25 @@ def expire_evidence_artifacts() -> dict:
         db.close()
 
 
+@celery_app.task(name="app.worker.tasks.prune_capability_coverage_snapshots")
+def prune_capability_coverage_snapshots() -> dict:
+    """Delete capability_coverage_snapshots older than CAPABILITY_SNAPSHOT_RETENTION_DAYS."""
+    from app.services.capability_snapshot_retention import run_capability_snapshot_retention
+
+    db = SessionLocal()
+    try:
+        result = run_capability_snapshot_retention(db)
+        if result["deleted"]:
+            log.info("prune_capability_coverage_snapshots", **result)
+        return result
+    except Exception:  # noqa: BLE001
+        db.rollback()
+        log.exception("prune_capability_coverage_snapshots.failed")
+        return {"ok": False, "deleted": 0, "oldest_retained_at": None, "retention_days": 0}
+    finally:
+        db.close()
+
+
 @celery_app.task(name="app.worker.tasks.notify_evidence_renewals")
 def notify_evidence_renewals() -> dict:
     """Email org admins/editors about expiring or stale external evidence."""
