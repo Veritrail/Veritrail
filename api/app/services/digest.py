@@ -33,17 +33,9 @@ def _posture_score(counts: dict[str, int]) -> int:
 
 
 def _veritrail_mark_path() -> Path | None:
-    here = Path(__file__).resolve()
-    candidates = [
-        here.parents[1] / "assets" / "veritrail-mark.png",
-        here.parent / "assets" / "veritrail-mark.png",
-    ]
-    if len(here.parents) > 3:
-        candidates.append(here.parents[3] / "web" / "public" / "favicon.png")
-    for path in candidates:
-        if path.is_file():
-            return path
-    return None
+    """Same asset as ``mail.send_mail`` CID embed (``api/app/assets/veritrail-mark.png``)."""
+    path = Path(__file__).resolve().parents[1] / "assets" / "veritrail-mark.png"
+    return path if path.is_file() else None
 
 
 def _load_veritrail_mark() -> bytes | None:
@@ -56,13 +48,13 @@ def _load_veritrail_mark() -> bytes | None:
         return None
 
 
-def _brand_row_html(*, has_mark: bool, mark_top_right: bool = False) -> str:
+def _brand_row_html(*, mark_top_right: bool = False) -> str:
+    # Always reference cid:veritrail-mark; mail.send_mail embeds the shared asset
+    # when bytes are not already in inline_images.
     mark_img = (
         '<img src="cid:veritrail-mark" width="28" height="28" alt="" '
         'style="display:block;width:28px;height:28px;border-radius:7px">'
     )
-    if not has_mark:
-        return '<div style="font-size:14px;font-weight:800;color:#fff;letter-spacing:-0.01em">Veritrail</div>'
     if mark_top_right:
         return (
             '<table width="100%" cellpadding="0" cellspacing="0"><tr>'
@@ -551,8 +543,7 @@ def _html(
         f'{_stat_cell_html("Resolved", f"{resolved_this_week}", "#16a34a", resolved_hint)}'
     )
     highlight = h(_weekly_highlight_html(new_count, resolved_this_week, posture_score))
-    has_mark = "veritrail-mark" in images
-    brand_row = _brand_row_html(has_mark=has_mark)
+    brand_row = _brand_row_html()
     report_header = f"""
     <table width="100%" cellpadding="0" cellspacing="0" style="border-radius:16px;overflow:hidden;border:1px solid #e2e8f0;background:#fff">
       <tr><td style="background:#0b1220;padding:20px 28px 18px">
