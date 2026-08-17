@@ -22,6 +22,6 @@ structlog==24.4.0
 pyotp==2.9.0
 qrcode[pil]==8.2
 Pillow==12.3.0
-fpdf2==2.8.1
+fpdf2==2.8.8
 slowapi==0.1.9
 python3-saml==1.16.0
