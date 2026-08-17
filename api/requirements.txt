@@ -8,7 +8,7 @@ alembic==1.13.3
 psycopg[binary]==3.2.3
 celery[redis]==5.4.0
 redis==5.2.1
-boto3==1.43.18
+boto3==1.43.71
 httpx==0.27.2
 google-auth==2.55.1
 # requests has no direct imports but is required by google.auth.transport.requests
