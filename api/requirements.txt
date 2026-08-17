@@ -4,7 +4,7 @@ uvicorn[standard]==0.50.2
 pydantic==2.9.2
 pydantic-settings==2.14.2
 SQLAlchemy==2.0.35
-alembic==1.13.3
+alembic==1.19.1
 psycopg[binary]==3.2.3
 celery[redis]==5.4.0
 redis==5.2.1
