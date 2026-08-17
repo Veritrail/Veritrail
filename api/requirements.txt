@@ -15,7 +15,7 @@ google-auth==2.55.1
 # (GCP impersonation / WIF services).
 requests==2.33.0
 PyJWT[crypto]==2.13.0
-bcrypt==4.2.0
+bcrypt==5.0.0
 python-multipart==0.0.31
 email-validator==2.3.0
 structlog==24.4.0
