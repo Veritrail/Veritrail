@@ -236,12 +236,14 @@ Auditors use the **auditor portal** and downloaded pack — not the upload UI.
 
 ---
 
-## Checks (137 automated checks)
+## Checks (140+ automated checks)
 
 Veritrail's automated check registry currently covers AWS posture, AWS activity detections,
 identity providers, source-control evidence, and change-management evidence. The
 tables below summarize the main launch-facing coverage; the canonical registry lives
-in [`api/app/checks/registry.py`](api/app/checks/registry.py).
+in [`api/app/checks/registry.py`](api/app/checks/registry.py). The `main` branch currently
+registers 146 checks; public copy uses `140+` so routine additions do not make portfolio
+and product documentation immediately stale.
 
 ### AWS checks
 
@@ -274,12 +276,14 @@ in [`api/app/checks/registry.py`](api/app/checks/registry.py).
 
 ## Frameworks covered
 
-| Framework | Controls |
-|---|---|
-| SOC 2 TSC | CC6.1 – CC6.8, CC7.1 – CC7.2 |
-| CIS AWS Foundations | Supporting AWS control mapping and detection coverage |
+| Framework | Controls mapped | With automated checks |
+|---|---|---|
+| SOC 2 TSC | 33 (all CC1–CC9 points) | 10 (CC6.1–CC6.3, CC6.6–CC6.8, CC7.1–CC7.2, CC7.5, CC8.1) |
+| CIS AWS Foundations L1 | 41 | 40 |
+| ISO 27001 Annex A | 16 | 16 |
+| **Total** | **90** | **66** |
 
-SOC 2 cloud and change evidence is the product boundary. Manual governance, HR, vendor, and policy controls may appear in auditor review workflows, but they are not the primary product promise.
+Source of truth: [`api/data/control_mappings.json`](api/data/control_mappings.json). 90 controls are mapped across the three frameworks; 66 have at least one automated check today. The remaining 24 are SOC 2's non-technical points (control environment, risk assessment, physical access, business continuity, vendor risk) — see [`docs/soc2-coverage-map.md`](docs/soc2-coverage-map.md) for the manual-attestation plan to close them. SOC 2 cloud and change evidence is the product boundary. Manual governance, HR, vendor, and policy controls may appear in auditor review workflows, but they are not the primary product promise.
 
 ---
 
@@ -398,12 +402,12 @@ Active development on **`dev`**; merge **`dev` → `main`** for releases. Workfl
 
 | Workflow | What it does |
 |----------|----------------|
-| `.github/workflows/ci.yml` | API tests (Postgres + Redis + pytest), mypy (non-blocking), frontend build + TypeScript lint, **`env-file-guard`** (fails if `.env`, `.env.prod`, or `.env.local` are tracked) |
+| `.github/workflows/ci.yml` | API tests (Postgres + Redis + pytest), mypy (non-blocking), frontend build + TypeScript lint, **Gitleaks** full-history secret scanning, and **`env-file-guard`** (fails if `.env`, `.env.prod`, or `.env.local` are tracked) |
 | `.github/workflows/dependency-scan.yml` | On push/PR: `npm audit` (web) and `pip-audit` (api; critical findings fail CI) |
 
 **Dependency updates:** [Dependabot](.github/dependabot.yml) opens weekly update PRs against **`dev`** for npm (`web/`), pip (`api/`), Docker, and GitHub Actions. Major **redis** bumps on `api/` are ignored (Celery compatibility). This repo does not use Snyk for dependency management — Dependabot plus the audit workflows above cover it. (Snyk is an optional **customer** vulnerability scanner integration in the product, not repo CI.)
 
-We previously ran gitleaks in CI; that was removed because gitleaks-action requires a paid org license on the Veritrail GitHub organization. The **`env-file-guard`** job is the remaining secret hygiene check — it blocks committed env files, not leaked tokens in source history.
+Secret scanning runs the open-source Gitleaks CLI container directly, avoiding licensing requirements specific to the GitHub Action. The separate **`env-file-guard`** job blocks tracked environment files as an additional safeguard.
 
 ---
 
@@ -489,7 +493,7 @@ See [`docs/deepsearch-v4-map.md`](docs/deepsearch-v4-map.md) for the full featur
 
 **Reference docs:** Hetzner/VPS deploy: [`docs/hetzner-vault-rolesanywhere.md`](docs/hetzner-vault-rolesanywhere.md). Remediation runbook: [`docs/remediation-automation.md`](docs/remediation-automation.md). Vault design: [`docs/evidence-vault.md`](docs/evidence-vault.md). SOC 2 coverage map: [`docs/soc2-coverage-map.md`](docs/soc2-coverage-map.md). Multi-cloud collectors: [`docs/multi-cloud-collectors.md`](docs/multi-cloud-collectors.md). Integrations overview: [`docs/integrations-overview.md`](docs/integrations-overview.md).
 
-**Ops hygiene:** Never distribute repo archives with `.env` / `.env.prod`. Use `git archive` or CI artifacts. Rotate any secret that ever appeared in a shared ZIP.
+**Ops hygiene:** Deployment archives must be produced with `git archive` or CI artifacts; local environment files are excluded from distribution.
 
 ---
 
